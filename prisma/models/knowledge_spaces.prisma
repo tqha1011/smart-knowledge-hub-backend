@@ -1,0 +1,21 @@
+enum KnowledgeSpaceType {
+  DEPARTMENT
+  POLICY
+  HANDBOOK
+  ONBOARDING
+  SUPPORT
+  GUIDELINE
+  GENERAL
+}
+
+model KnowledgeSpace {
+  id          Int                @id @default(autoincrement())
+  publicId    String             @unique
+  name        String
+  description String?
+  type        KnowledgeSpaceType
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+
+  @@map("knowledge_spaces")
+}
