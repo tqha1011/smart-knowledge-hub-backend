@@ -1,0 +1,64 @@
+model ChatSession {
+  id               Int            @id @default(autoincrement())
+  publicId         String         @unique @default(uuid())
+  title            String
+  userId           Int
+  user             User           @relation(fields: [userId], references: [id])
+  knowledgeSpaceId Int
+  knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  isDeleted        Boolean        @default(false)
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  chatMessages     ChatMessage[]
+
+  @@index([userId])
+  @@index([knowledgeSpaceId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id            Int            @id @default(autoincrement())
+  publicId      String         @unique @default(uuid())
+  chatSessionId Int
+  chatSession   ChatSession    @relation(fields: [chatSessionId], references: [id])
+  role          ChatRole
+  content       String
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  answerSources AnswerSource[]
+  feedBacks     Feedback[]
+
+  @@index([chatSessionId])
+  @@map("chat_messages")
+}
+
+model AnswerSource {
+  id               Int            @id @default(autoincrement())
+  messageId        Int
+  documentId       Int
+  knowledgeSpaceId Int
+  chunkId          Int
+  score            Decimal
+  created_at       DateTime       @default(now())
+  message          ChatMessage    @relation(fields: [messageId], references: [id])
+  document         Document       @relation(fields: [documentId], references: [id])
+  knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  documentChunk    DocumentChunk  @relation(fields: [chunkId], references: [id])
+}
+
+model UnAnsweredQuestion {
+  id               Int            @id @default(autoincrement())
+  publicId         String         @unique @default(uuid())
+  question         String
+  reason           String
+  userId           Int
+  user             User           @relation(fields: [userId], references: [id])
+  knowledgeSpaceId Int
+  knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  resolved_at      DateTime?
+
+  @@index([knowledgeSpaceId])
+  @@map("unanswered_questions")
+}

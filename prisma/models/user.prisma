@@ -10,6 +10,9 @@ model User {
   workspaces          UserWorkspace[]
   documents           Document[]
   documentPermissions DocumentPermission[]
+  chatSessions        ChatSession[]
+  feedBacks           Feedback[]
+  unansweredQuestions UnAnsweredQuestion[]
 
-  @@map("users")
+  @@map("user")
 }

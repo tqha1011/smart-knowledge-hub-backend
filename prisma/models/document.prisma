@@ -18,7 +18,9 @@ model Document {
   category            Category             @relation(fields: [categoryId], references: [id])
   documentPermissions DocumentPermission[]
   documentChunks      DocumentChunk[]
+  answerSources       AnswerSource[]
 
+  @@unique([id, storagePath], name: "unique_document_storage_path_per_workspace")
   @@index([knowledgeSpaceId])
   @@index([authorId])
   @@map("document")
@@ -37,7 +39,7 @@ model DocumentPermission {
   @@unique([documentId, userId], name: "unique_document_permission_per_user")
   @@index([documentId])
   @@index([userId])
-  @@map("document_permissions")
+  @@map("document_permission")
 }
 
 model DocumentChunk {
@@ -52,9 +54,10 @@ model DocumentChunk {
   updated_at       DateTime                    @updatedAt
   document         Document                    @relation(fields: [documentId], references: [id])
   knowledgeSpace   KnowledgeSpace              @relation(fields: [knowledgeSpaceId], references: [id])
+  answerSources    AnswerSource[]
 
   @@unique([documentId, chunkIndex], name: "unique_document_chunk_per_document")
   @@index([documentId])
   @@index([knowledgeSpaceId])
-  @@map("document_chunks")
+  @@map("document_chunk")
 }

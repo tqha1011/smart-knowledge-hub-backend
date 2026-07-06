@@ -1,0 +1,16 @@
+model Feedback {
+  id         Int         @id @default(autoincrement())
+  publicId   String      @unique @default(uuid())
+  userId     Int
+  messageId  Int
+  comment    String
+  rating     Rating
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  user       User        @relation(fields: [userId], references: [id])
+  message    ChatMessage @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId], name: "unique_feedback_per_user_per_message")
+  @@index([userId])
+  @@index([messageId])
+}

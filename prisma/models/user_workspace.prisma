@@ -11,5 +11,5 @@ model UserWorkspace {
 
   @@index([userId])
   @@index([knowledgeSpaceId])
-  @@map("user_workspaces")
+  @@map("user_workspace")
 }
