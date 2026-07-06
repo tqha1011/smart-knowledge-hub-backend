@@ -1,0 +1,17 @@
+enum Role {
+  Employee
+  Admin
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  publicId   String   @unique
+  username   String
+  email      String   @unique
+  password   String
+  role       Role     @default(Employee)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("users")
+}
