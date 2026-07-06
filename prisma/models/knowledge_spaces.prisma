@@ -9,13 +9,14 @@ enum KnowledgeSpaceType {
 }
 
 model KnowledgeSpace {
-  id          Int                @id @default(autoincrement())
-  publicId    String             @unique
-  name        String
-  description String?
-  type        KnowledgeSpaceType
-  created_at  DateTime           @default(now())
-  updated_at  DateTime           @updatedAt
+  id             Int                @id @default(autoincrement())
+  publicId       String             @unique
+  name           String
+  description    String?
+  type           KnowledgeSpaceType
+  created_at     DateTime           @default(now())
+  updated_at     DateTime           @updatedAt
+  userWorkspaces UserWorkspace[]
 
   @@map("knowledge_spaces")
 }
