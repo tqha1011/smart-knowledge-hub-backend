@@ -9,6 +9,7 @@ model KnowledgeSpace {
   userWorkspaces UserWorkspace[]
   documents      Document[]
   categories     Category[]
+  documentChunks DocumentChunk[]
 
   @@map("knowledge_spaces")
 }

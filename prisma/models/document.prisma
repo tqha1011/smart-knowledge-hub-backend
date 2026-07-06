@@ -17,6 +17,7 @@ model Document {
   categoryId          Int
   category            Category             @relation(fields: [categoryId], references: [id])
   documentPermissions DocumentPermission[]
+  documentChunks      DocumentChunk[]
 
   @@index([knowledgeSpaceId])
   @@index([authorId])
@@ -37,4 +38,23 @@ model DocumentPermission {
   @@index([documentId])
   @@index([userId])
   @@map("document_permissions")
+}
+
+model DocumentChunk {
+  id               Int                         @id @default(autoincrement())
+  documentId       Int
+  knowledgeSpaceId Int
+  chunkIndex       Int
+  content_chunk    String
+  token_count      Int
+  embedding        Unsupported("vector(1536)")
+  created_at       DateTime                    @default(now())
+  updated_at       DateTime                    @updatedAt
+  document         Document                    @relation(fields: [documentId], references: [id])
+  knowledgeSpace   KnowledgeSpace              @relation(fields: [knowledgeSpaceId], references: [id])
+
+  @@unique([documentId, chunkIndex], name: "unique_document_chunk_per_document")
+  @@index([documentId])
+  @@index([knowledgeSpaceId])
+  @@map("document_chunks")
 }
