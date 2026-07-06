@@ -35,3 +35,9 @@ enum DocumentVisibility {
   Public
   Restricted
 }
+
+enum PermissionType {
+  Read
+  Edit
+  Manage
+}

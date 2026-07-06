@@ -1,0 +1,40 @@
+model Document {
+  id                  Int                  @id @default(autoincrement())
+  publicId            String               @unique @default(uuid())
+  title               String
+  content             String
+  status              DocumentStatus       @default(Processing)
+  storagePath         String
+  fileType            FileType
+  fileSize            BigInt
+  visibility          DocumentVisibility   @default(Public)
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @updatedAt
+  knowledgeSpaceId    Int
+  workspace           KnowledgeSpace       @relation(fields: [knowledgeSpaceId], references: [id])
+  authorId            Int
+  author              User                 @relation(fields: [authorId], references: [id])
+  categoryId          Int
+  category            Category             @relation(fields: [categoryId], references: [id])
+  documentPermissions DocumentPermission[]
+
+  @@index([knowledgeSpaceId])
+  @@index([authorId])
+  @@map("document")
+}
+
+model DocumentPermission {
+  id         Int            @id @default(autoincrement())
+  documentId Int
+  userId     Int
+  permission PermissionType
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+  document   Document       @relation(fields: [documentId], references: [id])
+  user       User           @relation(fields: [userId], references: [id])
+
+  @@unique([documentId, userId], name: "unique_document_permission_per_user")
+  @@index([documentId])
+  @@index([userId])
+  @@map("document_permissions")
+}

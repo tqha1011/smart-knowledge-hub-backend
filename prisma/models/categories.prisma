@@ -1,14 +1,14 @@
 model Category {
-  id          Int            @id @default(autoincrement())
-  publicId    String         @unique @default(uuid())
-  name        String
-  workspaceId Int
-  workspace   KnowledgeSpace @relation(fields: [workspaceId], references: [id])
-  created_at  DateTime       @default(now())
-  updated_at  DateTime       @updatedAt
-  documents   Document[]
+  id               Int            @id @default(autoincrement())
+  publicId         String         @unique @default(uuid())
+  name             String
+  knowledgeSpaceId Int
+  workspace        KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  documents        Document[]
 
-  @@unique([name, workspaceId], name: "unique_category_name_per_workspace")
-  @@index([workspaceId])
+  @@unique([name, knowledgeSpaceId], name: "unique_category_name_per_workspace")
+  @@index([knowledgeSpaceId])
   @@map("categories")
 }

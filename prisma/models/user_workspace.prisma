@@ -1,15 +1,15 @@
 model UserWorkspace {
-  id          Int            @id @default(autoincrement())
-  publicId    String         @unique @default(uuid())
-  userId      Int
-  workspaceId Int
-  role        WorkSpaceRole
-  created_at  DateTime       @default(now())
-  updated_at  DateTime       @updatedAt
-  user        User           @relation(fields: [userId], references: [id])
-  workspace   KnowledgeSpace @relation(fields: [workspaceId], references: [id])
+  id               Int            @id @default(autoincrement())
+  publicId         String         @unique @default(uuid())
+  userId           Int
+  knowledgeSpaceId Int
+  role             WorkSpaceRole
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  user             User           @relation(fields: [userId], references: [id])
+  workspace        KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
 
   @@index([userId])
-  @@index([workspaceId])
+  @@index([knowledgeSpaceId])
   @@map("user_workspaces")
 }
