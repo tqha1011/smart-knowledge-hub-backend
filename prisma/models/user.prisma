@@ -1,0 +1,18 @@
+model User {
+  id                  Int                  @id @default(autoincrement())
+  publicId            String               @unique @default(uuid()) @map("public_id")
+  username            String
+  email               String               @unique
+  password            String
+  role                Role                 @default(Employee)
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  workspaces          UserWorkspace[]
+  documents           Document[]
+  documentPermissions DocumentPermission[]
+  chatSessions        ChatSession[]
+  feedbacks           Feedback[]
+  unansweredQuestions UnAnsweredQuestion[]
+
+  @@map("user")
+}

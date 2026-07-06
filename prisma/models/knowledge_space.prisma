@@ -1,0 +1,18 @@
+model KnowledgeSpace {
+  id                  Int                  @id @default(autoincrement())
+  publicId            String               @unique @default(uuid()) @map("public_id")
+  name                String
+  description         String?
+  type                KnowledgeSpaceType
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  userWorkspaces      UserWorkspace[]
+  documents           Document[]
+  categories          Category[]
+  documentChunks      DocumentChunk[]
+  chatSessions        ChatSession[]
+  answerSources       AnswerSource[]
+  unansweredQuestions UnAnsweredQuestion[]
+
+  @@map("knowledge_space")
+}
