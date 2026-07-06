@@ -1,11 +1,11 @@
 model KnowledgeSpace {
   id                  Int                  @id @default(autoincrement())
-  publicId            String               @unique @default(uuid())
+  publicId            String               @unique @default(uuid()) @map("public_id")
   name                String
   description         String?
   type                KnowledgeSpaceType
-  created_at          DateTime             @default(now())
-  updated_at          DateTime             @updatedAt
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
   userWorkspaces      UserWorkspace[]
   documents           Document[]
   categories          Category[]

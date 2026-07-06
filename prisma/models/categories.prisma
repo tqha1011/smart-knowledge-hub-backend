@@ -1,11 +1,11 @@
 model Category {
   id               Int            @id @default(autoincrement())
-  publicId         String         @unique @default(uuid())
+  publicId         String         @unique @default(uuid()) @map("public_id")
   name             String
-  knowledgeSpaceId Int
+  knowledgeSpaceId Int            @map("knowledge_space_id")
   workspace        KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
-  created_at       DateTime       @default(now())
-  updated_at       DateTime       @updatedAt
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
   documents        Document[]
 
   @@unique([name, knowledgeSpaceId], name: "unique_category_name_per_workspace")

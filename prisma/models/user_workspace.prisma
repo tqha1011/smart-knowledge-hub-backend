@@ -1,11 +1,11 @@
 model UserWorkspace {
   id               Int            @id @default(autoincrement())
-  publicId         String         @unique @default(uuid())
-  userId           Int
-  knowledgeSpaceId Int
+  publicId         String         @unique @default(uuid()) @map("public_id")
+  userId           Int            @map("user_id")
+  knowledgeSpaceId Int            @map("knowledge_space_id")
   role             WorkSpaceRole
-  created_at       DateTime       @default(now())
-  updated_at       DateTime       @updatedAt
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
   user             User           @relation(fields: [userId], references: [id])
   workspace        KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
 

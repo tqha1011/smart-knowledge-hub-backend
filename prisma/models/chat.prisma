@@ -1,14 +1,14 @@
 model ChatSession {
   id               Int            @id @default(autoincrement())
-  publicId         String         @unique @default(uuid())
+  publicId         String         @unique @default(uuid()) @map("public_id")
   title            String
-  userId           Int
+  userId           Int            @map("user_id")
   user             User           @relation(fields: [userId], references: [id])
-  knowledgeSpaceId Int
+  knowledgeSpaceId Int            @map("knowledge_space_id")
   knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
-  isDeleted        Boolean        @default(false)
-  created_at       DateTime       @default(now())
-  updated_at       DateTime       @updatedAt
+  isDeleted        Boolean        @default(false) @map("is_deleted")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
   chatMessages     ChatMessage[]
 
   @@index([userId])
@@ -18,15 +18,15 @@ model ChatSession {
 
 model ChatMessage {
   id            Int            @id @default(autoincrement())
-  publicId      String         @unique @default(uuid())
-  chatSessionId Int
+  publicId      String         @unique @default(uuid()) @map("public_id")
+  chatSessionId Int            @map("chat_session_id")
   chatSession   ChatSession    @relation(fields: [chatSessionId], references: [id])
   role          ChatRole
   content       String
-  created_at    DateTime       @default(now())
-  updated_at    DateTime       @updatedAt
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
   answerSources AnswerSource[]
-  feedBacks     Feedback[]
+  feedbacks     Feedback[]
 
   @@index([chatSessionId])
   @@map("chat_messages")
@@ -34,30 +34,32 @@ model ChatMessage {
 
 model AnswerSource {
   id               Int            @id @default(autoincrement())
-  messageId        Int
-  documentId       Int
-  knowledgeSpaceId Int
-  chunkId          Int
-  score            Decimal
-  created_at       DateTime       @default(now())
+  messageId        Int            @map("message_id")
+  documentId       Int            @map("document_id")
+  knowledgeSpaceId Int            @map("knowledge_space_id")
+  chunkId          Int            @map("chunk_id")
+  score            Float
+  createdAt        DateTime       @default(now()) @map("created_at")
   message          ChatMessage    @relation(fields: [messageId], references: [id])
   document         Document       @relation(fields: [documentId], references: [id])
   knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
   documentChunk    DocumentChunk  @relation(fields: [chunkId], references: [id])
+
+  @@map("answer_source")
 }
 
 model UnAnsweredQuestion {
   id               Int            @id @default(autoincrement())
-  publicId         String         @unique @default(uuid())
+  publicId         String         @unique @default(uuid()) @map("public_id")
   question         String
   reason           String
-  userId           Int
+  userId           Int            @map("user_id")
   user             User           @relation(fields: [userId], references: [id])
-  knowledgeSpaceId Int
+  knowledgeSpaceId Int            @map("knowledge_space_id")
   knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
-  created_at       DateTime       @default(now())
-  updated_at       DateTime       @updatedAt
-  resolved_at      DateTime?
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  resolvedAt       DateTime?      @map("resolved_at")
 
   @@index([knowledgeSpaceId])
   @@map("unanswered_questions")

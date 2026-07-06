@@ -1,20 +1,20 @@
 model Document {
   id                  Int                  @id @default(autoincrement())
-  publicId            String               @unique @default(uuid())
+  publicId            String               @unique @default(uuid()) @map("public_id")
   title               String
   content             String
   status              DocumentStatus       @default(Processing)
-  storagePath         String
-  fileType            FileType
-  fileSize            BigInt
+  storagePath         String               @map("storage_path")
+  fileType            FileType             @map("file_type")
+  fileSize            BigInt               @map("file_size")
   visibility          DocumentVisibility   @default(Public)
-  created_at          DateTime             @default(now())
-  updated_at          DateTime             @updatedAt
-  knowledgeSpaceId    Int
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  knowledgeSpaceId    Int                  @map("knowledge_space_id")
   workspace           KnowledgeSpace       @relation(fields: [knowledgeSpaceId], references: [id])
-  authorId            Int
+  authorId            Int                  @map("author_id")
   author              User                 @relation(fields: [authorId], references: [id])
-  categoryId          Int
+  categoryId          Int                  @map("category_id")
   category            Category             @relation(fields: [categoryId], references: [id])
   documentPermissions DocumentPermission[]
   documentChunks      DocumentChunk[]
@@ -28,11 +28,11 @@ model Document {
 
 model DocumentPermission {
   id         Int            @id @default(autoincrement())
-  documentId Int
-  userId     Int
+  documentId Int            @map("document_id")
+  userId     Int            @map("user_id")
   permission PermissionType
-  created_at DateTime       @default(now())
-  updated_at DateTime       @updatedAt
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
   document   Document       @relation(fields: [documentId], references: [id])
   user       User           @relation(fields: [userId], references: [id])
 
@@ -44,14 +44,14 @@ model DocumentPermission {
 
 model DocumentChunk {
   id               Int                         @id @default(autoincrement())
-  documentId       Int
-  knowledgeSpaceId Int
-  chunkIndex       Int
-  content_chunk    String
-  token_count      Int
+  documentId       Int                         @map("document_id")
+  knowledgeSpaceId Int                         @map("knowledge_space_id")
+  chunkIndex       Int                         @map("chunk_index")
+  contentChunk     String                      @map("content_chunk")
+  tokenCount       Int                         @map("token_count")
   embedding        Unsupported("vector(1536)")
-  created_at       DateTime                    @default(now())
-  updated_at       DateTime                    @updatedAt
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
   document         Document                    @relation(fields: [documentId], references: [id])
   knowledgeSpace   KnowledgeSpace              @relation(fields: [knowledgeSpaceId], references: [id])
   answerSources    AnswerSource[]
