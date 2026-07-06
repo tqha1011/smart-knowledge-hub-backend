@@ -1,0 +1,14 @@
+model Category {
+  id          Int            @id @default(autoincrement())
+  publicId    String         @unique @default(uuid())
+  name        String
+  workspaceId Int
+  workspace   KnowledgeSpace @relation(fields: [workspaceId], references: [id])
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+  documents   Document[]
+
+  @@unique([name, workspaceId], name: "unique_category_name_per_workspace")
+  @@index([workspaceId])
+  @@map("categories")
+}

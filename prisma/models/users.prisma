@@ -1,11 +1,6 @@
-enum Role {
-  Employee
-  Admin
-}
-
 model User {
   id         Int             @id @default(autoincrement())
-  publicId   String          @unique
+  publicId   String          @unique @default(uuid())
   username   String
   email      String          @unique
   password   String
@@ -13,6 +8,7 @@ model User {
   created_at DateTime        @default(now())
   updated_at DateTime        @updatedAt
   workspaces UserWorkspace[]
+  documents  Document[]
 
   @@map("users")
 }

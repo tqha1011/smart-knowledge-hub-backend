@@ -1,12 +1,6 @@
-enum WorkSpaceRole {
-  Owner
-  Editor
-  Viewer
-}
-
 model UserWorkspace {
   id          Int            @id @default(autoincrement())
-  publicId    String         @unique
+  publicId    String         @unique @default(uuid())
   userId      Int
   workspaceId Int
   role        WorkSpaceRole

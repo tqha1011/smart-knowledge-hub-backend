@@ -1,0 +1,37 @@
+enum KnowledgeSpaceType {
+  DEPARTMENT
+  POLICY
+  HANDBOOK
+  ONBOARDING
+  SUPPORT
+  GUIDELINE
+  GENERAL
+}
+
+enum Role {
+  Employee
+  Admin
+}
+
+enum WorkSpaceRole {
+  Owner
+  Editor
+  Viewer
+}
+
+enum DocumentStatus {
+  Processing
+  Ready
+  Failed
+}
+
+enum FileType {
+  PDF
+  MD
+  TXT
+}
+
+enum DocumentVisibility {
+  Public
+  Restricted
+}
