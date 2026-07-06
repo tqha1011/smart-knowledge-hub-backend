@@ -9,7 +9,7 @@ const databaseUrl =
   'postgresql://user:password@localhost:5432/mydb';
 
 export default defineConfig({
-  schema: './prisma/models',
+  schema: './prisma',
   migrations: {
     path: './prisma/migrations',
   },
