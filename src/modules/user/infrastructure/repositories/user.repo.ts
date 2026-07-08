@@ -1,6 +1,9 @@
 import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
-import { UserResponseDto } from '../../application/dtos/user..response.dto';
+import {
+  UserResponseDto,
+  UserResponseWithPasswordDto,
+} from '../../application/dtos/user..response.dto';
 import { IUserQueryRepository } from '../../application/interfaces/user-query.repo.interface';
 import { User } from '../../domain/entities/user.entity';
 import { IUserRepository } from '../../domain/repositories/user.repo.interface';
@@ -49,7 +52,7 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
   }
   async GetUserByEmail(
     email: string,
-  ): Promise<Result<UserResponseDto | null, Error>> {
+  ): Promise<Result<UserResponseWithPasswordDto | null, Error>> {
     try {
       const userRecord = await this.prismaService.user.findUnique({
         where: { email },
@@ -57,10 +60,11 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
       if (!userRecord) {
         return ok(null);
       }
-      const userResponse: UserResponseDto = {
+      const userResponse: UserResponseWithPasswordDto = {
         publicId: userRecord.publicId,
         email: userRecord.email,
         username: userRecord.username,
+        password: userRecord.password,
         createdAt: userRecord.createdAt,
         updatedAt: userRecord.updatedAt,
       };

@@ -5,3 +5,12 @@ export type UserResponseDto = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type UserResponseWithPasswordDto = {
+  publicId: string;
+  email: string;
+  username: string;
+  password: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
