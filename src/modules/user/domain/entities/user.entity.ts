@@ -11,6 +11,7 @@ export type UserGetParams = {
   readonly publicId: UUID;
   readonly email: string;
   readonly username: string;
+  readonly password: string;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
@@ -65,5 +66,37 @@ export class User {
         updatedAt: new Date(),
       }),
     );
+  }
+
+  static getUser(params: UserGetParams): User {
+    return new User(params);
+  }
+
+  getId(): number {
+    return this.params.id;
+  }
+
+  getPublicId(): UUID {
+    return this.params.publicId;
+  }
+
+  getEmail(): string {
+    return this.params.email;
+  }
+
+  getUsername(): string {
+    return this.params.username;
+  }
+
+  getCreatedAt(): Date {
+    return this.params.createdAt;
+  }
+
+  getUpdatedAt(): Date {
+    return this.params.updatedAt;
+  }
+
+  getPassword(): string {
+    return this.params.password;
   }
 }
