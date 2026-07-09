@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AuthModule } from './modules/auth/auth.module';
 import { LoggerMiddleware } from './shared/common/logger.middleware';
 import { PrismaModule } from './shared/infrastructure/database/prisma.module';
 
@@ -17,6 +19,16 @@ import { PrismaModule } from './shared/infrastructure/database/prisma.module';
     }),
     PrismaModule,
     ConfigModule,
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'limitPerMinute-auth',
+          ttl: 60000,
+          limit: 10,
+        },
+      ],
+    }),
+    AuthModule,
   ],
   providers: [
     {

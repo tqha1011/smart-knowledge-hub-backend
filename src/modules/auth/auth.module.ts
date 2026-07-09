@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthController } from './api/auth.controller';
 import {
   IPasswordHasher,
   ITokenProvider,
@@ -10,6 +11,7 @@ import { TokenProvider } from './infrastructure/repositories/tokenProvider';
 
 @Global()
 @Module({
+  controllers: [AuthController],
   imports: [
     JwtModule.registerAsync({
       imports: [ConfigModule],
