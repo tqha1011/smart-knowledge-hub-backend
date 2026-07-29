@@ -71,10 +71,12 @@ CREATE  src/modules/auth/auth.module.ts                         (Task 7)
 `toHttpException()` already exists in `src/shared/common/app-error.mapper.ts` but nothing calls it. Today an `AppError` thrown from a service reaches `AllExceptionsFilter`, fails the `instanceof HttpException` check, and becomes a `500` with the message replaced by `'Internal Server Error'`. Every later task depends on this being fixed.
 
 **Files:**
+
 - Modify: `src/shared/common/exceptions.filter.ts`
 - Test: `src/shared/common/exceptions.filter.spec.ts` (create)
 
 **Interfaces:**
+
 - Consumes: `AppError`, `ErrorCode` from `./errorCode`; `toHttpException` from `./app-error.mapper` (both already exist).
 - Produces: nothing importable. The guarantee later tasks rely on: **throwing an `AppError` subclass from anywhere produces the status its `ErrorCode` implies, with the error's own message.**
 
@@ -257,6 +259,7 @@ git commit -m "fix: map AppError to its HTTP status in the global exception filt
 Defines what a user looks like in memory, the port the repository implements, and the translation between Prisma rows and that shape. Also fixes jest so tests can import the generated Prisma client at all.
 
 **Files:**
+
 - Modify: `package.json` (the `jest` block)
 - Create: `src/modules/user/domain/entities/user.entity.ts`
 - Create: `src/modules/user/domain/errors/user.errors.ts`
@@ -265,6 +268,7 @@ Defines what a user looks like in memory, the port the repository implements, an
 - Test: `src/modules/user/infrastructure/user.mapper.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `SystemRole` from `src/shared/domain/enum.ts`; `AppError`, `ErrorCode` from `src/shared/common/errorCode.ts`; `User` and `Role` from the generated Prisma client.
 - Produces, relied on by Tasks 3, 5, 6, 7:
   - `interface UserEntity { id: number; publicId: string; username: string; email: string; password: string; role: SystemRole; createdAt: Date; updatedAt: Date }`
@@ -279,7 +283,7 @@ Defines what a user looks like in memory, the port the repository implements, an
 
 Jest's `rootDir` is `src`, and nothing teaches it the tsconfig `baseUrl`, so `import ... from 'generated/prisma/client'` fails with `Cannot find module`. The generated files also import each other with nodenext-style `./enums.js` specifiers that point at `.ts` files, which jest will not resolve either. Both are handled by `moduleNameMapper`.
 
-In `package.json`, inside the `"jest"` object, add this key (leave the rest of the block untouched):
+In `package.json`, add this key inside the `"jest"` object as the **first** entry, immediately before `"moduleFileExtensions"` (watch the JSON commas — the block must stay valid JSON):
 
 ```json
     "moduleNameMapper": {
@@ -479,11 +483,13 @@ git commit -m "feat: add user entity, repository port and prisma mapper"
 The Prisma adapter behind `IUserRepo`, plus the module that binds the token so `auth` can inject it.
 
 **Files:**
+
 - Create: `src/modules/user/infrastructure/user.repo.ts`
 - Create: `src/modules/user/user.module.ts`
 - Test: `src/modules/user/infrastructure/user.repo.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `UserEntity`, `EmailAlreadyExistsError`, `CreateUserInput`, `IUserRepo`, `USER_REPOSITORY`, `toPrismaRole`, `toUserEntity` (Task 2); `PrismaService` from `src/shared/infrastructure/database/prisma.service.ts`.
 - Produces: `class UserPrismaRepo implements IUserRepo` with constructor `(prisma: PrismaService)`; `class UserModule` exporting the `USER_REPOSITORY` provider. Task 7's `AuthModule` imports `UserModule`.
 
@@ -588,9 +594,7 @@ describe('UserPrismaRepo', () => {
   it('rethrows database errors it does not recognise', async () => {
     prisma.user.create.mockRejectedValue(new Error('connection terminated'));
 
-    await expect(repo.create(newUser)).rejects.toThrow(
-      'connection terminated',
-    );
+    await expect(repo.create(newUser)).rejects.toThrow('connection terminated');
   });
 });
 ```
@@ -689,12 +693,14 @@ git commit -m "feat: add prisma user repository and user module"
 ### Task 4: Password hasher port and adapter, plus the auth domain error
 
 **Files:**
+
 - Create: `src/modules/auth/application/interfaces/password-hasher.interface.ts`
 - Create: `src/modules/auth/infrastructure/bcrypt.hasher.ts`
 - Create: `src/modules/auth/domain/errors/auth.errors.ts`
 - Test: `src/modules/auth/infrastructure/bcrypt.hasher.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `AppError`, `ErrorCode` from `src/shared/common/errorCode.ts`; the `bcrypt` package (already a dependency, `@types/bcrypt` installed).
 - Produces, relied on by Tasks 6 and 7:
   - `interface IPasswordHasher { hash(plain: string): Promise<string>; compare(plain: string, hash: string): Promise<boolean> }`
@@ -826,6 +832,7 @@ git commit -m "feat: add password hasher port, bcrypt adapter and auth errors"
 ### Task 5: Request DTOs and response shapes
 
 **Files:**
+
 - Create: `src/modules/auth/application/dtos/register.dto.ts`
 - Create: `src/modules/auth/application/dtos/login.dto.ts`
 - Create: `src/modules/auth/application/dtos/user.response.ts`
@@ -833,6 +840,7 @@ git commit -m "feat: add password hasher port, bcrypt adapter and auth errors"
 - Test: `src/modules/auth/application/dtos/auth.dto.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `UserEntity` (Task 2); `SystemRole` from `src/shared/domain/enum.ts`.
 - Produces, relied on by Tasks 6 and 7:
   - `class RegisterDto { username: string; email: string; password: string }`
@@ -871,9 +879,9 @@ const validRegistration = {
 
 describe('RegisterDto', () => {
   it('accepts a well formed body', async () => {
-    await expect(invalidFields(RegisterDto, validRegistration)).resolves.toEqual(
-      [],
-    );
+    await expect(
+      invalidFields(RegisterDto, validRegistration),
+    ).resolves.toEqual([]);
   });
 
   it('rejects a malformed email', async () => {
@@ -1073,10 +1081,12 @@ git commit -m "feat: add auth request dtos and response shapes"
 The whole of the register / login / me behaviour, with every dependency behind an interface so the suite runs without bcrypt, a database, or a real signing key.
 
 **Files:**
+
 - Create: `src/modules/auth/application/services/auth.service.ts`
 - Test: `src/modules/auth/application/services/auth.service.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `IUserRepo` + `USER_REPOSITORY`, `UserEntity`, `EmailAlreadyExistsError`, `UserNotFoundError` (Task 2); `IPasswordHasher` + `PASSWORD_HASHER`, `InvalidCredentialsError` (Task 4); `RegisterDto`, `LoginDto`, `AuthResponse`, `UserResponse` (Task 5); `JwtPayload` from `src/shared/common/jwt.payload.interface.ts`; `JwtService`, `ConfigService`.
 - Produces, relied on by Task 7: `class AuthService` with constructor `(userRepo, hasher, jwtService, config)` in that order, and methods `register(dto: RegisterDto): Promise<AuthResponse>`, `login(dto: LoginDto): Promise<AuthResponse>`, `me(publicId: string): Promise<UserResponse>`.
 
@@ -1095,6 +1105,7 @@ import {
 } from '../../../user/domain/errors/user.errors';
 import { IUserRepo } from '../../../user/domain/repositories/user.repo.interface';
 import { InvalidCredentialsError } from '../../domain/errors/auth.errors';
+import { RegisterDto } from '../dtos/register.dto';
 import { IPasswordHasher } from '../interfaces/password-hasher.interface';
 import { AuthService } from './auth.service';
 
@@ -1167,10 +1178,12 @@ describe('AuthService', () => {
     });
 
     it('always registers an Employee, even if the body asks otherwise', async () => {
+      // `whitelist: true` normally strips this, but the service must not rely
+      // on the pipe for a privilege decision.
       await service.register({
         ...registration,
         role: SystemRole.Admin,
-      } as never);
+      } as unknown as RegisterDto);
 
       expect(userRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ role: SystemRole.Employee }),
@@ -1255,14 +1268,18 @@ describe('AuthService', () => {
     });
 
     it('says the same thing for an unknown email and a wrong password', async () => {
+      // Any difference between these two answers tells an attacker which
+      // emails are registered.
       userRepo.findByEmail.mockResolvedValue(null);
-      const unknownEmail = await service.login(credentials).catch((e: Error) => e);
+      await expect(service.login(credentials)).rejects.toThrow(
+        'Email or password is incorrect',
+      );
 
       userRepo.findByEmail.mockResolvedValue(storedUser);
       hasher.compare.mockResolvedValue(false);
-      const wrongPassword = await service.login(credentials).catch((e: Error) => e);
-
-      expect(unknownEmail.message).toBe(wrongPassword.message);
+      await expect(service.login(credentials)).rejects.toThrow(
+        'Email or password is incorrect',
+      );
     });
   });
 
@@ -1425,6 +1442,7 @@ git commit -m "feat: add auth service with register, login and me"
 Exposes the three routes, assembles `AuthModule`, registers both modules on `AppModule`, and adds the JWT settings. After this task the feature is complete.
 
 **Files:**
+
 - Create: `src/modules/auth/api/auth.controller.ts`
 - Create: `src/modules/auth/auth.module.ts`
 - Modify: `src/app.module.ts`
@@ -1432,6 +1450,7 @@ Exposes the three routes, assembles `AuthModule`, registers both modules on `App
 - Test: `src/modules/auth/api/auth.controller.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `AuthService` (Task 6); `RegisterDto`, `LoginDto`, `AuthResponse`, `UserResponse` (Task 5); `PASSWORD_HASHER` + `BcryptPasswordHasher` (Task 4); `UserModule` (Task 3); `JwtAuthGuard`, `JwtPayload`, `User` decorator from `src/shared/common/`.
 - Produces: `class AuthController`, `class AuthModule`. Nothing consumes them.
 
@@ -1652,7 +1671,7 @@ npm run lint
 npm run build
 ```
 
-Expected: all suites pass (38 tests across 7 files), no lint errors, build exits 0.
+Expected: all suites pass (42 tests across 7 files — 4 filter, 4 mapper, 6 repo, 4 hasher, 8 dto, 13 service, 3 controller), no lint errors, build exits 0.
 
 - [ ] **Step 9: Confirm the app boots and the routes are mapped**
 
