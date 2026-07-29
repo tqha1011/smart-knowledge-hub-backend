@@ -8,11 +8,11 @@ Build the `auth` module (register / login / get profile) plus the minimal `user`
 
 ## Scope
 
-| Endpoint | Guard | Request body | Response |
-| --- | --- | --- | --- |
-| `POST /api/auth/register` | — | `{ username, email, password }` | `201 { accessToken, expiresIn, user }` |
-| `POST /api/auth/login` | — | `{ email, password }` | `200 { accessToken, expiresIn, user }` |
-| `GET /api/auth/me` | `JwtAuthGuard` | — | `200 { publicId, username, email, role }` |
+| Endpoint                  | Guard          | Request body                    | Response                                  |
+| ------------------------- | -------------- | ------------------------------- | ----------------------------------------- |
+| `POST /api/auth/register` | —              | `{ username, email, password }` | `201 { accessToken, expiresIn, user }`    |
+| `POST /api/auth/login`    | —              | `{ email, password }`           | `200 { accessToken, expiresIn, user }`    |
+| `GET /api/auth/me`        | `JwtAuthGuard` | —                               | `200 { publicId, username, email, role }` |
 
 Out of scope (separate specs later): refresh tokens, logout, change password, forgot password, user CRUD, `UserWorkspace` management.
 
@@ -39,7 +39,7 @@ Reason: bcrypt is a technical dependency, so putting it in `domain/` inverts the
 
 ## Directory layout
 
-```
+```plaintext
 src/modules/user/
 ├── user.module.ts                            provides + exports USER_REPOSITORY
 ├── domain/
@@ -69,12 +69,12 @@ src/modules/auth/
 
 ```ts
 {
-  id: number;          // internal, used for FKs and joins
-  publicId: string;    // the one exposed externally
+  id: number; // internal, used for FKs and joins
+  publicId: string; // the one exposed externally
   username: string;
   email: string;
-  password: string;    // bcrypt hash, never reaches a response
-  role: SystemRole;    // already mapped from the Prisma Role
+  password: string; // bcrypt hash, never reaches a response
+  role: SystemRole; // already mapped from the Prisma Role
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,11 +114,13 @@ A wrong email and a wrong password both raise `InvalidCredentialsError` with the
 ### DTO validation
 
 `RegisterDto`:
+
 - `username`: `@IsString()`, `@Length(3, 50)`
 - `email`: `@IsEmail()`
 - `password`: `@IsString()`, `@MinLength(8)`
 
 `LoginDto`:
+
 - `email`: `@IsEmail()`
 - `password`: `@IsString()`, `@IsNotEmpty()`
 
@@ -174,6 +176,7 @@ AuthResponse  { accessToken, expiresIn, user: UserResponse }
 Fix: at the top of `catch()`, if `exception instanceof AppError`, replace it with `toHttpException(exception)` before the existing logic runs. About 3 lines.
 
 Alternatives considered and rejected:
+
 - `try/catch` + `toHttpException` in every controller — repeated in every route of every module.
 - Install `neverthrow` to use the `Result` pattern the doc comment describes — adds a dependency and changes every service signature, far too large for the current need.
 
@@ -189,7 +192,7 @@ The mapper lives in `user/infrastructure/`, not `shared/` — only the user modu
 
 Add to `.env`:
 
-```
+```plaintext
 JWT_SECRET=<random string>
 JWT_EXPIRES_IN=1d
 ```
