@@ -1,12 +1,12 @@
 # Auth module design
 
-Ngày: 2026-07-29
+Date: 2026-07-29
 
-## Mục tiêu
+## Goal
 
-Dựng module `auth` (đăng ký / đăng nhập / lấy profile) và module `user` tối thiểu làm nền cho nó. Sau khi xong, mọi module khác có thể gắn `JwtAuthGuard` + `@Roles()` lên route và chúng hoạt động ngay.
+Build the `auth` module (register / login / get profile) plus the minimal `user` module it depends on. Once this ships, any other module can put `JwtAuthGuard` + `@Roles()` on a route and have it work.
 
-## Phạm vi
+## Scope
 
 | Endpoint | Guard | Request body | Response |
 | --- | --- | --- | --- |
@@ -14,37 +14,37 @@ Dựng module `auth` (đăng ký / đăng nhập / lấy profile) và module `us
 | `POST /api/auth/login` | — | `{ email, password }` | `200 { accessToken, expiresIn, user }` |
 | `GET /api/auth/me` | `JwtAuthGuard` | — | `200 { publicId, username, email, role }` |
 
-Ngoài phạm vi (làm sau, spec riêng): refresh token, logout, đổi mật khẩu, quên mật khẩu, CRUD user, quản lý `UserWorkspace`.
+Out of scope (separate specs later): refresh tokens, logout, change password, forgot password, user CRUD, `UserWorkspace` management.
 
-Không thay đổi Prisma schema, **không cần migration**.
+No Prisma schema changes, so **no migration needed**.
 
-## Quyết định đã chốt
+## Decisions
 
-- `register` là self-register công khai. Role luôn là `Employee`; không có đường tạo `Admin` qua API (set tay trong DB hoặc seed script sau này).
-- `/me` query lại DB theo `publicId` trong token thay vì echo payload, để token cũ không trả về role đã stale.
-- Prefix route là `api/` vì `LoggerMiddleware` chỉ áp cho `api/*path`.
-- `/me` **không** gắn `RolesGuard`. `RolesGuard` throw `Forbidden` khi route thiếu `@Roles()` metadata, mà `/me` thì mọi user đã đăng nhập đều được vào.
-- Chưa làm refresh token. Chỉ có access token, TTL mặc định `1d`.
-- Module `user` chỉ dựng phần auth cần: entity, repo interface, Prisma repo, mapper. Chưa có controller hay service.
-- `auth/domain/` chỉ chứa `errors/`.
+- `register` is public self-registration. Role is always `Employee`; there is no API path to create an `Admin` (set it directly in the DB or via a seed script later).
+- `/me` re-reads the DB by the token's `publicId` instead of echoing the payload, so an old token never returns a stale role.
+- Routes are prefixed with `api/` because `LoggerMiddleware` only applies to `api/*path`.
+- `/me` does **not** use `RolesGuard`. That guard throws `Forbidden` when a route has no `@Roles()` metadata, and `/me` should be reachable by any authenticated user.
+- No refresh tokens. Access token only, default TTL `1d`.
+- The `user` module only gets what auth needs: entity, repo interface, Prisma repo, mapper. No controller or service yet.
+- `auth/domain/` contains only `errors/`.
 
-### Password hasher: port + adapter, không dùng value object
+### Password hasher: port + adapter, not a value object
 
-Ban đầu cân nhắc một value object `Password` trong `auth/domain/` bọc bcrypt. Chọn port + adapter thay thế:
+A `Password` value object in `auth/domain/` wrapping bcrypt was considered. Port + adapter won instead:
 
-- `IPasswordHasher` (`auth/application/interfaces/`) — port.
-- `BcryptPasswordHasher` (`auth/infrastructure/`) — adapter.
+- `IPasswordHasher` (`auth/application/interfaces/`) — the port.
+- `BcryptPasswordHasher` (`auth/infrastructure/`) — the adapter.
 
-Lý do: bcrypt là dependency kỹ thuật, đặt trong `domain/` là ngược hướng phụ thuộc. Tách ra thì `AuthService` test được bằng hasher giả, không phải chờ bcrypt chạy thật (bcrypt cố tình chậm ~100ms mỗi lần).
+Reason: bcrypt is a technical dependency, so putting it in `domain/` inverts the dependency direction. Splitting it also lets `AuthService` be tested with a fake hasher instead of waiting on real bcrypt, which is deliberately slow (~100ms per call).
 
-## Cấu trúc thư mục
+## Directory layout
 
 ```
 src/modules/user/
 ├── user.module.ts                            provides + exports USER_REPOSITORY
 ├── domain/
-│   ├── entities/user.entity.ts               UserEntity (gồm cả password hash)
-│   └── repositories/user.repo.interface.ts   IUserRepo + token USER_REPOSITORY
+│   ├── entities/user.entity.ts               UserEntity (includes the password hash)
+│   └── repositories/user.repo.interface.ts   IUserRepo + USER_REPOSITORY token
 └── infrastructure/
     ├── user.repo.ts                          UserPrismaRepo implements IUserRepo
     └── user.mapper.ts                        Prisma User ↔ UserEntity, Role ↔ SystemRole
@@ -63,18 +63,18 @@ src/modules/auth/
 └── infrastructure/bcrypt.hasher.ts
 ```
 
-## Hợp đồng giữa các tầng
+## Contracts between layers
 
 ### `UserEntity`
 
 ```ts
 {
-  id: number;          // nội bộ, dùng cho FK/join
-  publicId: string;    // lộ ra ngoài
+  id: number;          // internal, used for FKs and joins
+  publicId: string;    // the one exposed externally
   username: string;
   email: string;
-  password: string;    // bcrypt hash, không bao giờ vào response
-  role: SystemRole;    // đã map từ Prisma Role
+  password: string;    // bcrypt hash, never reaches a response
+  role: SystemRole;    // already mapped from the Prisma Role
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,9 +88,9 @@ findByPublicId(publicId: string): Promise<UserEntity | null>
 create(input: { username: string; email: string; password: string; role: SystemRole }): Promise<UserEntity>
 ```
 
-`create` nhận password đã hash — hashing là việc của `AuthService`, repo không biết bcrypt.
+`create` receives an already-hashed password — hashing belongs to `AuthService`, and the repo knows nothing about bcrypt.
 
-DI token: `export const USER_REPOSITORY = Symbol('USER_REPOSITORY')`, đặt cạnh interface. `UserModule` bind token → `UserPrismaRepo` và export token.
+DI token: `export const USER_REPOSITORY = Symbol('USER_REPOSITORY')`, declared next to the interface. `UserModule` binds the token to `UserPrismaRepo` and exports it.
 
 ### `IPasswordHasher`
 
@@ -99,17 +99,17 @@ hash(plain: string): Promise<string>
 compare(plain: string, hash: string): Promise<boolean>
 ```
 
-`BcryptPasswordHasher` dùng `bcrypt` với `SALT_ROUNDS = 10`.
+`BcryptPasswordHasher` uses `bcrypt` with `SALT_ROUNDS = 10`.
 
 ### Domain errors
 
-`auth/domain/errors/auth.errors.ts`, tất cả extends `AppError` để `toHttpException` map đúng status:
+In `auth/domain/errors/auth.errors.ts`, all extending `AppError` so `toHttpException` maps them to the right status:
 
 - `InvalidCredentialsError` → `ErrorCode.Unauthorized`, message `'Email or password is incorrect'`
 - `EmailAlreadyExistsError` → `ErrorCode.Conflict`, message `'Email is already registered'`
 - `UserNotFoundError` → `ErrorCode.NotFound`, message `'User not found'`
 
-Login sai email và login sai password đều ném `InvalidCredentialsError` với **cùng một message**, để không lộ ra email nào đã tồn tại trong hệ thống.
+A wrong email and a wrong password both raise `InvalidCredentialsError` with the **same message**, so the endpoint never reveals which emails exist.
 
 ### DTO validation
 
@@ -122,95 +122,94 @@ Login sai email và login sai password đều ném `InvalidCredentialsError` v�
 - `email`: `@IsEmail()`
 - `password`: `@IsString()`, `@IsNotEmpty()`
 
-Global `ValidationPipe` đã bật `whitelist: true` nên field thừa bị strip tự động. Mỗi field gắn `@ApiProperty()` để Swagger ở `/docs` hiển thị đúng.
+The global `ValidationPipe` already sets `whitelist: true`, so unknown fields are stripped automatically. Every field carries `@ApiProperty()` so Swagger at `/docs` renders correctly.
 
-### Response shape
+### Response shapes
 
 ```ts
-UserResponse  { publicId, username, email, role }        // không có password
+UserResponse  { publicId, username, email, role }        // no password
 AuthResponse  { accessToken, expiresIn, user: UserResponse }
 ```
 
-`expiresIn` là chuỗi TTL lấy từ config (ví dụ `'1d'`), trả về để client biết khi nào cần đăng nhập lại.
+`expiresIn` is the TTL string from config (e.g. `'1d'`), returned so the client knows when it needs to log in again.
 
-## Luồng xử lý
+## Flows
 
 ### register
 
-1. `ValidationPipe` validate `RegisterDto`.
-2. `userRepo.findByEmail(email)` → nếu có → ném `EmailAlreadyExistsError`.
-3. `hasher.hash(password)` — **chỉ chạy khi email chưa tồn tại**, không phí ~100ms bcrypt cho request chắc chắn fail.
+1. `ValidationPipe` validates `RegisterDto`.
+2. `userRepo.findByEmail(email)` → if found, raise `EmailAlreadyExistsError`.
+3. `hasher.hash(password)` — **only runs when the email is free**, so no ~100ms of bcrypt is spent on a request that is guaranteed to fail.
 4. `userRepo.create({ ..., role: SystemRole.Employee })`.
-5. Ký JWT, trả `AuthResponse` với status 201.
+5. Sign the JWT, return `AuthResponse` with status 201.
 
-**Race condition:** hai request cùng email vào đồng thời có thể cùng qua được bước 2. Unique constraint trên `User.email` sẽ chặn ở bước 4 với lỗi Prisma `P2002`. `UserPrismaRepo.create` bắt `P2002` và ném lại `EmailAlreadyExistsError`. Check ở bước 2 để tránh hash thừa (case thường); constraint để đảm bảo đúng (case hiếm).
+**Race condition:** two concurrent requests with the same email can both pass step 2. The unique constraint on `User.email` stops the second one at step 4 with Prisma error `P2002`. `UserPrismaRepo.create` catches `P2002` and re-raises `EmailAlreadyExistsError`. The step-2 check avoids wasted hashing (the common case); the constraint guarantees correctness (the rare case).
 
 ### login
 
 1. Validate `LoginDto`.
-2. `userRepo.findByEmail(email)` → không có → `InvalidCredentialsError`.
+2. `userRepo.findByEmail(email)` → not found → `InvalidCredentialsError`.
 3. `hasher.compare(password, user.password)` → false → `InvalidCredentialsError`.
-4. Ký JWT, trả `AuthResponse` với status 200 (`@HttpCode(200)` vì Nest mặc định POST là 201).
+4. Sign the JWT, return `AuthResponse` with status 200 (`@HttpCode(200)`, since Nest defaults POST to 201).
 
 ### me
 
-1. `JwtAuthGuard` verify Bearer token, gắn `request.user`.
-2. `@User()` lấy payload, dùng `sub` (= `publicId`).
-3. `userRepo.findByPublicId(sub)` → không có → `UserNotFoundError` (token hợp lệ nhưng user đã bị xoá).
-4. Trả `UserResponse`.
+1. `JwtAuthGuard` verifies the Bearer token and attaches `request.user`.
+2. `@User()` pulls the payload; `sub` is the `publicId`.
+3. `userRepo.findByPublicId(sub)` → not found → `UserNotFoundError` (valid token, but the user was deleted).
+4. Return `UserResponse`.
 
 ### JWT payload
 
-`{ sub: publicId, email, role: SystemRole }` — khớp `JwtPayload` interface có sẵn nên `JwtAuthGuard` chạy được ngay, không phải sửa.
+`{ sub: publicId, email, role: SystemRole }` — matches the existing `JwtPayload` interface, so `JwtAuthGuard` works as-is with no changes.
 
-`JwtPayload.sub` khai báo kiểu `UUID` (từ `node:crypto`) trong khi `publicId` là `string`, nên chỗ ký token cần ép `publicId as UUID`.
+`JwtPayload.sub` is typed as `UUID` (from `node:crypto`) while `publicId` is a `string`, so the signing site needs `publicId as UUID`.
 
-## Thay đổi ở `src/shared/`
+## Changes in `src/shared/`
 
-### 1. `exceptions.filter.ts` — nối `toHttpException` vào hệ thống
+### 1. `exceptions.filter.ts` — wire up `toHttpException`
 
-`AllExceptionsFilter` hiện chỉ hiểu `HttpException`; `AppError` ném từ service sẽ ra `500 Internal Server Error` và nuốt mất message. `toHttpException()` đã tồn tại nhưng chưa được gọi ở đâu cả.
+`AllExceptionsFilter` currently only understands `HttpException`. An `AppError` thrown from a service becomes `500 Internal Server Error` and its message is swallowed. `toHttpException()` already exists but nothing calls it.
 
-Sửa: đầu `catch()`, nếu `exception instanceof AppError` thì thay bằng `toHttpException(exception)` trước khi chạy logic sẵn có. Khoảng 3 dòng.
+Fix: at the top of `catch()`, if `exception instanceof AppError`, replace it with `toHttpException(exception)` before the existing logic runs. About 3 lines.
 
-Phương án đã cân nhắc và loại:
-- `try/catch` + `toHttpException` ở từng controller — lặp lại ở mọi route của mọi module.
-- Cài `neverthrow` để dùng `Result` như doc comment mô tả — thêm dependency và đổi chữ ký toàn bộ service, quá lớn so với nhu cầu hiện tại.
+Alternatives considered and rejected:
+- `try/catch` + `toHttpException` in every controller — repeated in every route of every module.
+- Install `neverthrow` to use the `Result` pattern the doc comment describes — adds a dependency and changes every service signature, far too large for the current need.
 
-Cách đã chọn sửa một chỗ và mọi module sau này hưởng lợi.
+The chosen fix touches one file and every future module benefits.
 
-### 2. Map enum `Role` ↔ `SystemRole`
+### 2. Mapping `Role` ↔ `SystemRole`
 
-Prisma `Role` là `Admin`/`Employee`; `SystemRole` (dùng bởi `RolesGuard` và `JwtPayload`) là `admin`/`employee`. `user.mapper.ts` giữ cả hai chiều. Token luôn mang `SystemRole` để `RolesGuard` so sánh đúng.
+Prisma's `Role` is `Admin`/`Employee`; `SystemRole` (used by `RolesGuard` and `JwtPayload`) is `admin`/`employee`. `user.mapper.ts` holds both directions. Tokens always carry `SystemRole` so `RolesGuard` compares correctly.
 
-Mapper đặt trong `user/infrastructure/` chứ không phải `shared/` — hiện chỉ module user cần nó.
+The mapper lives in `user/infrastructure/`, not `shared/` — only the user module needs it today.
 
 ## Config
 
-Thêm vào `.env`:
+Add to `.env`:
 
 ```
 JWT_SECRET=<random string>
 JWT_EXPIRES_IN=1d
 ```
 
-`AuthModule` dùng `JwtModule.registerAsync({ global: true, inject: [ConfigService], ... })` với `ConfigService.getOrThrow('JWT_SECRET')` — app fail-fast lúc boot nếu thiếu secret, thay vì ký token bằng `undefined`.
+`AuthModule` uses `JwtModule.registerAsync({ global: true, inject: [ConfigService], ... })` with `ConfigService.getOrThrow('JWT_SECRET')`, so the app fails fast at boot on a missing secret instead of signing tokens with `undefined`.
 
-`global: true` để `JwtAuthGuard` inject được `JwtService` ở mọi module khác (knowledge-space và các module sau) mà không phải import `JwtModule` lại từng nơi.
+`global: true` lets `JwtAuthGuard` inject `JwtService` from any other module (knowledge-space and whatever comes next) without re-importing `JwtModule` each time.
 
-`AppModule` import thêm `AuthModule` và `UserModule`.
+`AppModule` additionally imports `AuthModule` and `UserModule`.
 
-## Test
+## Tests
 
-`auth.service.spec.ts` — unit test với `IUserRepo`, `IPasswordHasher`, `JwtService` đều mock, không đụng DB:
+`auth.service.spec.ts` — unit tests with `IUserRepo`, `IPasswordHasher`, and `JwtService` all mocked, no DB:
 
-- register thành công: gọi `create` với password đã hash và role `Employee`, trả về token
-- register khi email đã tồn tại: ném `EmailAlreadyExistsError`, và **không** gọi `hasher.hash`
-- register khi repo ném `P2002`: ném `EmailAlreadyExistsError`
-- login thành công
-- login khi không tìm thấy email: ném `InvalidCredentialsError`
-- login khi sai password: ném `InvalidCredentialsError` với cùng message như case trên
-- me khi user không tồn tại: ném `UserNotFoundError`
-- response không bao giờ chứa field `password`
+- register succeeds: calls `create` with the hashed password and role `Employee`, returns a token
+- register with an existing email: raises `EmailAlreadyExistsError` and does **not** call `hasher.hash`
+- register when the repo raises `P2002`: raises `EmailAlreadyExistsError`
+- login succeeds
+- login with an unknown email: raises `InvalidCredentialsError`
+- login with a wrong password: raises `InvalidCredentialsError` with the same message as the case above
+- responses never contain a `password` field
 
-Tiêu chí hoàn thành: `npm test` xanh, `npm run lint` sạch, `npm run build` thành công (pre-push hook chạy build).
+Done means: `npm test` green, `npm run lint` clean, `npm run build` succeeds (the pre-push hook runs the build).
