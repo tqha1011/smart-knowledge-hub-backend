@@ -7,6 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { toHttpException } from './app-error.mapper';
+import { AppError } from './errorCode';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -17,9 +19,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    // Domain and application code throws AppError. Translating it here is
+    // what lets controllers stay free of try/catch.
+    const error =
+      exception instanceof AppError ? toHttpException(exception) : exception;
+
     const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
+      error instanceof HttpException
+        ? error.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
     if (exception instanceof Error) {
@@ -39,8 +46,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       message:
-        exception instanceof HttpException
-          ? exception.message
+        error instanceof HttpException
+          ? error.message
           : 'Internal Server Error',
     });
   }
