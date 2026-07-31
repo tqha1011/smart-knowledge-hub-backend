@@ -12,18 +12,29 @@ Spec: `docs/superpowers/specs/2026-07-29-auth-module-design.md`.
 
 ## Deviations from the spec
 
-Three things changed after verifying the toolchain. They are deliberate; implement the plan, not the spec, where they disagree.
+Four things changed after verifying the toolchain, plus one pivot made mid-implementation. They are deliberate; implement this plan, not the original spec text, where they disagree.
 
-1. **`EmailAlreadyExistsError` and `UserNotFoundError` live in `user/domain/errors/`, not `auth/domain/errors/`.** The spec puts all three errors in `auth`, but `UserPrismaRepo` has to raise "email already exists" when the unique index fires — which would make `user` import from `auth` and invert the dependency. Both errors are user-domain rules anyway. `auth/domain/errors/` keeps only `InvalidCredentialsError`.
+1. **`EmailAlreadyExistsError` and `UserNotFoundError` live in `user/domain/errors/`, not `auth/domain/errors/`.** The spec puts all three errors in `auth`, but `UserPrismaRepo` has to produce "email already exists" when the unique index fires — which would make `user` import from `auth` and invert the dependency. Both errors are user-domain rules anyway. `auth/domain/errors/` keeps only `InvalidCredentialsError`.
 2. **`expiresIn` is a number of seconds, not the string `'1d'`.** `@types/jsonwebtoken@9.0.10` types `SignOptions.expiresIn` as `StringValue | number`, so a plain `string` off `ConfigService` does not typecheck. Seconds need no cast and match the OAuth2 `expires_in` convention. `.env` gets `JWT_EXPIRES_IN=86400`.
 3. **`package.json` gains a jest `moduleNameMapper`.** Verified: jest cannot currently resolve `generated/prisma/client` (`Cannot find module`), so any test touching Prisma types fails to run. Task 2 fixes it.
+4. **Error propagation uses `neverthrow`'s `Result` type, not throw/catch, above the repository boundary.** This was decided after Task 1 (the `AllExceptionsFilter` fix) and an earlier throw-based Task 2 had already landed and been reviewed; the throw-based Task 2 was discarded and rewritten. Task 1's filter fix was **not** undone — it is still what backs the controller's `throw toHttpException(error)`. See "Error propagation" in Global Constraints and the amendment at the top of the spec.
+
+## Error propagation (read this before Tasks 2, 3, 6, 7)
+
+Three layers, three jobs, three different error-channel types — this replaces every throw/catch description in the original spec text:
+
+- **`IUserRepo` (repository, Task 2 interface / Task 3 implementation)** returns `Promise<Result<T, Error>>`. It never throws. It catches whatever Prisma throws and returns `err(error)` verbatim — a bare technical `Error`. One recognized exception: a `P2002` unique-constraint violation on `create` becomes `err(new EmailAlreadyExistsError())` instead of the raw Prisma error — this still satisfies `Result<T, Error>` because `AppError extends Error`. Not-found is not an error: `findByEmail` / `findByPublicId` return `ok(null)`.
+- **`AuthService` (Task 6)** returns `Promise<Result<T, AppError>>`. It never throws. It is the only layer that turns a bare repo `Error` into an `AppError`: if `error instanceof AppError` already (the `P2002` case), pass it through unchanged; otherwise wrap it as `err(new AppError(ErrorCode.InternalServerError, 'Something went wrong'))`, so a raw DB error message never reaches a response. Business-rule failures the service detects itself (email already taken, wrong credentials, user not found) are constructed directly as the matching `AppError` subclass and returned as `err(...)`.
+- **`AuthController` (Task 7)** is the only layer allowed to throw. Every handler resolves its service call's `Result` with `.match(value => value, error => { throw toHttpException(error); })`. That `throw` is what reaches `AllExceptionsFilter`, and Task 1's fix is exactly what turns it into the right HTTP response.
+
+`IPasswordHasher` (Task 4) and the direct `JwtService` calls inside `AuthService` are **not** wrapped in `Result` — both are expected to succeed for any valid input, and a genuine failure there is an unanticipated bug, correctly left to propagate as a real exception to `AllExceptionsFilter` (500, masked message). `Result` is reserved for outcomes the code specifically anticipates: repository I/O and named business-rule violations.
 
 ## Global Constraints
 
 - Node imports of the Prisma client use the baseUrl form `generated/prisma/client` / `generated/prisma/enums`, matching `src/shared/infrastructure/database/prisma.service.ts`. All imports **within `src/`** are relative (`../../../shared/...`) — the existing code does this and it needs no extra jest or runtime config.
 - Every model has an internal `id` (int) and a `publicId` (uuid). **Only `publicId` ever leaves the process.** The JWT subject is `publicId`.
 - `SystemRole` (`shared/domain/enum.ts`: `admin` / `employee`) is what `RolesGuard` and `JwtPayload` use. Prisma's `Role` is `Admin` / `Employee`. Everything above `user/infrastructure/` speaks `SystemRole` only.
-- Application and domain code throws `AppError` subclasses (`shared/common/errorCode.ts`). Controllers never `try/catch`; Task 1 makes the global filter translate them.
+- **Error propagation follows the three-layer `Result` contract above.** Repository: `Result<T, Error>`, never throws. Service: `Result<T, AppError>`, never throws. Controller: the only layer that throws, via `result.match(v => v, e => { throw toHttpException(e); })`. `IPasswordHasher` and `JwtService` calls are the sole exception and keep throw-on-failure `Promise<T>` signatures.
 - File naming per `src/modules/MODULE.README.md`: `*.module.ts`, `*.controller.ts`, `*.entity.ts`, `*.repo.interface.ts`, `*.repo.ts`, `*.response.ts`. Tests are `*.spec.ts` next to the file they test.
 - Conventional Commits (commitlint runs on `commit-msg`). `pre-commit` runs `npm run lint`, `pre-push` runs `npm run build`.
 - No Prisma schema change, no migration.
@@ -32,7 +43,7 @@ Three things changed after verifying the toolchain. They are deliberate; impleme
 ## File Structure
 
 ```
-MODIFY  package.json                                            jest moduleNameMapper (Task 2)
+MODIFY  package.json                                            neverthrow dependency + jest moduleNameMapper (Task 2)
 MODIFY  src/app.module.ts                                       import AuthModule + UserModule (Task 7)
 MODIFY  .env                                                    JWT_SECRET, JWT_EXPIRES_IN (Task 7)
 
