@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { IAuthService } from './application/interfaces/auth.service.interface';
 import { AuthService } from './application/services/auth.service';
@@ -11,6 +12,24 @@ import { TokenProvider } from './infrastructure/tokenProvider';
 
 @Global()
 @Module({
+  imports: [
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const secretKey = configService.get<string>('JWT_SECRET');
+        if (!secretKey) {
+          throw new Error('JWT_SECRET is not defined in environment variables');
+        }
+        return {
+          secret: secretKey,
+          signOptions: {
+            expiresIn: '1h',
+          },
+        };
+      },
+    }),
+  ],
   providers: [
     {
       provide: ITokenProvider,
