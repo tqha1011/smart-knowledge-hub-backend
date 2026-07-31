@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config/dist/config.service';
-import { createHash } from 'crypto';
+import { createHash, UUID } from 'crypto';
+import { Role } from 'generated/prisma/client';
 import { err, ok, Result } from 'neverthrow';
+import { SystemRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { User } from '../domain/entities/user.entity';
 import { IUserRepository } from '../domain/repositories/user.repo.interface';
@@ -52,6 +54,32 @@ export class UserRepository implements IUserRepository {
       return ok(undefined);
     } catch (error) {
       return err(new Error(`Failed to add user to the database. ${error}`));
+    }
+  }
+
+  async GetUserByEmail(email: string): Promise<Result<User | null, Error>> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { email },
+      });
+      if (!user) {
+        return ok(null);
+      }
+      return ok(
+        User.getUser({
+          id: user.id,
+          publicId: user.publicId as UUID,
+          email: user.email,
+          username: user.username,
+          password: user.password,
+          role:
+            user.role === Role.Admin ? SystemRole.Admin : SystemRole.Employee,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        }),
+      );
+    } catch (error) {
+      return err(new Error(`Failed to get user by email. ${error}`));
     }
   }
 

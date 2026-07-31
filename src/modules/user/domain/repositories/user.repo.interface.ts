@@ -11,4 +11,6 @@ export abstract class IUserRepository {
   abstract GetUserIdByPublicId(
     publicId: string,
   ): Promise<Result<number | null, Error>>;
+
+  abstract GetUserByEmail(email: string): Promise<Result<User | null, Error>>;
 }
