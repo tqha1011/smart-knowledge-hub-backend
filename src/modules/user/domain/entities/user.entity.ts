@@ -51,6 +51,38 @@ export class User {
   static getUser(params: UserGetParams): User {
     return new User(params);
   }
+
+  get role(): SystemRole {
+    return this.params.role;
+  }
+
+  get id(): number {
+    return this.params.id;
+  }
+
+  get publicId(): UUID {
+    return this.params.publicId;
+  }
+
+  get email(): string {
+    return this.params.email;
+  }
+
+  get username(): string {
+    return this.params.username;
+  }
+
+  get password(): string {
+    return this.params.password;
+  }
+
+  get createdAt(): Date {
+    return this.params.createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this.params.updatedAt;
+  }
 }
 
 function validateInformation(
