@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config/dist/config.service';
-import { createHash, randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { User } from '../domain/entities/user.entity';
@@ -46,14 +46,7 @@ export class UserRepository implements IUserRepository {
           password: newUser.password,
           createdAt: newUser.createdAt,
           updatedAt: newUser.updatedAt,
-          profile: {
-            create: {
-              publicId: randomUUID(),
-              description: 'Hello! I am new here.',
-              displayName: newUser.username,
-              imageUrl: imageUrl,
-            },
-          },
+          avatarUrl: imageUrl,
         },
       });
       return ok(undefined);
