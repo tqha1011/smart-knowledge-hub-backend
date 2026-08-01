@@ -3,7 +3,10 @@ import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
-import { KnowledgeSpace } from '../domain/entities/knowledgeSpace.entity';
+import {
+  KnowledgeSpace,
+  KnowledgeSpaceUpdateParams,
+} from '../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../domain/repositories/knowledgeSpace.repo.interface';
 import {
   toDomainRole,
@@ -45,6 +48,29 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
       return err(new Error('Failed to create knowledge space'));
     }
   }
+  async getKnowledgeSpaceIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpace = await this.prismaService.knowledgeSpace.findUnique(
+        {
+          where: {
+            publicId,
+          },
+          select: {
+            id: true,
+          },
+        },
+      );
+      return ok(knowledgeSpace?.id ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space id by public id in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space id by public id'));
+    }
+  }
   async getUserKnowledgeSpaceRole(
     userId: number,
     knowledgeSpaceId: number,
@@ -69,18 +95,19 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
     }
   }
   async updateKnowledgeSpace(
-    updatedKnowledgeSpace: KnowledgeSpace,
+    knowledgeSpaceId: number,
+    params: KnowledgeSpaceUpdateParams,
   ): Promise<Result<undefined, Error>> {
     try {
+      // updatedAt is maintained by Prisma through @updatedAt on the model.
       await this.prismaService.knowledgeSpace.update({
         where: {
-          id: updatedKnowledgeSpace.id,
+          id: knowledgeSpaceId,
         },
         data: {
-          name: updatedKnowledgeSpace.name,
-          description: updatedKnowledgeSpace.description,
-          type: toPrismaType(updatedKnowledgeSpace.type),
-          updatedAt: updatedKnowledgeSpace.updatedAt,
+          name: params.name,
+          description: params.description,
+          type: toPrismaType(params.type),
         },
       });
       return ok(undefined);

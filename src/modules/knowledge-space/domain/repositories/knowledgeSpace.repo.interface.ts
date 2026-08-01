@@ -1,6 +1,9 @@
 import { Result } from 'neverthrow';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
-import { KnowledgeSpace } from '../entities/knowledgeSpace.entity';
+import {
+  KnowledgeSpace,
+  KnowledgeSpaceUpdateParams,
+} from '../entities/knowledgeSpace.entity';
 
 export abstract class IKnowledgeSpaceRepository {
   abstract create(
@@ -8,12 +11,17 @@ export abstract class IKnowledgeSpaceRepository {
     createbyUserId: number,
   ): Promise<Result<undefined, Error>>;
 
+  abstract getKnowledgeSpaceIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>>;
+
   abstract getUserKnowledgeSpaceRole(
     userId: number,
     knowledgeSpaceId: number,
   ): Promise<Result<KnowledgeSpaceRole | null, Error>>;
 
   abstract updateKnowledgeSpace(
-    updatedKnowledgeSpace: KnowledgeSpace,
+    knowledgeSpaceId: number,
+    params: KnowledgeSpaceUpdateParams,
   ): Promise<Result<undefined, Error>>;
 }
