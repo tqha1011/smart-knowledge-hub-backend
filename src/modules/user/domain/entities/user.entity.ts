@@ -1,6 +1,6 @@
 import { UUID } from 'crypto';
-
-import { err, ok, Result } from 'neverthrow';
+import { Result, err, ok } from 'neverthrow';
+import { SystemRole } from 'src/shared/domain/enum';
 import {
   UserDomainError,
   UserDomainValidationError,
@@ -12,14 +12,16 @@ export type UserGetParams = {
   readonly email: string;
   readonly username: string;
   readonly password: string;
+  readonly role: SystemRole;
   readonly createdAt: Date;
-  readonly updatedAt: Date;
+  updatedAt: Date;
 };
 
 export type UserCreateParams = {
   readonly email: string;
   readonly username: string;
   readonly password: string;
+  readonly role: SystemRole;
 };
 
 export class User {
@@ -28,75 +30,89 @@ export class User {
   static create(
     params: UserCreateParams,
   ): Result<User, UserDomainValidationError> {
-    // Implementation for creating a new User instance
-    if (params.email.length === 0 || params.email.indexOf('@') === -1) {
-      return err(
-        new UserDomainValidationError(
-          UserDomainError.EmailNotValid,
-          'Email is not valid',
-        ),
-      );
+    const validationResult = validateInformation(params);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
     }
 
-    if (params.username.length === 0) {
-      return err(
-        new UserDomainValidationError(
-          UserDomainError.UsernameNotValid,
-          'Username is not valid',
-        ),
-      );
-    }
-
-    if (params.password.length < 8) {
-      return err(
-        new UserDomainValidationError(
-          UserDomainError.PasswordTooWeak,
-          'Password is too weak',
-        ),
-      );
-    }
-
-    // If all validations pass, create the User instance
-    return ok(
-      new User({
-        ...params,
-        id: 0,
-        publicId: crypto.randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
-    );
+    const userGetParams: UserGetParams = {
+      id: 0, // This should be set by the database upon creation
+      publicId: crypto.randomUUID(),
+      email: params.email,
+      username: params.username,
+      password: params.password,
+      role: params.role,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return ok(new User(userGetParams));
   }
 
   static getUser(params: UserGetParams): User {
     return new User(params);
   }
 
-  getId(): number {
+  get role(): SystemRole {
+    return this.params.role;
+  }
+
+  get id(): number {
     return this.params.id;
   }
 
-  getPublicId(): UUID {
+  get publicId(): UUID {
     return this.params.publicId;
   }
 
-  getEmail(): string {
+  get email(): string {
     return this.params.email;
   }
 
-  getUsername(): string {
+  get username(): string {
     return this.params.username;
   }
 
-  getCreatedAt(): Date {
+  get password(): string {
+    return this.params.password;
+  }
+
+  get createdAt(): Date {
     return this.params.createdAt;
   }
 
-  getUpdatedAt(): Date {
+  get updatedAt(): Date {
     return this.params.updatedAt;
   }
+}
 
-  getPassword(): string {
-    return this.params.password;
+function validateInformation(
+  params: UserCreateParams,
+): Result<undefined, UserDomainValidationError> {
+  if (!params.password || params.password.length < 8) {
+    return err(
+      new UserDomainValidationError(
+        UserDomainError.PasswordTooWeak,
+        'Password must be at least 8 characters long',
+      ),
+    );
   }
+
+  if (!params.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(params.email)) {
+    return err(
+      new UserDomainValidationError(
+        UserDomainError.InvalidEmailFormat,
+        'Email format is invalid',
+      ),
+    );
+  }
+
+  if (!params.username || params.username.length < 3) {
+    return err(
+      new UserDomainValidationError(
+        UserDomainError.UsernameTooShort,
+        'Username must be at least 3 characters long',
+      ),
+    );
+  }
+  return ok(undefined);
 }

@@ -2,78 +2,73 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Overview
+
+Smart Knowledge Hub — a NestJS 11 backend for an AI-assisted knowledge base ("DevNotes"): knowledge spaces containing documents that are chunked and embedded for RAG-style chat, with per-workspace roles, document permissions, chat sessions, feedback, and unanswered-question tracking. Most of the domain lives in the Prisma schema; only the `knowledge-space` module is scaffolded so far (its files are still empty stubs).
+
+Note: the repo started from an internal NestJS template; the README and `src/modules/MODULE.README.md` are in Vietnamese.
+
 ## Commands
 
 ```bash
-npm run start:dev      # run with watch (http://localhost:3000, Swagger at /docs)
-npm run build          # nest build — run after structural TypeScript changes
-npm run lint           # eslint --fix over {src,apps,libs,test}
+npm run start:dev      # watch-mode dev server (http://localhost:3000, Swagger at /docs)
+npm run build          # nest build → dist/ (also the pre-push hook)
+npm run lint           # eslint --fix over {src,apps,libs,test} (also the pre-commit hook)
 npm run format         # prettier --write
-npm run test           # jest unit tests (*.spec.ts under src/)
+npm test               # jest (unit; *.spec.ts under src/)
 npm run test:e2e       # jest with test/jest-e2e.json
+npx prisma generate    # REQUIRED after clone and after any schema change (see below)
 ```
 
-Run a single unit test: `npx jest path/to/file.spec.ts` or `npx jest -t "test name"`.
+Run a single test: `npm test -- path/to/file.spec.ts` or `npm test -- -t "describe or it name"`.
 
-Prisma:
+## Prisma — non-obvious setup
 
-```bash
-npx prisma generate    # REQUIRED after clone and after editing prisma/models/*
-```
-
-`generated/prisma` is git-ignored and must be regenerated on each machine. `PrismaService` imports the client from `generated/prisma/client`; if that import fails, run `prisma generate`.
-
-Prisma config lives in `prisma.config.ts` (not `package.json`). The schema is **split across multiple files** in `prisma/models/*.prisma` with a root `prisma/schema.prisma`; the generator points `schema = './prisma'` at the whole directory. Migrations use `DIRECT_URL` (falls back to `DATABASE_URL`).
-
-## Git hooks (Husky)
-
-`pre-commit` runs `npm run lint`, `pre-push` runs `npm run build`, `commit-msg` runs commitlint (Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, …). Keep commits conventional or the hook rejects them.
+- **Schema is split across multiple files.** `prisma/schema.prisma` holds only the generator + datasource; every model lives in `prisma/models/*.prisma`. `prisma.config.ts` points Prisma at the whole `./prisma` folder (`schema: './prisma'`), so all `.prisma` files are merged. Add new models as files under `prisma/models/`.
+- **The client is generated to `generated/prisma/` (gitignored), NOT `node_modules`.** Import from `generated/prisma/client`. Because it is not committed, `npx prisma generate` must run after every clone and after any schema edit — CI and the Dockerfile both run it explicitly.
+- **Two connection URLs.** Runtime connects via `DATABASE_URL` (`PrismaService` builds a `pg.Pool` + `PrismaPg` adapter). Migrations/CLI use `DIRECT_URL` (falls back to `DATABASE_URL`) — `.env` is not auto-loaded by Prisma; `prisma.config.ts` imports `dotenv/config` to load it.
+- Postgres with the `pgvector` extension is assumed: `DocumentChunk.embedding` is `Unsupported("vector(1536)")`.
 
 ## Architecture
 
-**Feature-based Clean Architecture.** Each feature lives in `src/modules/<feature>/` with strict layer boundaries and a one-directional dependency flow:
+### Per-module DDD layering
 
-```plaintext
-api  →  application  →  domain
-infrastructure/repository  →  implements domain contracts
-```
+Each feature under `src/modules/<feature>/` is a self-contained NestJS module split into four layers (see `src/modules/MODULE.README.md`):
 
-- **api/** — controllers only. Receive DTOs, call application services, map `AppError.code` → Nest HTTP exceptions. No business rules.
-- **application/** — use-case services (`*.service.ts`), service interfaces (`interfaces/`), and DTOs (`dtos/`). Coordinates domain + repositories.
-- **domain/** — entities (`entities/`) and abstract repository contracts (`repositories/`). Must NOT import Nest controllers, Prisma, infrastructure, or application services.
-- **infrastructure/** (or **repository/**) — concrete external implementations: Prisma repositories, bcrypt hasher, JWT provider.
+- `api/` — controllers; receive requests, call services.
+- `application/` — `services/` (business logic), `dtos/` (with `class-validator`), `interfaces/`.
+- `domain/` — `entities/`, `repositories/` (repo interfaces), `errors/` (domain errors).
+- `infrastructure/` — Prisma repository implementations, mappers, external clients.
 
-Cross-cutting code lives in `src/shared/` (`common/` for guards/filters/decorators/error types, `infrastructure/database/` for Prisma).
+Keep feature-only code inside the feature. `src/shared/` is strictly for cross-feature code (`shared/common`, `shared/domain`, `shared/infrastructure/database`).
 
-**Hard rules:** Controllers and application services never call Prisma directly — all DB access goes through domain repository contracts. Only classes under `infrastructure/`, `repository/`, or `shared/infrastructure/` may import `PrismaService` or generated Prisma types. Never throw Nest HTTP exceptions outside the controller layer.
+### Data model ID convention
 
-### Dependency injection
+Every model has both an internal `id` (`Int @default(autoincrement())`, used for FKs/joins) and a `publicId` (`String @unique @default(uuid())`, mapped to `public_id`). Expose `publicId` externally; use `id` internally. Table/column names are snake_cased via `@map`/`@@map`.
 
-Interfaces are **abstract classes** (prefixed `I`) used as injection tokens. Bind implementations in the feature module via `{ provide: IThing, useClass: Thing }` and depend on the abstract class in constructors. Import `PrismaModule`/`ConfigModule`/`JwtModule` through Nest modules rather than constructing dependencies manually.
+### Error handling
 
-### Error handling — `neverthrow`
+- Application/domain code raises `AppError(code, message)` (`src/shared/common/errorCode.ts`) where `code` is an `ErrorCode` enum value.
+- `toHttpException()` (`src/shared/common/app-error.mapper.ts`) maps each `ErrorCode` to the matching Nest HTTP exception. The intended pattern (per its doc comment) is a `Result` type resolved in controllers via `result.match(...)` — note no `Result` library is installed yet, so that helper is not wired up.
+- `AllExceptionsFilter` is registered globally in `main.ts` and normalizes every response to `{ statusCode, timestamp, path, message }`.
 
-Business/application and domain code uses functional `Result<T, E>` instead of throwing:
+### Auth & authorization
 
-- Application methods return `Promise<Result<T, AppError>>`; entity factories return `Result<Entity, AppError | Error>`.
-- Return `err(new AppError(ErrorCode.X, message))` for expected failures, `ok(value)` for success. Never `throw` for business logic.
-- Infrastructure may `try/catch` external calls and convert failures to `err(new Error(...))`; application services translate those raw `Error`s into user-safe `AppError` (usually `ErrorCode.InternalServerError`) so DB/bcrypt details never reach responses.
-- Controllers call `result.match(onOk, onErr)` and switch on `AppError.code` to throw the matching Nest exception. Mapping: `BadRequest→BadRequestException`, `Conflict→ConflictException`, `NotFound→NotFoundException`, `Unauthorized→UnauthorizedException`, default→`InternalServerErrorException`. `ErrorCode` is defined in `src/shared/common/errorCode.ts` — check it before inventing a new error.
+- `JwtAuthGuard` (`shared/common/jwt.guard.ts`) verifies a `Bearer` token via `@nestjs/jwt` and attaches the `JwtPayload` (`{ email, sub, role }`) to `request.user`.
+- `@User()` param decorator injects that payload into handlers.
+- `RolesGuard` + the `@Roles(...)` decorator (Reflector-based, typed with `SystemRole`) gate routes by role. **`RolesGuard` throws `Forbidden` if a route has no `@Roles()` metadata** — apply the decorator whenever the guard is used. Note `SystemRole` (`shared/domain/enum.ts`: `admin`/`employee`) is separate from the Prisma `Role` enum (`Admin`/`Employee`).
 
-## Conventions (match existing code, even when not idiomatic)
+### Global app wiring (`app.module.ts` / `main.ts`)
 
-- Async service methods use an `Async` suffix: `loginAsync`, `registerAsync`.
-- Repository/provider methods are **PascalCase**: `GetUserByEmail`, `AddUser`, `GenerateAccessToken`.
-- Interfaces are abstract classes prefixed `I`; DTOs end in `Dto`; entities are singular (`User`).
-- Domain entities use a **private constructor** + static factories (`create()` for new, `getUser()`/rehydrate for persisted); expose state via getters. Validate invariants in the entity or service, not the controller.
-- All request bodies are class DTOs in `application/dtos/` with `class-validator` decorators and custom messages. Global `ValidationPipe` runs with `whitelist: true` — never accept untyped `any` bodies.
-- Use `publicId` (not the internal numeric `id`) for external identifiers; never return raw passwords or numeric IDs in responses.
-- Cross-module imports use `src/...` paths. Use Nest `Logger` (not `console.log`).
+- `ConfigModule.forRoot({ isGlobal: true })`; `PrismaModule` is `@Global`, so `PrismaService` injects anywhere without re-importing.
+- Global `ValidationPipe` with `whitelist: true` (unknown DTO properties are stripped).
+- `LoggerMiddleware` applied to `api/*` routes only.
+- CORS allows `localhost:5173` and `localhost:3000` with credentials.
 
-## Bootstrap notes
+## Conventions
 
-`main.ts` wires the global `ValidationPipe`, `AllExceptionsFilter`, Swagger at `/docs`, and CORS (allows `localhost:5173` and `localhost:3000`). `AppModule` registers a global `LoggerMiddleware` on `api/*` routes and a per-minute `ThrottlerModule` (`limitPerMinute-auth`, 10 req/60s) used by the auth endpoints. `AuthModule` is `@Global()` and configures `JwtModule` (1h expiry) from `JWT_SECRET_KEY`.
-
-## Additional guidance
-
-`.agents/` holds the project's own agent rules and skills. Before non-trivial backend changes, consult `.agents/rules/backend-architecture.md`, `.agents/rules/backend-code-style.md`, and `.agents/rules/agent-workflow.md`. Do not change Docker, Prisma migrations, or auth behavior unless the task requires it, and avoid mixing unrelated refactors into feature work.
+- **Commits use Conventional Commits** — enforced by commitlint via the `commit-msg` husky hook (`feat:`, `fix:`, `docs:`, `chore:`, …).
+- Husky hooks: `pre-commit` → lint, `pre-push` → build, `commit-msg` → commitlint.
+- ESLint runs type-checked rules (`recommendedTypeChecked`); `no-explicit-any` is off, `no-floating-promises` and `no-unsafe-argument` are warnings. Prettier is enforced as an ESLint error.
+- File naming (from MODULE.README): `user.module.ts`, `user.controller.ts`, `user.entity.ts`, repo interface `*.repo.interface.ts`, repo impl `*.repo.ts`, responses `*.response.ts`.
+- CI (`.github/workflows/backend_ci.yml`) on PRs/pushes to `develop` and `main`: install → `prisma generate` → lint → build. `main` is the PR base branch.

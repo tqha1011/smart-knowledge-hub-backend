@@ -3,22 +3,22 @@ import { Result, err, ok } from 'neverthrow';
 import { User } from 'src/modules/user/domain/entities/user.entity';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { SystemRole } from 'src/shared/domain/enum';
 import {
   IPasswordHasher,
   ITokenProvider,
-} from '../domain/repositories/auth.repo.interface';
+} from '../../domain/repositories/auth.interface';
+import { LoginDto, RegisterDto } from '../dtos/auth.dto';
+import { IAuthService } from '../interfaces/auth.service.interface';
 
-import { IUserQueryRepository } from 'src/modules/user/application/interfaces/user-query.repo.interface';
-import { LoginDto, RegisterDto } from './dtos/auth.dto';
-import { IAuthService } from './interfaces/auth.service.interface';
 @Injectable()
 export class AuthService implements IAuthService {
   constructor(
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenProvider: ITokenProvider,
     private readonly userRepository: IUserRepository,
-    private readonly userQueryRepository: IUserQueryRepository,
   ) {}
+
   async registerAsync(
     registerDto: RegisterDto,
   ): Promise<Result<undefined, AppError>> {
@@ -53,6 +53,7 @@ export class AuthService implements IAuthService {
       email: registerDto.email,
       username: registerDto.username,
       password: passwordHash,
+      role: SystemRole.Employee,
     });
     if (newUser.isErr()) {
       return err(new AppError(ErrorCode.BadRequest, newUser.error.message));
@@ -70,7 +71,7 @@ export class AuthService implements IAuthService {
   }
 
   async loginAsync(loginDto: LoginDto): Promise<Result<string, AppError>> {
-    const user = await this.userQueryRepository.GetUserByEmail(loginDto.email);
+    const user = await this.userRepository.GetUserByEmail(loginDto.email);
     if (user.isErr()) {
       return err(
         new AppError(

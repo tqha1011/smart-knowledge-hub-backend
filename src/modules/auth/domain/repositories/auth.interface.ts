@@ -1,4 +1,5 @@
 import { Result } from 'neverthrow';
+
 export abstract class IPasswordHasher {
   abstract GenerateHashPassword(
     password: string,

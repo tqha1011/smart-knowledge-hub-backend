@@ -2,7 +2,7 @@ import { Result } from 'neverthrow';
 import {
   UserResponseDto,
   UserResponseWithPasswordDto,
-} from '../dtos/user..response.dto';
+} from '../dtos/user.response.dto';
 
 export abstract class IUserQueryRepository {
   abstract GetUserByEmail(
