@@ -1,37 +1,16 @@
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { WorkSpaceRole } from 'generated/prisma/enums';
 import { err, ok, Result } from 'neverthrow';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { KnowledgeSpace } from '../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../domain/repositories/knowledgeSpace.repo.interface';
+import {
+  toDomainRole,
+  toPrismaRole,
+  toPrismaType,
+} from './knowledgeSpace.mapper';
 
-function mapUserRoleToCommonRole(role: WorkSpaceRole): KnowledgeSpaceRole {
-  switch (role) {
-    case WorkSpaceRole.Owner:
-      return KnowledgeSpaceRole.Owner;
-    case WorkSpaceRole.Editor:
-      return KnowledgeSpaceRole.Editor;
-    case WorkSpaceRole.Viewer:
-      return KnowledgeSpaceRole.Viewer;
-    default:
-      throw new Error('Unknown role');
-  }
-}
-
-function mapCommonRoleToUserRole(role: KnowledgeSpaceRole): WorkSpaceRole {
-  switch (role) {
-    case KnowledgeSpaceRole.Owner:
-      return WorkSpaceRole.Owner;
-    case KnowledgeSpaceRole.Editor:
-      return WorkSpaceRole.Editor;
-    case KnowledgeSpaceRole.Viewer:
-      return WorkSpaceRole.Viewer;
-    default:
-      throw new Error('Unknown role');
-  }
-}
 export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
   constructor(private readonly prismaService: PrismaService) {}
   private readonly logger = new Logger(KnowledgeSpaceRepository.name);
@@ -45,15 +24,14 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
           publicId: newKnowledgeSpace.publicId,
           name: newKnowledgeSpace.name,
           description: newKnowledgeSpace.description,
-          type: newKnowledgeSpace.type,
-          createdBy: createbyUserId,
+          type: toPrismaType(newKnowledgeSpace.type),
           createdAt: newKnowledgeSpace.createdAt,
           updatedAt: newKnowledgeSpace.updatedAt,
           userWorkspaces: {
             create: {
               publicId: randomUUID(),
               userId: createbyUserId,
-              role: mapCommonRoleToUserRole(KnowledgeSpaceRole.Owner),
+              role: toPrismaRole(KnowledgeSpaceRole.Owner),
             },
           },
         },
@@ -81,7 +59,7 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
       if (!userRole) {
         return ok(null);
       }
-      return ok(mapUserRoleToCommonRole(userRole.role));
+      return ok(toDomainRole(userRole.role));
     } catch (error) {
       this.logger.error(
         'Failed to get user knowledge space role in repository',
@@ -101,7 +79,7 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
         data: {
           name: updatedKnowledgeSpace.name,
           description: updatedKnowledgeSpace.description,
-          type: updatedKnowledgeSpace.type,
+          type: toPrismaType(updatedKnowledgeSpace.type),
           updatedAt: updatedKnowledgeSpace.updatedAt,
         },
       });
