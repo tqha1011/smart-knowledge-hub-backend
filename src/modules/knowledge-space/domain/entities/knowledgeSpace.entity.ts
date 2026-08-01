@@ -21,6 +21,11 @@ export type KnowledgeSpaceCreateParams = Omit<
   'id' | 'publicId' | 'createdAt' | 'updatedAt'
 >;
 
+export type KnowledgeSpaceUpdateParams = Omit<
+  KnowledgeSpaceGetParams,
+  'id' | 'publicId' | 'createdAt'
+>;
+
 export class KnowledgeSpace {
   private constructor(private params: KnowledgeSpaceGetParams) {}
 
@@ -46,6 +51,24 @@ export class KnowledgeSpace {
 
   static getKnowledgeSpace(params: KnowledgeSpaceGetParams): KnowledgeSpace {
     return new KnowledgeSpace(params);
+  }
+
+  updateKnowledgeSpace(
+    params: KnowledgeSpaceUpdateParams,
+  ): Result<KnowledgeSpace, KnowledgeSpaceDomainValidationError> {
+    const validationResult = validateInformation(params);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+
+    const updatedParams: KnowledgeSpaceGetParams = {
+      ...this.params,
+      name: params.name,
+      description: params.description,
+      type: params.type,
+      updatedAt: new Date(),
+    };
+    return ok(new KnowledgeSpace(updatedParams));
   }
 
   get id(): number {
