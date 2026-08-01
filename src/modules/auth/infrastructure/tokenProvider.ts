@@ -11,10 +11,8 @@ export class TokenProvider implements ITokenProvider {
     email: string,
   ): Promise<Result<string, Error>> {
     const payload = { sub: userPublicId, email };
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET_KEY,
-      expiresIn: '1h', // Token expires in 1 hour
-    });
+    // secret and expiresIn come from JwtModule.registerAsync in auth.module.ts
+    const accessToken = await this.jwtService.signAsync(payload);
     return ok(accessToken);
   }
 }

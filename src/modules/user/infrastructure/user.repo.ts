@@ -46,6 +46,7 @@ export class UserRepository implements IUserRepository {
           email: newUser.email,
           username: newUser.username,
           password: newUser.password,
+          role: newUser.role === SystemRole.Admin ? Role.Admin : Role.Employee,
           createdAt: newUser.createdAt,
           updatedAt: newUser.updatedAt,
           avatarUrl: imageUrl,

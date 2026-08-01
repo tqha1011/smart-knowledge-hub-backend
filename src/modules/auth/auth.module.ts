@@ -1,13 +1,14 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthController } from './api/auth.controller';
 import { IAuthService } from './application/interfaces/auth.service.interface';
 import { AuthService } from './application/services/auth.service';
 import {
   IPasswordHasher,
   ITokenProvider,
 } from './domain/repositories/auth.interface';
-import { PasswordHasher } from './infrastructure/paswordHasher';
+import { PasswordHasher } from './infrastructure/passwordHasher';
 import { TokenProvider } from './infrastructure/tokenProvider';
 
 @Global()
@@ -30,6 +31,7 @@ import { TokenProvider } from './infrastructure/tokenProvider';
       },
     }),
   ],
+  controllers: [AuthController],
   providers: [
     {
       provide: ITokenProvider,
