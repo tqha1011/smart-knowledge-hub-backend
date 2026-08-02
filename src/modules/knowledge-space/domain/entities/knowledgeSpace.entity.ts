@@ -10,7 +10,7 @@ export type KnowledgeSpaceGetParams = {
   readonly id: number;
   readonly publicId: UUID;
   readonly name: string;
-  readonly description: string;
+  readonly description: string | null;
   readonly createdAt: Date;
   readonly type: KnowledgeSpaceType;
   updatedAt: Date;
@@ -23,7 +23,7 @@ export type KnowledgeSpaceCreateParams = Omit<
 
 export type KnowledgeSpaceUpdateParams = Omit<
   KnowledgeSpaceGetParams,
-  'id' | 'publicId' | 'createdAt'
+  'id' | 'publicId' | 'createdAt' | 'updatedAt'
 >;
 
 export class KnowledgeSpace {
@@ -51,6 +51,16 @@ export class KnowledgeSpace {
 
   static getKnowledgeSpace(params: KnowledgeSpaceGetParams): KnowledgeSpace {
     return new KnowledgeSpace(params);
+  }
+
+  /**
+   * Validates an update payload without loading the aggregate, for callers that
+   * only hold the knowledge space id (see IKnowledgeSpaceRepository.updateKnowledgeSpace).
+   */
+  static validateUpdate(
+    params: KnowledgeSpaceUpdateParams,
+  ): Result<undefined, KnowledgeSpaceDomainValidationError> {
+    return validateInformation(params);
   }
 
   updateKnowledgeSpace(
@@ -83,7 +93,7 @@ export class KnowledgeSpace {
     return this.params.name;
   }
 
-  get description(): string {
+  get description(): string | null {
     return this.params.description;
   }
 
@@ -112,7 +122,7 @@ function validateInformation(
     );
   }
 
-  if (params.description.length > 500) {
+  if (params.description && params.description.length > 500) {
     return err(
       new KnowledgeSpaceDomainValidationError(
         KnowledgeSpaceDomainError.DescriptionTooLong,
