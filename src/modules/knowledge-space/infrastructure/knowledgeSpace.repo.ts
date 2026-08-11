@@ -1,9 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { DocumentVisibility } from 'generated/prisma/enums';
 import { err, ok, Result } from 'neverthrow';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
-import { GetKnowledgeSpaceType } from '../application/dtos/knowledgeSpace.response.dto';
+import {
+  GetKnowledgeSpaceType,
+  GetUserKnowledgeSpace,
+} from '../application/dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../application/interfaces/knowledgeSpace-query.repo.interface';
 import {
   KnowledgeSpace,
@@ -17,6 +22,81 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getKnowledgeSpacesForUser(
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<GetUserKnowledgeSpace>, Error>> {
+    try {
+      const [knowledgeSpaces, totalKnowledgeSpaces] =
+        await this.prismaService.$transaction([
+          this.prismaService.knowledgeSpace.findMany({
+            where: {
+              userWorkspaces: {
+                some: {
+                  user: {
+                    publicId: userPublicId,
+                  },
+                },
+              },
+            },
+            select: {
+              publicId: true,
+              name: true,
+              description: true,
+              userWorkspaces: {
+                select: {
+                  role: true,
+                },
+              },
+              _count: {
+                select: {
+                  documents: {
+                    where: {
+                      visibility: DocumentVisibility.Public,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (pagination.pageNumber - 1) * pagination.pageSize,
+            take: pagination.pageSize,
+          }),
+          this.prismaService.knowledgeSpace.count({
+            where: {
+              userWorkspaces: {
+                some: {
+                  user: {
+                    publicId: userPublicId,
+                  },
+                },
+              },
+            },
+          }),
+        ]);
+      const response: GetUserKnowledgeSpace[] = knowledgeSpaces.map((ks) => ({
+        publicId: ks.publicId,
+        name: ks.name,
+        totalDocuments: ks._count.documents,
+        role: toDomainRole(ks.userWorkspaces[0].role),
+      }));
+      return ok(
+        new PageResult<GetUserKnowledgeSpace>(
+          response,
+          totalKnowledgeSpaces,
+          pagination.pageNumber,
+          pagination.pageNumber,
+          pagination.pageSize,
+        ),
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge spaces for user in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge spaces for user'));
+    }
+  }
   async getKnowledgeSpaceTypeIdByPublicId(
     publicId: string,
   ): Promise<Result<number | null, Error>> {
