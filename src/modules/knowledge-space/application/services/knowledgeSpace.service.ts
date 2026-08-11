@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
@@ -13,6 +13,7 @@ import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
+@Injectable()
 export class KnowledgeSpaceService implements IKnowledgeSpaceService {
   constructor(
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,

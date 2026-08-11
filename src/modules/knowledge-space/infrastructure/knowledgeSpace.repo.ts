@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
@@ -12,6 +12,7 @@ import {
 import { IKnowledgeSpaceRepository } from '../domain/repositories/knowledgeSpace.repo.interface';
 import { toDomainRole, toPrismaRole } from './knowledgeSpace.mapper';
 
+@Injectable()
 export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
