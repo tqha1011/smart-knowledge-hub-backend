@@ -1,14 +1,14 @@
 model Feedback {
-  id         Int         @id @default(autoincrement())
-  publicId   String      @unique @default(uuid()) @map("public_id")
-  userId     Int         @map("user_id")
-  messageId  Int         @map("message_id")
-  comment    String
-  rating     Rating
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  user       User        @relation(fields: [userId], references: [id])
-  message    ChatMessage @relation(fields: [messageId], references: [id])
+  id        Int         @id @default(autoincrement())
+  publicId  String      @unique @default(uuid()) @map("public_id")
+  userId    Int         @map("user_id")
+  messageId Int         @map("message_id")
+  comment   String
+  rating    Rating
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  user      User        @relation(fields: [userId], references: [id])
+  message   ChatMessage @relation(fields: [messageId], references: [id])
 
   @@unique([userId, messageId], name: "unique_feedback_per_user_per_message")
   @@index([userId])

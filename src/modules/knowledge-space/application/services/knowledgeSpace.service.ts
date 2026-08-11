@@ -41,10 +41,33 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
           ),
         );
       }
+
+      const typeIdResult =
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByName(
+          createKnowledgeSpaceDto.type,
+        );
+      if (typeIdResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space type id by name. ${typeIdResult.error.message}`,
+          ),
+        );
+      }
+      const typeId = typeIdResult.value;
+      if (typeId === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            `Knowledge space type ${createKnowledgeSpaceDto.type} does not exist`,
+          ),
+        );
+      }
+
       const result = KnowledgeSpace.create({
         name: createKnowledgeSpaceDto.name,
         description: createKnowledgeSpaceDto.description ?? null,
-        type: createKnowledgeSpaceDto.type,
+        typeId,
       });
       if (result.isErr()) {
         return err(
@@ -153,10 +176,32 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
         );
       }
 
+      const typeIdResult =
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByName(
+          updateKnowledgeSpaceDto.type,
+        );
+      if (typeIdResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space type id by name. ${typeIdResult.error.message}`,
+          ),
+        );
+      }
+      const typeId = typeIdResult.value;
+      if (typeId === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            `Knowledge space type ${updateKnowledgeSpaceDto.type} does not exist`,
+          ),
+        );
+      }
+
       const updateParams: KnowledgeSpaceUpdateParams = {
         name: updateKnowledgeSpaceDto.name,
         description: updateKnowledgeSpaceDto.description ?? null,
-        type: updateKnowledgeSpaceDto.type,
+        typeId,
       };
       const validationResult = KnowledgeSpace.validateUpdate(updateParams);
       if (validationResult.isErr()) {
