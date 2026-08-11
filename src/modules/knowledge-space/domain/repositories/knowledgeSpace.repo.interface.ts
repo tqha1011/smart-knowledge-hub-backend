@@ -24,4 +24,8 @@ export abstract class IKnowledgeSpaceRepository {
     knowledgeSpaceId: number,
     params: KnowledgeSpaceUpdateParams,
   ): Promise<Result<undefined, Error>>;
+
+  abstract getKnowledgeSpaceTypeIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>>;
 }

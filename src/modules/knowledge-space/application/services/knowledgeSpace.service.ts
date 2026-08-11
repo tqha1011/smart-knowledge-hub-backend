@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
@@ -8,15 +8,95 @@ import {
   KnowledgeSpaceUpdateParams,
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
-import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
+import {
+  AddKnowledgeSpaceTypeDto,
+  CreateKnowledgeSpaceDto,
+} from '../dtos/knowledgeSpace.request.dto';
+import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
+import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
+@Injectable()
 export class KnowledgeSpaceService implements IKnowledgeSpaceService {
   constructor(
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly userRepository: IUserRepository,
+    private readonly knowledgeSpaceQueryRepository: IKnowledgeSpaceQueryRepository,
   ) {}
   private readonly logger = new Logger(KnowledgeSpaceService.name);
+  async getKnowledgeSpaceTypes(): Promise<
+    Result<GetKnowledgeSpaceType[], AppError>
+  > {
+    try {
+      const result =
+        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypes();
+      if (result.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space types. ${result.error.message}`,
+          ),
+        );
+      }
+      return ok(result.value);
+    } catch (error) {
+      this.logger.error('Failed to get knowledge space types', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get knowledge space types',
+        ),
+      );
+    }
+  }
+  async addNewKnowledgeSpaceType(
+    addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const existingTypeIdResult =
+        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypeIdByName(
+          addKnowledgeSpaceTypeDto.name,
+        );
+      if (existingTypeIdResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space type id by name. ${existingTypeIdResult.error.message}`,
+          ),
+        );
+      }
+      if (existingTypeIdResult.value !== null) {
+        return err(
+          new AppError(
+            ErrorCode.Conflict,
+            `Knowledge space type ${addKnowledgeSpaceTypeDto.name} already exists`,
+          ),
+        );
+      }
+
+      const addResult =
+        await this.knowledgeSpaceQueryRepository.addNewKnowledgeSpaceType(
+          addKnowledgeSpaceTypeDto.name,
+        );
+      if (addResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to add new knowledge space type. ${addResult.error.message}`,
+          ),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to add new knowledge space type', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to add new knowledge space type',
+        ),
+      );
+    }
+  }
   async createKnowledgeSpace(
     userCreatePublicId: string,
     createKnowledgeSpaceDto: CreateKnowledgeSpaceDto,
@@ -41,10 +121,33 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
           ),
         );
       }
+
+      const typeIdResult =
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByPublicId(
+          createKnowledgeSpaceDto.typePublicId,
+        );
+      if (typeIdResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space type id by public id. ${typeIdResult.error.message}`,
+          ),
+        );
+      }
+      const typeId = typeIdResult.value;
+      if (typeId === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            `Knowledge space type ${createKnowledgeSpaceDto.typePublicId} does not exist`,
+          ),
+        );
+      }
+
       const result = KnowledgeSpace.create({
         name: createKnowledgeSpaceDto.name,
         description: createKnowledgeSpaceDto.description ?? null,
-        type: createKnowledgeSpaceDto.type,
+        typeId,
       });
       if (result.isErr()) {
         return err(
@@ -153,10 +256,32 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
         );
       }
 
+      const typeIdResult =
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByPublicId(
+          updateKnowledgeSpaceDto.typePublicId,
+        );
+      if (typeIdResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space type id by public id. ${typeIdResult.error.message}`,
+          ),
+        );
+      }
+      const typeId = typeIdResult.value;
+      if (typeId === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            `Knowledge space type ${updateKnowledgeSpaceDto.typePublicId} does not exist`,
+          ),
+        );
+      }
+
       const updateParams: KnowledgeSpaceUpdateParams = {
         name: updateKnowledgeSpaceDto.name,
         description: updateKnowledgeSpaceDto.description ?? null,
-        type: updateKnowledgeSpaceDto.type,
+        typeId,
       };
       const validationResult = KnowledgeSpace.validateUpdate(updateParams);
       if (validationResult.isErr()) {

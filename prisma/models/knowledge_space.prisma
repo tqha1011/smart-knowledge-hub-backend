@@ -3,7 +3,8 @@ model KnowledgeSpace {
   publicId            String               @unique @default(uuid()) @map("public_id")
   name                String
   description         String?
-  type                KnowledgeSpaceType
+  typeId              Int                  @map("type_id")
+  type                KnowledgeSpaceType   @relation(fields: [typeId], references: [id])
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
   userWorkspaces      UserWorkspace[]
@@ -15,4 +16,16 @@ model KnowledgeSpace {
   unansweredQuestions UnAnsweredQuestion[]
 
   @@map("knowledge_space")
+}
+
+model KnowledgeSpaceType {
+  id              Int              @id @default(autoincrement())
+  publicId        String           @unique @default(uuid()) @map("public_id")
+  name            String           @unique
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  knowledgeSpaces KnowledgeSpace[]
+
+  @@index([name])
+  @@map("knowledge_space_type")
 }

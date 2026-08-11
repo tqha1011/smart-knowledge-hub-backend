@@ -1,6 +1,5 @@
 import { UUID } from 'crypto';
 import { Result, err, ok } from 'neverthrow';
-import { KnowledgeSpaceType } from 'src/shared/domain/enum';
 import {
   KnowledgeSpaceDomainError,
   KnowledgeSpaceDomainValidationError,
@@ -12,7 +11,7 @@ export type KnowledgeSpaceGetParams = {
   readonly name: string;
   readonly description: string | null;
   readonly createdAt: Date;
-  readonly type: KnowledgeSpaceType;
+  readonly typeId: number;
   updatedAt: Date;
 };
 
@@ -42,7 +41,7 @@ export class KnowledgeSpace {
       publicId: crypto.randomUUID(),
       name: params.name,
       description: params.description,
-      type: params.type,
+      typeId: params.typeId,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -75,7 +74,7 @@ export class KnowledgeSpace {
       ...this.params,
       name: params.name,
       description: params.description,
-      type: params.type,
+      typeId: params.typeId,
       updatedAt: new Date(),
     };
     return ok(new KnowledgeSpace(updatedParams));
@@ -97,8 +96,8 @@ export class KnowledgeSpace {
     return this.params.description;
   }
 
-  get type(): KnowledgeSpaceType {
-    return this.params.type;
+  get typeId(): number {
+    return this.params.typeId;
   }
 
   get createdAt(): Date {
@@ -131,13 +130,5 @@ function validateInformation(
     );
   }
 
-  if (!Object.values(KnowledgeSpaceType).includes(params.type)) {
-    return err(
-      new KnowledgeSpaceDomainValidationError(
-        KnowledgeSpaceDomainError.InvalidType,
-        'The type of the knowledge space is invalid. It should be one of the predefined types.',
-      ),
-    );
-  }
   return ok(undefined);
 }

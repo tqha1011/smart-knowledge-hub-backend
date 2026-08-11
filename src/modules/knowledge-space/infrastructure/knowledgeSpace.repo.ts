@@ -1,21 +1,183 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { DocumentVisibility } from 'generated/prisma/enums';
 import { err, ok, Result } from 'neverthrow';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
+import {
+  GetKnowledgeSpaceType,
+  GetUserKnowledgeSpace,
+} from '../application/dtos/knowledgeSpace.response.dto';
+import { IKnowledgeSpaceQueryRepository } from '../application/interfaces/knowledgeSpace-query.repo.interface';
 import {
   KnowledgeSpace,
   KnowledgeSpaceUpdateParams,
 } from '../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../domain/repositories/knowledgeSpace.repo.interface';
-import {
-  toDomainRole,
-  toPrismaRole,
-  toPrismaType,
-} from './knowledgeSpace.mapper';
+import { toDomainRole, toPrismaRole } from './knowledgeSpace.mapper';
 
-export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
+@Injectable()
+export class KnowledgeSpaceRepository
+  implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
+{
   constructor(private readonly prismaService: PrismaService) {}
+  async addNewKnowledgeSpaceType(
+    name: string,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.knowledgeSpaceType.create({
+        data: {
+          publicId: randomUUID(),
+          name,
+        },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error(
+        'Failed to add new knowledge space type in repository',
+        error,
+      );
+      return err(new Error('Failed to add new knowledge space type'));
+    }
+  }
+  async getKnowledgeSpaceTypeIdByName(
+    name: string,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpaceType =
+        await this.prismaService.knowledgeSpaceType.findUnique({
+          where: { name },
+          select: { id: true },
+        });
+      return ok(knowledgeSpaceType?.id ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space type id by name in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space type id by name'));
+    }
+  }
+  async getKnowledgeSpacesForUser(
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<GetUserKnowledgeSpace>, Error>> {
+    try {
+      const [knowledgeSpaces, totalKnowledgeSpaces] =
+        await this.prismaService.$transaction([
+          this.prismaService.knowledgeSpace.findMany({
+            where: {
+              userWorkspaces: {
+                some: {
+                  user: {
+                    publicId: userPublicId,
+                  },
+                },
+              },
+            },
+            select: {
+              publicId: true,
+              name: true,
+              description: true,
+              userWorkspaces: {
+                select: {
+                  role: true,
+                },
+              },
+              _count: {
+                select: {
+                  documents: {
+                    where: {
+                      visibility: DocumentVisibility.Public,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (pagination.pageNumber - 1) * pagination.pageSize,
+            take: pagination.pageSize,
+          }),
+          this.prismaService.knowledgeSpace.count({
+            where: {
+              userWorkspaces: {
+                some: {
+                  user: {
+                    publicId: userPublicId,
+                  },
+                },
+              },
+            },
+          }),
+        ]);
+      const response: GetUserKnowledgeSpace[] = knowledgeSpaces.map((ks) => ({
+        publicId: ks.publicId,
+        name: ks.name,
+        totalDocuments: ks._count.documents,
+        role: toDomainRole(ks.userWorkspaces[0].role),
+      }));
+      return ok(
+        new PageResult<GetUserKnowledgeSpace>(
+          response,
+          totalKnowledgeSpaces,
+          pagination.pageNumber,
+          pagination.pageNumber,
+          pagination.pageSize,
+        ),
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge spaces for user in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge spaces for user'));
+    }
+  }
+  async getKnowledgeSpaceTypeIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpaceType =
+        await this.prismaService.knowledgeSpaceType.findUnique({
+          where: {
+            publicId,
+          },
+          select: {
+            id: true,
+          },
+        });
+      return ok(knowledgeSpaceType?.id ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space type id by public id in repository',
+        error,
+      );
+      return err(
+        new Error('Failed to get knowledge space type id by public id'),
+      );
+    }
+  }
+  async getKnowledgeSpaceTypes(): Promise<
+    Result<GetKnowledgeSpaceType[], Error>
+  > {
+    try {
+      const knowledgeSpaceTypes =
+        await this.prismaService.knowledgeSpaceType.findMany({
+          select: {
+            publicId: true,
+            name: true,
+          },
+        });
+      return ok(knowledgeSpaceTypes);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space types in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space types'));
+    }
+  }
   private readonly logger = new Logger(KnowledgeSpaceRepository.name);
   async create(
     newKnowledgeSpace: KnowledgeSpace,
@@ -27,7 +189,7 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
           publicId: newKnowledgeSpace.publicId,
           name: newKnowledgeSpace.name,
           description: newKnowledgeSpace.description,
-          type: toPrismaType(newKnowledgeSpace.type),
+          typeId: newKnowledgeSpace.typeId,
           createdAt: newKnowledgeSpace.createdAt,
           updatedAt: newKnowledgeSpace.updatedAt,
           userWorkspaces: {
@@ -107,7 +269,7 @@ export class KnowledgeSpaceRepository implements IKnowledgeSpaceRepository {
         data: {
           name: params.name,
           description: params.description,
-          type: toPrismaType(params.type),
+          typeId: params.typeId,
         },
       });
       return ok(undefined);

@@ -15,14 +15,20 @@ import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
 import type { JwtPayload } from 'src/shared/common/jwt.payload.interface';
+import { Roles } from 'src/shared/common/roles.decorator';
+import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
-import { CreateKnowledgeSpaceDto } from '../application/dtos/knowledgeSpace.request.dto';
+import { SystemRole } from 'src/shared/domain/enum';
+import {
+  AddKnowledgeSpaceTypeDto,
+  CreateKnowledgeSpaceDto,
+} from '../application/dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceService } from '../application/interfaces/knowledgeSpace.service.interface';
 
 @ApiTags('knowledge-spaces')
 @ApiBearerAuth()
 @Controller('api/knowledge-spaces')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class KnowledgeSpaceController {
   private readonly logger = new Logger(KnowledgeSpaceController.name);
   constructor(private readonly knowledgeSpaceService: IKnowledgeSpaceService) {}
@@ -43,6 +49,7 @@ export class KnowledgeSpaceController {
    * }
    */
   @ApiOperation({ summary: 'Create a new knowledge space' })
+  @Roles([SystemRole.Admin])
   @Post()
   async createKnowledgeSpace(
     @User() user: JwtPayload,
@@ -75,6 +82,7 @@ export class KnowledgeSpaceController {
   @ApiOperation({
     summary: 'Get the role of the current user in a knowledge space',
   })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get(':knowledgeSpacePublicId/role')
   async getUserKnowledgeSpaceRole(
     @User() user: JwtPayload,
@@ -113,6 +121,7 @@ export class KnowledgeSpaceController {
    * }
    */
   @ApiOperation({ summary: 'Update a knowledge space' })
+  @Roles([SystemRole.Admin])
   @Put(':knowledgeSpacePublicId')
   async updateKnowledgeSpace(
     @User() user: JwtPayload,
@@ -144,5 +153,49 @@ export class KnowledgeSpaceController {
       this.logger.error(`Unexpected error while ${action}:`, error.stack);
     }
     return toHttpException(error);
+  }
+
+  @Roles([SystemRole.Admin])
+  @Get('/types')
+  async getKnowledgeSpaceTypes() {
+    const result = await this.knowledgeSpaceService.getKnowledgeSpaceTypes();
+    return result.match(
+      (types) => {
+        return types;
+      },
+      (error: AppError) => {
+        throw this.toHttpError(error, 'reading knowledge space types');
+      },
+    );
+  }
+
+  /**
+   * Creates a new knowledge space type that can be referenced by `typePublicId`
+   * when creating or updating a knowledge space.
+   * @throws {400} when the name is missing or too long.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {409} when a type with the same name already exists.
+   * @throws {500} for any unexpected error while adding the type.
+   * @example
+   * POST /api/knowledge-spaces/types
+   * { "name": "HANDBOOK" }
+   */
+  @ApiOperation({ summary: 'Add a new knowledge space type' })
+  @Roles([SystemRole.Admin])
+  @Post('/types')
+  async addNewKnowledgeSpaceType(
+    @Body() addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
+  ) {
+    const result = await this.knowledgeSpaceService.addNewKnowledgeSpaceType(
+      addKnowledgeSpaceTypeDto,
+    );
+    return result.match(
+      () => {
+        return { message: 'Knowledge space type added successfully' };
+      },
+      (error: AppError) => {
+        throw this.toHttpError(error, 'adding a knowledge space type');
+      },
+    );
   }
 }

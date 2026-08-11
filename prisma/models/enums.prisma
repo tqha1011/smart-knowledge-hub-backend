@@ -1,13 +1,3 @@
-enum KnowledgeSpaceType {
-  DEPARTMENT
-  POLICY
-  HANDBOOK
-  ONBOARDING
-  SUPPORT
-  GUIDELINE
-  GENERAL
-}
-
 enum Role {
   Employee
   Admin
