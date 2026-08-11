@@ -1,5 +1,13 @@
 import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
+export class AddKnowledgeSpaceTypeDto {
+  @IsString({ message: 'Name must be a string' })
+  @MaxLength(100, {
+    message: 'Name should not exceed 100 characters long',
+  })
+  name!: string;
+}
+
 export class CreateKnowledgeSpaceDto {
   @IsString({ message: 'Name must be a string' })
   name!: string;

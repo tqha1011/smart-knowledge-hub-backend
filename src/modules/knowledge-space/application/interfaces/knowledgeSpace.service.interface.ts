@@ -1,6 +1,9 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
-import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
+import {
+  AddKnowledgeSpaceTypeDto,
+  CreateKnowledgeSpaceDto,
+} from '../dtos/knowledgeSpace.request.dto';
 import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
 
 export abstract class IKnowledgeSpaceService {
@@ -23,4 +26,8 @@ export abstract class IKnowledgeSpaceService {
   abstract getKnowledgeSpaceTypes(): Promise<
     Result<GetKnowledgeSpaceType[], AppError>
   >;
+
+  abstract addNewKnowledgeSpaceType(
+    addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
+  ): Promise<Result<undefined, AppError>>;
 }

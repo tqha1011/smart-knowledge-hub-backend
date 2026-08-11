@@ -14,4 +14,12 @@ export abstract class IKnowledgeSpaceQueryRepository {
     userPublicId: string,
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<GetUserKnowledgeSpace>, Error>>;
+
+  abstract addNewKnowledgeSpaceType(
+    name: string,
+  ): Promise<Result<undefined, Error>>;
+
+  abstract getKnowledgeSpaceTypeIdByName(
+    name: string,
+  ): Promise<Result<number | null, Error>>;
 }

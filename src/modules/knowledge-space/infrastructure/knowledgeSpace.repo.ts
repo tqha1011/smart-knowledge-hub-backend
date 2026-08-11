@@ -22,6 +22,43 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async addNewKnowledgeSpaceType(
+    name: string,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.knowledgeSpaceType.create({
+        data: {
+          publicId: randomUUID(),
+          name,
+        },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error(
+        'Failed to add new knowledge space type in repository',
+        error,
+      );
+      return err(new Error('Failed to add new knowledge space type'));
+    }
+  }
+  async getKnowledgeSpaceTypeIdByName(
+    name: string,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpaceType =
+        await this.prismaService.knowledgeSpaceType.findUnique({
+          where: { name },
+          select: { id: true },
+        });
+      return ok(knowledgeSpaceType?.id ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space type id by name in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space type id by name'));
+    }
+  }
   async getKnowledgeSpacesForUser(
     userPublicId: string,
     pagination: PaginationRequest,

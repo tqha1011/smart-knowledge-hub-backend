@@ -19,7 +19,10 @@ import { Roles } from 'src/shared/common/roles.decorator';
 import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
 import { SystemRole } from 'src/shared/domain/enum';
-import { CreateKnowledgeSpaceDto } from '../application/dtos/knowledgeSpace.request.dto';
+import {
+  AddKnowledgeSpaceTypeDto,
+  CreateKnowledgeSpaceDto,
+} from '../application/dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceService } from '../application/interfaces/knowledgeSpace.service.interface';
 
 @ApiTags('knowledge-spaces')
@@ -162,6 +165,36 @@ export class KnowledgeSpaceController {
       },
       (error: AppError) => {
         throw this.toHttpError(error, 'reading knowledge space types');
+      },
+    );
+  }
+
+  /**
+   * Creates a new knowledge space type that can be referenced by `typePublicId`
+   * when creating or updating a knowledge space.
+   * @throws {400} when the name is missing or too long.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {409} when a type with the same name already exists.
+   * @throws {500} for any unexpected error while adding the type.
+   * @example
+   * POST /api/knowledge-spaces/types
+   * { "name": "HANDBOOK" }
+   */
+  @ApiOperation({ summary: 'Add a new knowledge space type' })
+  @Roles([SystemRole.Admin])
+  @Post('/types')
+  async addNewKnowledgeSpaceType(
+    @Body() addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
+  ) {
+    const result = await this.knowledgeSpaceService.addNewKnowledgeSpaceType(
+      addKnowledgeSpaceTypeDto,
+    );
+    return result.match(
+      () => {
+        return { message: 'Knowledge space type added successfully' };
+      },
+      (error: AppError) => {
+        throw this.toHttpError(error, 'adding a knowledge space type');
       },
     );
   }
