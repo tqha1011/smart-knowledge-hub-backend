@@ -26,7 +26,6 @@ model KnowledgeSpaceType {
   updatedAt       DateTime         @updatedAt @map("updated_at")
   knowledgeSpaces KnowledgeSpace[]
 
-  @@unique([name], name: "unique_knowledge_space_type_name")
   @@index([name])
   @@map("knowledge_space_type")
 }
