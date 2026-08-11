@@ -1,11 +1,4 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-} from 'class-validator';
-import { KnowledgeSpaceType } from 'src/shared/domain/enum';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateKnowledgeSpaceDto {
   @IsString({ message: 'Name must be a string' })
@@ -17,9 +10,6 @@ export class CreateKnowledgeSpaceDto {
   })
   description?: string | null;
 
-  @IsEnum(KnowledgeSpaceType, {
-    message: 'Type must be a valid KnowledgeSpaceType',
-  })
   @IsUUID()
   typePublicId!: string;
 }

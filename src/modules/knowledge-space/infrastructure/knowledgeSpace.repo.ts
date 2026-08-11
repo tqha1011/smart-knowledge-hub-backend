@@ -163,23 +163,4 @@ export class KnowledgeSpaceRepository
       return err(new Error('Failed to update knowledge space'));
     }
   }
-
-  async getKnowledgeSpaceTypeIdByName(
-    name: string,
-  ): Promise<Result<number | null, Error>> {
-    try {
-      const knowledgeSpaceType =
-        await this.prismaService.knowledgeSpaceType.findUnique({
-          where: { name },
-          select: { id: true },
-        });
-      return ok(knowledgeSpaceType?.id ?? null);
-    } catch (error) {
-      this.logger.error(
-        'Failed to get knowledge space type id by name in repository',
-        error,
-      );
-      return err(new Error('Failed to get knowledge space type id by name'));
-    }
-  }
 }

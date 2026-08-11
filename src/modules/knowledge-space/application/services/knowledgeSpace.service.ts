@@ -9,13 +9,41 @@ import {
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
 import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
+import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
+import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
 export class KnowledgeSpaceService implements IKnowledgeSpaceService {
   constructor(
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly userRepository: IUserRepository,
+    private readonly knowledgeSpaceQueryRepository: IKnowledgeSpaceQueryRepository,
   ) {}
+  async getKnowledgeSpaceTypes(): Promise<
+    Result<GetKnowledgeSpaceType[], AppError>
+  > {
+    try {
+      const result =
+        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypes();
+      if (result.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get knowledge space types. ${result.error.message}`,
+          ),
+        );
+      }
+      return ok(result.value);
+    } catch (error) {
+      this.logger.error('Failed to get knowledge space types', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get knowledge space types',
+        ),
+      );
+    }
+  }
   private readonly logger = new Logger(KnowledgeSpaceService.name);
   async createKnowledgeSpace(
     userCreatePublicId: string,

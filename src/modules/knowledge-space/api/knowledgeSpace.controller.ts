@@ -151,4 +151,18 @@ export class KnowledgeSpaceController {
     }
     return toHttpException(error);
   }
+
+  @Roles([SystemRole.Admin])
+  @Get('/types')
+  async getKnowledgeSpaceTypes() {
+    const result = await this.knowledgeSpaceService.getKnowledgeSpaceTypes();
+    return result.match(
+      (types) => {
+        return types;
+      },
+      (error: AppError) => {
+        throw this.toHttpError(error, 'reading knowledge space types');
+      },
+    );
+  }
 }
