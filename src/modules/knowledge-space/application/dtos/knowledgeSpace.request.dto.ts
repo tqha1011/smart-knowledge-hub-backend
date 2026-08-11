@@ -20,7 +20,8 @@ export class CreateKnowledgeSpaceDto {
   @IsEnum(KnowledgeSpaceType, {
     message: 'Type must be a valid KnowledgeSpaceType',
   })
-  type!: KnowledgeSpaceType;
+  @IsUUID()
+  typePublicId!: string;
 }
 
 export class UpdateKnowledgeSpaceDto {
@@ -39,8 +40,6 @@ export class UpdateKnowledgeSpaceDto {
   description?: string | null;
 
   @IsOptional()
-  @IsEnum(KnowledgeSpaceType, {
-    message: 'Type must be a valid KnowledgeSpaceType',
-  })
-  type?: KnowledgeSpaceType;
+  @IsUUID()
+  typePublicId?: string | null;
 }

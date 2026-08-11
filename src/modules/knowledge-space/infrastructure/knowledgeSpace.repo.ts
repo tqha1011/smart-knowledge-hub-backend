@@ -16,6 +16,30 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getKnowledgeSpaceTypeIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpaceType =
+        await this.prismaService.knowledgeSpaceType.findUnique({
+          where: {
+            publicId,
+          },
+          select: {
+            id: true,
+          },
+        });
+      return ok(knowledgeSpaceType?.id ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space type id by public id in repository',
+        error,
+      );
+      return err(
+        new Error('Failed to get knowledge space type id by public id'),
+      );
+    }
+  }
   async getKnowledgeSpaceTypes(): Promise<
     Result<GetKnowledgeSpaceType[], Error>
   > {

@@ -28,4 +28,8 @@ export abstract class IKnowledgeSpaceRepository {
   abstract getKnowledgeSpaceTypeIdByName(
     name: string,
   ): Promise<Result<number | null, Error>>;
+
+  abstract getKnowledgeSpaceTypeIdByPublicId(
+    publicId: string,
+  ): Promise<Result<number | null, Error>>;
 }

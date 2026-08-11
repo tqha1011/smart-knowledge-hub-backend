@@ -43,14 +43,14 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
       }
 
       const typeIdResult =
-        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByName(
-          createKnowledgeSpaceDto.type,
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByPublicId(
+          createKnowledgeSpaceDto.typePublicId,
         );
       if (typeIdResult.isErr()) {
         return err(
           new AppError(
             ErrorCode.InternalServerError,
-            `Failed to get knowledge space type id by name. ${typeIdResult.error.message}`,
+            `Failed to get knowledge space type id by public id. ${typeIdResult.error.message}`,
           ),
         );
       }
@@ -59,7 +59,7 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
         return err(
           new AppError(
             ErrorCode.BadRequest,
-            `Knowledge space type ${createKnowledgeSpaceDto.type} does not exist`,
+            `Knowledge space type ${createKnowledgeSpaceDto.typePublicId} does not exist`,
           ),
         );
       }
@@ -177,14 +177,14 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
       }
 
       const typeIdResult =
-        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByName(
-          updateKnowledgeSpaceDto.type,
+        await this.knowledgeSpaceRepository.getKnowledgeSpaceTypeIdByPublicId(
+          updateKnowledgeSpaceDto.typePublicId,
         );
       if (typeIdResult.isErr()) {
         return err(
           new AppError(
             ErrorCode.InternalServerError,
-            `Failed to get knowledge space type id by name. ${typeIdResult.error.message}`,
+            `Failed to get knowledge space type id by public id. ${typeIdResult.error.message}`,
           ),
         );
       }
@@ -193,7 +193,7 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
         return err(
           new AppError(
             ErrorCode.BadRequest,
-            `Knowledge space type ${updateKnowledgeSpaceDto.type} does not exist`,
+            `Knowledge space type ${updateKnowledgeSpaceDto.typePublicId} does not exist`,
           ),
         );
       }
