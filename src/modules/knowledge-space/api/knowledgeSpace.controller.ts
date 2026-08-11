@@ -15,14 +15,17 @@ import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
 import type { JwtPayload } from 'src/shared/common/jwt.payload.interface';
+import { Roles } from 'src/shared/common/roles.decorator';
+import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
+import { SystemRole } from 'src/shared/domain/enum';
 import { CreateKnowledgeSpaceDto } from '../application/dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceService } from '../application/interfaces/knowledgeSpace.service.interface';
 
 @ApiTags('knowledge-spaces')
 @ApiBearerAuth()
 @Controller('api/knowledge-spaces')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class KnowledgeSpaceController {
   private readonly logger = new Logger(KnowledgeSpaceController.name);
   constructor(private readonly knowledgeSpaceService: IKnowledgeSpaceService) {}
@@ -43,6 +46,7 @@ export class KnowledgeSpaceController {
    * }
    */
   @ApiOperation({ summary: 'Create a new knowledge space' })
+  @Roles([SystemRole.Admin])
   @Post()
   async createKnowledgeSpace(
     @User() user: JwtPayload,
@@ -75,6 +79,7 @@ export class KnowledgeSpaceController {
   @ApiOperation({
     summary: 'Get the role of the current user in a knowledge space',
   })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get(':knowledgeSpacePublicId/role')
   async getUserKnowledgeSpaceRole(
     @User() user: JwtPayload,
@@ -113,6 +118,7 @@ export class KnowledgeSpaceController {
    * }
    */
   @ApiOperation({ summary: 'Update a knowledge space' })
+  @Roles([SystemRole.Admin])
   @Put(':knowledgeSpacePublicId')
   async updateKnowledgeSpace(
     @User() user: JwtPayload,
