@@ -2,7 +2,7 @@ model Document {
   id                  Int                  @id @default(autoincrement())
   publicId            String               @unique @default(uuid()) @map("public_id")
   title               String
-  content             String
+  content             String?
   description         String?
   status              DocumentStatus       @default(Processing)
   storagePath         String               @map("storage_path")
