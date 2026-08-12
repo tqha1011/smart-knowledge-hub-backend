@@ -18,3 +18,21 @@ export enum KnowledgeSpaceType {
   GUIDELINE = 'GUIDELINE',
   GENERAL = 'GENERAL',
 }
+
+export enum CommonDocumentType {
+  PDF = 'PDF',
+  DOCX = 'DOCX',
+  TXT = 'TXT',
+  MD = 'MD',
+}
+
+export enum CommonDocumentStatus {
+  Processing = 'Processing',
+  Ready = 'Ready',
+  Failed = 'Failed',
+}
+
+export enum CommonDocumentVisibility {
+  Public = 'Public',
+  Restricted = 'Restricted',
+}
