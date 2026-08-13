@@ -66,6 +66,66 @@ export class Document {
     );
   }
 
+  get id(): number {
+    return this.params.id;
+  }
+
+  get publicId(): string {
+    return this.params.publicId;
+  }
+
+  get title(): string {
+    return this.params.title;
+  }
+
+  get description(): string | null {
+    return this.params.description;
+  }
+
+  get content(): string | null {
+    return this.params.content;
+  }
+
+  get authorId(): number {
+    return this.params.authorId;
+  }
+
+  get knowledgeSpaceId(): number {
+    return this.params.knowledgeSpaceId;
+  }
+
+  get categoryId(): number {
+    return this.params.categoryId;
+  }
+
+  get status(): CommonDocumentStatus {
+    return this.params.status;
+  }
+
+  get visibility(): CommonDocumentVisibility {
+    return this.params.visibility;
+  }
+
+  get storagePath(): string {
+    return this.params.storagePath;
+  }
+
+  get fileSize(): number {
+    return this.params.fileSize;
+  }
+
+  get fileType(): CommonDocumentType {
+    return this.params.fileType;
+  }
+
+  get createdAt(): Date {
+    return this.params.createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this.params.updatedAt;
+  }
+
   private static valideteInformation(
     params: DocumentCreateParams,
   ): Result<undefined, DocumentDomainErrorValidation> {
