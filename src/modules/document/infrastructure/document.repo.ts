@@ -23,6 +23,8 @@ export class DocumentRepository implements IDocumentRepository {
           storagePath: newDocument.storagePath,
           fileSize: newDocument.fileSize,
           fileType: newDocument.fileType,
+          createdAt: newDocument.createdAt,
+          updatedAt: newDocument.updatedAt,
         },
       });
       return ok(undefined);
