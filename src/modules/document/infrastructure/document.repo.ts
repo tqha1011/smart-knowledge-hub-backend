@@ -3,6 +3,7 @@ import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { Document } from '../domain/entities/document.entity';
 import { IDocumentRepository } from '../domain/repositories/document.repo.interface';
+import { toPrismaStatus } from './document.mapper';
 
 export class DocumentRepository implements IDocumentRepository {
   private readonly logger = new Logger(DocumentRepository.name);
@@ -18,7 +19,7 @@ export class DocumentRepository implements IDocumentRepository {
           authorId: newDocument.authorId,
           knowledgeSpaceId: newDocument.knowledgeSpaceId,
           categoryId: newDocument.categoryId,
-          status: newDocument.status,
+          status: toPrismaStatus(newDocument.status),
           visibility: newDocument.visibility,
           storagePath: newDocument.storagePath,
           fileSize: newDocument.fileSize,
