@@ -14,4 +14,5 @@ export type DocumentListResponseDto = {
     name: string;
     avatarUrl: string | null;
   };
+  cited: number;
 };
