@@ -24,6 +24,7 @@ model Document {
   @@unique([id, storagePath], name: "unique_document_storage_path_per_workspace")
   @@index([knowledgeSpaceId])
   @@index([authorId])
+  @@index([categoryId])
   @@map("document")
 }
 
