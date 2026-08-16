@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
@@ -11,6 +11,7 @@ import { Document } from '../domain/entities/document.entity';
 import { IDocumentRepository } from '../domain/repositories/document.repo.interface';
 import { toDomainType, toPrismaStatus } from './document.mapper';
 
+@Injectable()
 export class DocumentRepository
   implements IDocumentRepository, IDocumentQueryRepository
 {
