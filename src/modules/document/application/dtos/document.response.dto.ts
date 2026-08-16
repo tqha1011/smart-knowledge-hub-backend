@@ -20,6 +20,7 @@ export type DocumentListResponseDto = {
 export type DocumentDetailResponseDto = {
   publicId: string;
   title: string;
+  description: string | null;
   fileType: CommonDocumentType;
   fileSize: number;
   content: string | null;

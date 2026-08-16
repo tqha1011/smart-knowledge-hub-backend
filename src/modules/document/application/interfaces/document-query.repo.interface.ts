@@ -1,5 +1,8 @@
 import { Result } from 'neverthrow';
-import { DocumentListResponseDto } from '../dtos/document.response.dto';
+import {
+  DocumentDetailResponseDto,
+  DocumentListResponseDto,
+} from '../dtos/document.response.dto';
 import {
   PageResult,
   PaginationRequest,
@@ -10,4 +13,9 @@ export abstract class IDocumentQueryRepository {
     knowledgeSpaceId: number,
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<DocumentListResponseDto>, Error>>;
+
+  abstract getDocumentDetail(
+    knowledgeSpaceId: number,
+    documentPublicId: string,
+  ): Promise<Result<DocumentDetailResponseDto | null, Error>>;
 }
