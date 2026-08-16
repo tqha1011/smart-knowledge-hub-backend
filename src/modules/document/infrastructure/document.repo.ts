@@ -49,6 +49,8 @@ export class DocumentRepository
             },
           },
           answerSources: {
+            orderBy: { message: { createdAt: 'desc' } },
+            take: 5, // only take the latest 5 cited questions
             select: {
               message: {
                 select: {
