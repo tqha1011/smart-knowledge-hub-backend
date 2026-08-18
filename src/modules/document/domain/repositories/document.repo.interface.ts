@@ -1,10 +1,12 @@
 import { Result } from 'neverthrow';
+import { CommonDocumentVisibility } from 'src/shared/domain/enum';
 import { Document } from '../entities/document.entity';
 
 export type DocumentStorageData = {
   id: number;
   storagePath: string;
   fileName: string;
+  visibility: CommonDocumentVisibility;
 };
 export abstract class IDocumentRepository {
   abstract getDocumentIdByPublicId(

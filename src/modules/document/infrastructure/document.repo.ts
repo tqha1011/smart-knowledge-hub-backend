@@ -12,7 +12,11 @@ import {
   DocumentStorageData,
   IDocumentRepository,
 } from '../domain/repositories/document.repo.interface';
-import { toDomainType, toPrismaStatus } from './document.mapper';
+import {
+  toDomainType,
+  toDomainVisibility,
+  toPrismaStatus,
+} from './document.mapper';
 
 @Injectable()
 export class DocumentRepository
@@ -27,7 +31,7 @@ export class DocumentRepository
     try {
       const document = await this.prismaService.document.findUnique({
         where: { publicId, knowledgeSpaceId },
-        select: { id: true, storagePath: true, title: true },
+        select: { id: true, storagePath: true, title: true, visibility: true },
       });
       if (!document) {
         return ok(null);
@@ -36,6 +40,7 @@ export class DocumentRepository
         id: document.id,
         storagePath: document.storagePath,
         fileName: document.title,
+        visibility: toDomainVisibility(document.visibility),
       });
     } catch (error) {
       this.logger.error(
