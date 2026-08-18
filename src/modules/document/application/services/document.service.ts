@@ -13,6 +13,7 @@ import {
 } from 'src/shared/domain/enum';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
+import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
 import {
   DocumentCreateRequestDto,
@@ -40,6 +41,7 @@ export class DocumentService implements IDocumentService {
     private readonly categoryRepository: ICategoryRepository,
     private readonly userRepository: IUserRepository,
     private readonly fileStorage: IFileStorage,
+    private readonly documentPermissionRepository: IDocumentPermissionRepository,
   ) {}
 
   async getUploadUrlAsync(
@@ -136,6 +138,26 @@ export class DocumentService implements IDocumentService {
       }
       if (documentData.value === null) {
         return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      if (
+        documentData.value.visibility === CommonDocumentVisibility.Restricted
+      ) {
+        const permissionResult =
+          await this.documentPermissionRepository.checkDocumentPermission(
+            documentData.value.id,
+            membership.value.userId,
+          );
+        if (permissionResult.isErr()) {
+          return err(
+            new AppError(
+              ErrorCode.InternalServerError,
+              'Failed to check document permission',
+            ),
+          );
+        }
+        if (permissionResult.value === null) {
+          return err(new AppError(ErrorCode.Forbidden, 'Access denied'));
+        }
       }
       const downloadUrl = await this.fileStorage.GetDownloadUrl(
         documentData.value.storagePath,
