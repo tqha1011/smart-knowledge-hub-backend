@@ -5,5 +5,5 @@ export abstract class IDocumentPermissionRepository {
   abstract checkDocumentPermission(
     documentId: number,
     userId: number,
-  ): Promise<Result<CommonPermissionType, Error>>;
+  ): Promise<Result<CommonPermissionType | null, Error>>;
 }
