@@ -2,6 +2,7 @@ import { Result } from 'neverthrow';
 import { Document } from '../entities/document.entity';
 
 export type DocumentStorageData = {
+  id: number;
   storagePath: string;
   fileName: string;
 };

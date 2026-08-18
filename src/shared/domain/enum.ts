@@ -36,3 +36,9 @@ export enum CommonDocumentVisibility {
   Public = 'Public',
   Restricted = 'Restricted',
 }
+
+export enum CommonPermissionType {
+  Read = 'Read',
+  Edit = 'Edit',
+  Manage = 'Manage',
+}

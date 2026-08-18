@@ -27,12 +27,13 @@ export class DocumentRepository
     try {
       const document = await this.prismaService.document.findUnique({
         where: { publicId, knowledgeSpaceId },
-        select: { storagePath: true, title: true },
+        select: { id: true, storagePath: true, title: true },
       });
       if (!document) {
         return ok(null);
       }
       return ok({
+        id: document.id,
         storagePath: document.storagePath,
         fileName: document.title,
       });
