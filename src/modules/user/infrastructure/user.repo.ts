@@ -6,7 +6,10 @@ import { err, ok, Result } from 'neverthrow';
 import { SystemRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { User } from '../domain/entities/user.entity';
-import { IUserRepository } from '../domain/repositories/user.repo.interface';
+import {
+  IUserRepository,
+  UserData,
+} from '../domain/repositories/user.repo.interface';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -14,6 +17,26 @@ export class UserRepository implements IUserRepository {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+  async GetUserDataByPublicId(
+    publicId: string,
+  ): Promise<Result<UserData | null, Error>> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { publicId },
+        select: { id: true, username: true, avatarUrl: true },
+      });
+      if (!user) {
+        return ok(null);
+      }
+      return ok({
+        id: user.id,
+        name: user.username,
+        avatarUrl: user.avatarUrl,
+      });
+    } catch (error) {
+      return err(new Error(`Failed to get user data by public ID. ${error}`));
+    }
+  }
   async GetUserIdByPublicId(
     publicId: string,
   ): Promise<Result<number | null, Error>> {
