@@ -6,6 +6,7 @@ import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/re
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
+import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
 import { DocumentCreateRequestDto } from '../dtos/document.request.dto';
@@ -19,6 +20,7 @@ export class DocumentService implements IDocumentService {
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly categoryRepository: ICategoryRepository,
     private readonly userRepository: IUserRepository,
+    private readonly fileStorage: IFileStorage,
   ) {}
   async createDocumentAsync(
     knowledgeSpacePublicId: string,
