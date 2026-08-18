@@ -104,6 +104,56 @@ export class DocumentService implements IDocumentService {
     }
   }
 
+  async getDownloadUrlAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<string, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'download/watch document',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+      const documentData =
+        await this.documentRepository.getDocumentStorageDataByPublicId(
+          documentPublicId,
+        );
+      if (documentData.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to resolve document storage data',
+          ),
+        );
+      }
+      if (documentData.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      const downloadUrl = await this.fileStorage.GetDownloadUrl(
+        documentData.value.storagePath,
+        documentData.value.fileName,
+      );
+      if (downloadUrl.isErr()) {
+        return err(downloadUrl.error);
+      }
+      return ok(downloadUrl.value);
+    } catch (error) {
+      this.logger.error('Failed to generate document download URL', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to generate document download URL',
+        ),
+      );
+    }
+  }
   async createDocumentAsync(
     knowledgeSpacePublicId: string,
     userPublicId: string,
