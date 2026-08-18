@@ -21,6 +21,13 @@ export abstract class IDocumentService {
     documentUploadUrlRequestDto: DocumentUploadUrlRequestDto,
   ): Promise<Result<DocumentUploadUrlResponseDto, AppError>>;
 
+  /** Short-lived read URL for the stored file; the browser opens it directly. */
+  abstract getDownloadUrlAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<string, AppError>>;
+
   abstract createDocumentAsync(
     knowledgeSpacePublicId: string,
     userPublicId: string,

@@ -22,10 +22,11 @@ export class DocumentRepository
   constructor(private readonly prismaService: PrismaService) {}
   async getDocumentStorageDataByPublicId(
     publicId: string,
+    knowledgeSpaceId: number,
   ): Promise<Result<DocumentStorageData | null, Error>> {
     try {
       const document = await this.prismaService.document.findUnique({
-        where: { publicId },
+        where: { publicId, knowledgeSpaceId },
         select: { storagePath: true, title: true },
       });
       if (!document) {

@@ -124,6 +124,7 @@ export class DocumentService implements IDocumentService {
       const documentData =
         await this.documentRepository.getDocumentStorageDataByPublicId(
           documentPublicId,
+          membership.value.knowledgeSpaceId,
         );
       if (documentData.isErr()) {
         return err(

@@ -14,7 +14,9 @@ export abstract class IDocumentRepository {
     newDocument: Document,
   ): Promise<Result<undefined, Error>>;
 
+  /** Scoped by knowledge space so a member of one cannot reach another's files. */
   abstract getDocumentStorageDataByPublicId(
     publicId: string,
+    knowledgeSpaceId: number,
   ): Promise<Result<DocumentStorageData | null, Error>>;
 }
