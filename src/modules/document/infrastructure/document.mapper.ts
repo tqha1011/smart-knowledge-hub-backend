@@ -2,6 +2,7 @@ import { DocumentStatus, FileType } from 'generated/prisma/enums';
 import {
   CommonDocumentStatus,
   CommonDocumentType,
+  CommonDocumentVisibility,
 } from 'src/shared/domain/enum';
 
 const roleToPrisma: Record<CommonDocumentStatus, DocumentStatus> = {
@@ -29,6 +30,28 @@ const typeToDomain: Record<FileType, CommonDocumentType> = {
   [FileType.TXT]: CommonDocumentType.TXT,
   [FileType.MD]: CommonDocumentType.MD,
 };
+
+const visibilityToPrisma: Record<CommonDocumentVisibility, string> = {
+  [CommonDocumentVisibility.Public]: 'Public',
+  [CommonDocumentVisibility.Restricted]: 'Restricted',
+};
+
+const visibilityToDomain: Record<string, CommonDocumentVisibility> = {
+  ['Public']: CommonDocumentVisibility.Public,
+  ['Restricted']: CommonDocumentVisibility.Restricted,
+};
+
+export function toPrismaVisibility(
+  visibility: CommonDocumentVisibility,
+): string {
+  return visibilityToPrisma[visibility];
+}
+
+export function toDomainVisibility(
+  visibility: string,
+): CommonDocumentVisibility {
+  return visibilityToDomain[visibility];
+}
 
 export function toPrismaStatus(status: CommonDocumentStatus): DocumentStatus {
   return roleToPrisma[status];

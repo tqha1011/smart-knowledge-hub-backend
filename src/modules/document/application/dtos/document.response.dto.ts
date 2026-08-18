@@ -1,5 +1,12 @@
 import { CommonDocumentType } from 'src/shared/domain/enum';
 
+export type DocumentUploadUrlResponseDto = {
+  uploadUrl: string;
+  /** Send this back with the create request so the server can find the uploaded file. */
+  storageKey: string;
+  expiresAt: Date;
+};
+
 export type DocumentListResponseDto = {
   publicId: string;
   title: string;

@@ -14,7 +14,10 @@ import {
   KnowledgeSpace,
   KnowledgeSpaceUpdateParams,
 } from '../domain/entities/knowledgeSpace.entity';
-import { IKnowledgeSpaceRepository } from '../domain/repositories/knowledgeSpace.repo.interface';
+import {
+  IKnowledgeSpaceRepository,
+  KnowledgeSpaceMembership,
+} from '../domain/repositories/knowledgeSpace.repo.interface';
 import { toDomainRole, toPrismaRole } from './knowledgeSpace.mapper';
 
 @Injectable()
@@ -22,6 +25,42 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getMembershipInKnowledgeSpace(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+  ): Promise<Result<KnowledgeSpaceMembership | null, Error>> {
+    try {
+      const member = await this.prismaService.userWorkspace.findFirst({
+        where: {
+          user: {
+            publicId: userPublicId,
+          },
+          knowledgeSpace: {
+            publicId: knowledgeSpacePublicId,
+          },
+        },
+        select: {
+          knowledgeSpaceId: true,
+          userId: true,
+          role: true,
+        },
+      });
+      if (!member) {
+        return ok(null);
+      }
+      return ok({
+        userId: member.userId,
+        knowledgeSpaceId: member.knowledgeSpaceId,
+        role: toDomainRole(member.role),
+      });
+    } catch (error) {
+      this.logger.error(
+        'Failed to get membership in knowledge space in repository',
+        error,
+      );
+      return err(new Error('Failed to get membership in knowledge space'));
+    }
+  }
   async addNewKnowledgeSpaceType(
     name: string,
   ): Promise<Result<undefined, Error>> {

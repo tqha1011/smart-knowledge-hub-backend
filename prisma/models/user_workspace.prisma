@@ -7,7 +7,7 @@ model UserWorkspace {
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
   user             User           @relation(fields: [userId], references: [id])
-  workspace        KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
 
   @@index([userId])
   @@index([knowledgeSpaceId])

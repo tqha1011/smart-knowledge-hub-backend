@@ -8,8 +8,15 @@ import {
 } from '../application/dtos/document.response.dto';
 import { IDocumentQueryRepository } from '../application/interfaces/document-query.repo.interface';
 import { Document } from '../domain/entities/document.entity';
-import { IDocumentRepository } from '../domain/repositories/document.repo.interface';
-import { toDomainType, toPrismaStatus } from './document.mapper';
+import {
+  DocumentStorageData,
+  IDocumentRepository,
+} from '../domain/repositories/document.repo.interface';
+import {
+  toDomainType,
+  toDomainVisibility,
+  toPrismaStatus,
+} from './document.mapper';
 
 @Injectable()
 export class DocumentRepository
@@ -17,6 +24,31 @@ export class DocumentRepository
 {
   private readonly logger = new Logger(DocumentRepository.name);
   constructor(private readonly prismaService: PrismaService) {}
+  async getDocumentStorageDataByPublicId(
+    publicId: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<DocumentStorageData | null, Error>> {
+    try {
+      const document = await this.prismaService.document.findUnique({
+        where: { publicId, knowledgeSpaceId },
+        select: { id: true, storagePath: true, title: true, visibility: true },
+      });
+      if (!document) {
+        return ok(null);
+      }
+      return ok({
+        id: document.id,
+        storagePath: document.storagePath,
+        fileName: document.title,
+        visibility: toDomainVisibility(document.visibility),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to get document storage data by public ID: ${error}`,
+      );
+      return err(new Error(`Failed to get document storage data by public ID`));
+    }
+  }
   async getDocumentDetail(
     knowledgeSpaceId: number,
     documentPublicId: string,

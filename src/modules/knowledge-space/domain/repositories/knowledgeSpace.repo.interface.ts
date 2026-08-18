@@ -5,6 +5,11 @@ import {
   KnowledgeSpaceUpdateParams,
 } from '../entities/knowledgeSpace.entity';
 
+export type KnowledgeSpaceMembership = {
+  readonly userId: number;
+  readonly knowledgeSpaceId: number;
+  readonly role: KnowledgeSpaceRole;
+};
 export abstract class IKnowledgeSpaceRepository {
   abstract create(
     newKnowledgeSpace: KnowledgeSpace,
@@ -28,4 +33,9 @@ export abstract class IKnowledgeSpaceRepository {
   abstract getKnowledgeSpaceTypeIdByPublicId(
     publicId: string,
   ): Promise<Result<number | null, Error>>;
+
+  abstract getMembershipInKnowledgeSpace(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+  ): Promise<Result<KnowledgeSpaceMembership | null, Error>>;
 }
