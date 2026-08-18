@@ -1,18 +1,37 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { ICategoryRepository } from 'src/modules/category/domain/repositories/category.repo.interface';
 import { authorizeMembership } from 'src/modules/knowledge-space/application/services/authorizeMembership';
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
-import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
+import {
+  CommonDocumentType,
+  CommonDocumentVisibility,
+  KnowledgeSpaceRole,
+} from 'src/shared/domain/enum';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
-import { DocumentCreateRequestDto } from '../dtos/document.request.dto';
-import { DocumentListResponseDto } from '../dtos/document.response.dto';
+import {
+  DocumentCreateRequestDto,
+  DocumentUploadUrlRequestDto,
+} from '../dtos/document.request.dto';
+import {
+  DocumentListResponseDto,
+  DocumentUploadUrlResponseDto,
+} from '../dtos/document.response.dto';
 import { IDocumentService } from '../interfaces/document.service.interface';
 
+const EXTENSION_TO_FILE_TYPE: Record<string, CommonDocumentType> = {
+  pdf: CommonDocumentType.PDF,
+  docx: CommonDocumentType.DOCX,
+  txt: CommonDocumentType.TXT,
+  md: CommonDocumentType.MD,
+};
+
+@Injectable()
 export class DocumentService implements IDocumentService {
   private readonly logger = new Logger(DocumentService.name);
   constructor(
@@ -22,6 +41,69 @@ export class DocumentService implements IDocumentService {
     private readonly userRepository: IUserRepository,
     private readonly fileStorage: IFileStorage,
   ) {}
+
+  async getUploadUrlAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentUploadUrlRequestDto: DocumentUploadUrlRequestDto,
+  ): Promise<Result<DocumentUploadUrlResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'upload document',
+      );
+
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const fileType = this.resolveFileType(
+        documentUploadUrlRequestDto.fileName,
+      );
+      if (fileType === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            'Unsupported file type. Only PDF, DOCX, TXT and MD are accepted',
+          ),
+        );
+      }
+
+      const storageKey = this.buildStorageKey(
+        knowledgeSpacePublicId,
+        documentUploadUrlRequestDto.fileName,
+      );
+
+      const presigned = await this.fileStorage.GetUploadUrl({
+        key: storageKey,
+        contentType: documentUploadUrlRequestDto.contentType,
+        contentLength: documentUploadUrlRequestDto.fileSize,
+      });
+
+      if (presigned.isErr()) {
+        return err(presigned.error);
+      }
+
+      return ok({
+        uploadUrl: presigned.value.uploadUrl,
+        storageKey: presigned.value.key,
+        expiresAt: presigned.value.expiresAt,
+      });
+    } catch (error) {
+      this.logger.error('Failed to generate document upload URL', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to generate document upload URL',
+        ),
+      );
+    }
+  }
+
   async createDocumentAsync(
     knowledgeSpacePublicId: string,
     userPublicId: string,
@@ -76,7 +158,48 @@ export class DocumentService implements IDocumentService {
       }
       const categoryId = categoryResult.value.id;
 
-      // code for upload document to storage and save document metadata to database
+      const fileType = this.resolveFileType(documentCreateRequestDto.name);
+      if (fileType === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            'Unsupported file type. Only PDF, DOCX, TXT and MD are accepted',
+          ),
+        );
+      }
+
+      // A key from another workspace would otherwise let its file be re-registered here.
+      if (
+        !documentCreateRequestDto.storageKey.startsWith(
+          this.storageKeyPrefix(knowledgeSpacePublicId),
+        )
+      ) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            'Storage key does not belong to this knowledge space',
+          ),
+        );
+      }
+
+      // The presigned URL never signs a content type, so the size is read back from
+      // storage rather than taken from the client. A miss means nothing was uploaded.
+      const objectMetadata = await this.fileStorage.GetObjectMetadata(
+        documentCreateRequestDto.storageKey,
+      );
+      if (objectMetadata.isErr()) {
+        return err(objectMetadata.error);
+      }
+
+      if (objectMetadata.value === null) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            'No uploaded file was found for the given storage key',
+          ),
+        );
+      }
+
       const newDocument = Document.createDocument({
         title: documentCreateRequestDto.name,
         description: documentCreateRequestDto.description ?? null,
@@ -84,6 +207,12 @@ export class DocumentService implements IDocumentService {
         knowledgeSpaceId: membership.value.knowledgeSpaceId,
         authorId: membership.value.userId,
         categoryId: categoryId,
+        visibility:
+          documentCreateRequestDto.visibility ??
+          CommonDocumentVisibility.Public,
+        storagePath: documentCreateRequestDto.storageKey,
+        fileSize: objectMetadata.value.contentLength,
+        fileType: fileType,
       });
       if (newDocument.isErr()) {
         return err(
@@ -130,5 +259,32 @@ export class DocumentService implements IDocumentService {
         ),
       );
     }
+  }
+
+  /**
+   * The presigned URL leaves the content type unsigned, so the extension is the only
+   * part of the upload the client cannot silently disagree with the server about.
+   */
+  private resolveFileType(fileName: string): CommonDocumentType | null {
+    const parts = fileName.toLowerCase().split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    return EXTENSION_TO_FILE_TYPE[parts[parts.length - 1]] ?? null;
+  }
+
+  private storageKeyPrefix(knowledgeSpacePublicId: string): string {
+    return `documents/${knowledgeSpacePublicId}/`;
+  }
+
+  /** A random key keeps two uploads of the same file name from overwriting each other. */
+  private buildStorageKey(
+    knowledgeSpacePublicId: string,
+    fileName: string,
+  ): string {
+    const extension = fileName.toLowerCase().split('.').pop();
+
+    return `${this.storageKeyPrefix(knowledgeSpacePublicId)}${randomUUID()}.${extension}`;
   }
 }

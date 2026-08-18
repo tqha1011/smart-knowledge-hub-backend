@@ -36,8 +36,8 @@ export class S3FileStorage implements IFileStorage, OnModuleDestroy {
       requestChecksumCalculation: 'WHEN_REQUIRED',
       endpoint: this.requireEnv('S3_API_ENDPOINT'),
       credentials: {
-        accessKeyId: this.requireEnv('CLOUDFLARE_ACCESS_KEY_ID'),
-        secretAccessKey: this.requireEnv('CLOUDFLARE_SECRET_ACCESS_KEY'),
+        accessKeyId: this.requireEnv('S3_ACCESS_KEY_ID'),
+        secretAccessKey: this.requireEnv('S3_SECRET_ACCESS_KEY'),
       },
     });
   }
