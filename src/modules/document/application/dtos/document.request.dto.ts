@@ -6,7 +6,10 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { CommonDocumentVisibility } from 'src/shared/domain/enum';
+import {
+  CommonDocumentVisibility,
+  CommonPermissionType,
+} from 'src/shared/domain/enum';
 
 /** Step 1 of the upload flow: the client asks for a URL to PUT the file straight to R2. */
 export class DocumentUploadUrlRequestDto {
@@ -44,4 +47,15 @@ export class DocumentCreateRequestDto {
   @IsEnum(CommonDocumentVisibility)
   @IsOptional()
   visibility?: CommonDocumentVisibility;
+
+  @IsOptional()
+  DocumentPermissionRequestDto?: DocumentPermissionRequestDto[];
+}
+
+export class DocumentPermissionRequestDto {
+  @IsUUID()
+  userPublicId!: string;
+
+  @IsEnum(CommonPermissionType)
+  permission!: CommonPermissionType;
 }
