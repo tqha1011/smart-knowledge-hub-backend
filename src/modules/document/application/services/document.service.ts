@@ -312,15 +312,22 @@ export class DocumentService implements IDocumentService {
         );
       }
       // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
-      await this.ingestionQueue.add(
-        EventName.IngestionDocument,
-        {
-          documentPublicId: newDocument.value.publicId,
-        },
-        {
-          attempts: 3, // retry up to 3 times in case of failure
-        },
-      );
+      try {
+        await this.ingestionQueue.add(
+          EventName.IngestionDocument,
+          {
+            documentPublicId: newDocument.value.publicId,
+          },
+          {
+            attempts: 3, // retry up to 3 times in case of failure
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue document ingestion for document ${newDocument.value.publicId}`,
+          error,
+        );
+      }
       const documentListResponseDto: DocumentListResponseDto = {
         publicId: newDocument.value.publicId,
         title: newDocument.value.title,
