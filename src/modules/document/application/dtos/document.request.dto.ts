@@ -1,12 +1,18 @@
+import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
   IsPositive,
   IsString,
   IsUUID,
+  ValidateNested,
 } from 'class-validator';
-import { CommonDocumentVisibility } from 'src/shared/domain/enum';
+import {
+  CommonDocumentVisibility,
+  CommonPermissionType,
+} from 'src/shared/domain/enum';
 
 /** Step 1 of the upload flow: the client asks for a URL to PUT the file straight to R2. */
 export class DocumentUploadUrlRequestDto {
@@ -44,4 +50,19 @@ export class DocumentCreateRequestDto {
   @IsEnum(CommonDocumentVisibility)
   @IsOptional()
   visibility?: CommonDocumentVisibility;
+}
+
+export class DocumentPermissionRequestDto {
+  @IsUUID()
+  userPublicId!: string;
+
+  @IsEnum(CommonPermissionType)
+  permission!: CommonPermissionType;
+}
+
+export class AddDocumentPermissionRequestDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DocumentPermissionRequestDto)
+  permissions!: DocumentPermissionRequestDto[];
 }

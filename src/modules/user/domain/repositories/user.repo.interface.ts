@@ -22,4 +22,10 @@ export abstract class IUserRepository {
   abstract GetUserDataByPublicId(
     publicId: string,
   ): Promise<Result<UserData | null, Error>>;
+
+  /** Order/length of the input is not preserved — a missing publicId is simply
+   * absent from the result, so callers must match by `publicId`, not by index. */
+  abstract GetUserIdsByPublicIds(
+    publicIds: string[],
+  ): Promise<Result<{ publicId: string; id: number }[], Error>>;
 }

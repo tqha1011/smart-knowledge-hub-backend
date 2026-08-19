@@ -15,6 +15,8 @@ import { KnowledgeSpaceModule } from './modules/knowledge-space/knowledgeSpace.m
 import { UserModule } from './modules/user/user.module';
 import { LoggerMiddleware } from './shared/common/logger.middleware';
 import { PrismaModule } from './shared/infrastructure/database/prisma.module';
+import { QueueModule } from './shared/infrastructure/queue/queue.module';
+import { StorageModule } from './shared/infrastructure/storage/storage.module';
 
 @Module({
   imports: [
@@ -27,6 +29,9 @@ import { PrismaModule } from './shared/infrastructure/database/prisma.module';
     AuthModule,
     DocumentModule,
     CategoryModule,
+    QueueModule,
+    KnowledgeSpaceModule,
+    StorageModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {

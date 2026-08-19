@@ -17,6 +17,21 @@ export class UserRepository implements IUserRepository {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+  async GetUserIdsByPublicIds(
+    publicIds: string[],
+  ): Promise<Result<{ publicId: string; id: number }[], Error>> {
+    try {
+      const users = await this.prismaService.user.findMany({
+        where: { publicId: { in: publicIds } },
+        select: { id: true, publicId: true },
+      });
+      return ok(
+        users.map((user) => ({ publicId: user.publicId, id: user.id })),
+      );
+    } catch (error) {
+      return err(new Error(`Failed to get user IDs by public IDs. ${error}`));
+    }
+  }
   async GetUserDataByPublicId(
     publicId: string,
   ): Promise<Result<UserData | null, Error>> {

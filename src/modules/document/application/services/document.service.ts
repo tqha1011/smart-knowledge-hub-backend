@@ -1,4 +1,6 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { ICategoryRepository } from 'src/modules/category/domain/repositories/category.repo.interface';
@@ -11,6 +13,8 @@ import {
   CommonDocumentVisibility,
   KnowledgeSpaceRole,
 } from 'src/shared/domain/enum';
+import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
+import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
@@ -42,6 +46,7 @@ export class DocumentService implements IDocumentService {
     private readonly userRepository: IUserRepository,
     private readonly fileStorage: IFileStorage,
     private readonly documentPermissionRepository: IDocumentPermissionRepository,
+    @InjectQueue(QueueName.IngestionQueue) private ingestionQueue: Queue,
   ) {}
 
   async getUploadUrlAsync(
@@ -304,6 +309,23 @@ export class DocumentService implements IDocumentService {
             ErrorCode.InternalServerError,
             'Failed to add document to repository',
           ),
+        );
+      }
+      // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
+      try {
+        await this.ingestionQueue.add(
+          EventName.IngestionDocument,
+          {
+            documentPublicId: newDocument.value.publicId,
+          },
+          {
+            attempts: 3, // retry up to 3 times in case of failure
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue document ingestion for document ${newDocument.value.publicId}`,
+          error,
         );
       }
       const documentListResponseDto: DocumentListResponseDto = {
