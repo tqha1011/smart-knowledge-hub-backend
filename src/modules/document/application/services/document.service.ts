@@ -13,6 +13,7 @@ import {
   CommonDocumentVisibility,
   KnowledgeSpaceRole,
 } from 'src/shared/domain/enum';
+import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
@@ -310,6 +311,10 @@ export class DocumentService implements IDocumentService {
           ),
         );
       }
+      // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
+      await this.ingestionQueue.add(EventName.IngestionDocument, {
+        documentPublicId: newDocument.value.publicId,
+      });
       const documentListResponseDto: DocumentListResponseDto = {
         publicId: newDocument.value.publicId,
         title: newDocument.value.title,
