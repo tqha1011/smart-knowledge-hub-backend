@@ -1,0 +1,60 @@
+name: smart-portal
+
+services:
+  smart-portal-api:
+    container_name: smart-portal-backend
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '127.0.0.1:${API_PORT:-3000}:3000'
+    env_file:
+      - .env
+    depends_on:
+      - database
+      - redis
+    networks:
+      - smart-portal-backend
+
+  database:
+    image: postgres:15.3-alpine
+    restart: unless-stopped
+    container_name: smart-portal-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - smart-portal-backend
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:8.6.1-alpine
+    ports:
+      - '6379:6379'
+    networks:
+      - smart-portal-backend
+    volumes:
+      - redis_data:/data
+
+networks:
+  smart-portal-backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
