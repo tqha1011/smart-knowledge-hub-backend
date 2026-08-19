@@ -1,4 +1,6 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { ICategoryRepository } from 'src/modules/category/domain/repositories/category.repo.interface';
@@ -11,6 +13,7 @@ import {
   CommonDocumentVisibility,
   KnowledgeSpaceRole,
 } from 'src/shared/domain/enum';
+import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { Document } from '../../domain/entities/document.entity';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
@@ -42,6 +45,7 @@ export class DocumentService implements IDocumentService {
     private readonly userRepository: IUserRepository,
     private readonly fileStorage: IFileStorage,
     private readonly documentPermissionRepository: IDocumentPermissionRepository,
+    @InjectQueue(QueueName.IngestionQueue) private ingestionQueue: Queue,
   ) {}
 
   async getUploadUrlAsync(
