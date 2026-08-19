@@ -1,10 +1,13 @@
+import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsEnum,
   IsInt,
   IsOptional,
   IsPositive,
   IsString,
   IsUUID,
+  ValidateNested,
 } from 'class-validator';
 import {
   CommonDocumentVisibility,
@@ -47,9 +50,6 @@ export class DocumentCreateRequestDto {
   @IsEnum(CommonDocumentVisibility)
   @IsOptional()
   visibility?: CommonDocumentVisibility;
-
-  @IsOptional()
-  DocumentPermissionRequestDto?: DocumentPermissionRequestDto[];
 }
 
 export class DocumentPermissionRequestDto {
@@ -58,4 +58,11 @@ export class DocumentPermissionRequestDto {
 
   @IsEnum(CommonPermissionType)
   permission!: CommonPermissionType;
+}
+
+export class AddDocumentPermissionRequestDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DocumentPermissionRequestDto)
+  permissions!: DocumentPermissionRequestDto[];
 }
