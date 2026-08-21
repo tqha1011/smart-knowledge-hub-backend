@@ -143,6 +143,38 @@ export class S3FileStorage implements IFileStorage, OnModuleDestroy {
     }
   }
 
+  async GetObject(key: string): Promise<Result<Buffer, AppError>> {
+    try {
+      const response = await this.s3.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+
+      if (!response.Body) {
+        return err(
+          new AppError(ErrorCode.NotFound, `Object has no body for key ${key}`),
+        );
+      }
+
+      const bytes = await response.Body.transformToByteArray();
+      return ok(Buffer.from(bytes));
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return err(
+          new AppError(ErrorCode.NotFound, `Object not found for key ${key}`),
+        );
+      }
+
+      this.logger.error(
+        `Failed to read object for key ${key}.`,
+        this.describe(error),
+      );
+
+      return err(
+        new AppError(ErrorCode.InternalServerError, 'Failed to read object'),
+      );
+    }
+  }
+
   async DeleteObject(key: string): Promise<Result<void, AppError>> {
     try {
       await this.s3.send(

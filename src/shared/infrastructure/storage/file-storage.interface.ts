@@ -43,5 +43,9 @@ export abstract class IFileStorage {
     key: string,
   ): Promise<Result<ObjectMetadata | null, AppError>>;
 
+  /** Reads the full object body — for server-side use (e.g. parsing a file
+   * for ingestion), unlike GetDownloadUrl which only signs a browser link. */
+  abstract GetObject(key: string): Promise<Result<Buffer, AppError>>;
+
   abstract DeleteObject(key: string): Promise<Result<void, AppError>>;
 }
