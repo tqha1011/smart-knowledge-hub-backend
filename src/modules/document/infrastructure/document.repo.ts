@@ -41,6 +41,7 @@ export class DocumentRepository
           visibility: true,
           content: true,
           knowledgeSpaceId: true,
+          fileType: true,
         },
       });
       if (!document) {
@@ -54,6 +55,7 @@ export class DocumentRepository
         content: document.content,
         status: toDomainStatus(document.status),
         visibility: toDomainVisibility(document.visibility),
+        fileType: toDomainType(document.fileType),
       });
     } catch (error) {
       this.logger.error(

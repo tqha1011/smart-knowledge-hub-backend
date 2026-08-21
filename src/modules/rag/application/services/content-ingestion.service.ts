@@ -11,6 +11,7 @@ import {
 } from '../../domain/repositories/document-chunk.repo.interface';
 import { IEmbeddingClient } from '../../domain/repositories/embedding-client.interface';
 import { ChunkingService } from './chunking-service';
+import { FileIngestionService } from './file-ingestion.service';
 
 const EMBEDDING_BATCH_SIZE = 100;
 
@@ -22,6 +23,7 @@ export class ContentIngestionService extends WorkerHost {
     private readonly embeddingService: IEmbeddingClient,
     private readonly documentChunkRepository: IDocumentChunkRepository,
     private readonly chunkService: ChunkingService,
+    private readonly fileIngestionService: FileIngestionService,
   ) {
     super();
   }
@@ -51,15 +53,24 @@ export class ContentIngestionService extends WorkerHost {
     }
     const document = documentResult.value;
 
-    if (document.content === null) {
-      // TODO: delegate to FileIngestionService once it exists — for now a
-      // document with no `content` simply can't be ingested this way.
-      throw new Error(
-        `Document with public ID ${job.data.documentPublicId} has no content to ingest`,
+    let text: string;
+    if (document.content !== null) {
+      text = document.content;
+    } else {
+      const extractResult = await this.fileIngestionService.extractText(
+        document.storagePath,
+        document.fileType,
       );
+      if (extractResult.isErr()) {
+        this.logger.error(
+          `Error extracting file content for document ${job.data.documentPublicId}: ${extractResult.error}`,
+        );
+        throw extractResult.error;
+      }
+      text = extractResult.value;
     }
 
-    const chunks = this.chunkService.chunkText(document.content);
+    const chunks = this.chunkService.chunkText(text);
     if (chunks.length === 0) {
       throw new Error(
         `Document with public ID ${job.data.documentPublicId} produced no chunks`,
