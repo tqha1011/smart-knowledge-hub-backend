@@ -1,6 +1,7 @@
 import { Result } from 'neverthrow';
 import {
   CommonDocumentStatus,
+  CommonDocumentType,
   CommonDocumentVisibility,
 } from 'src/shared/domain/enum';
 import { Document } from '../entities/document.entity';
@@ -20,6 +21,7 @@ export type DocumentIngestionData = {
   content: string | null;
   status: CommonDocumentStatus;
   visibility: CommonDocumentVisibility;
+  fileType: CommonDocumentType;
 };
 export abstract class IDocumentRepository {
   abstract getDocumentIdByPublicId(
