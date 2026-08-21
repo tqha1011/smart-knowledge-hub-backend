@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
+import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import {
   DocumentDetailResponseDto,
@@ -9,10 +10,12 @@ import {
 import { IDocumentQueryRepository } from '../application/interfaces/document-query.repo.interface';
 import { Document } from '../domain/entities/document.entity';
 import {
+  DocumentIngestionData,
   DocumentStorageData,
   IDocumentRepository,
 } from '../domain/repositories/document.repo.interface';
 import {
+  toDomainStatus,
   toDomainType,
   toDomainVisibility,
   toPrismaStatus,
@@ -24,6 +27,54 @@ export class DocumentRepository
 {
   private readonly logger = new Logger(DocumentRepository.name);
   constructor(private readonly prismaService: PrismaService) {}
+  async getDocumentIngestionDataByPublicId(
+    publicId: string,
+  ): Promise<Result<DocumentIngestionData | null, Error>> {
+    try {
+      const document = await this.prismaService.document.findUnique({
+        where: { publicId },
+        select: {
+          id: true,
+          storagePath: true,
+          title: true,
+          status: true,
+          visibility: true,
+        },
+      });
+      if (!document) {
+        return ok(null);
+      }
+      return ok({
+        id: document.id,
+        storagePath: document.storagePath,
+        fileName: document.title,
+        status: toDomainStatus(document.status),
+        visibility: toDomainVisibility(document.visibility),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to get document ingestion data by public ID: ${error}`,
+      );
+      return err(
+        new Error(`Failed to get document ingestion data by public ID`),
+      );
+    }
+  }
+  async updateDocumentStatus(
+    documentId: number,
+    status: CommonDocumentStatus,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.document.update({
+        where: { id: documentId },
+        data: { status: toPrismaStatus(status) },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error(`Failed to update document status: ${error}`);
+      return err(new Error(`Failed to update document status`));
+    }
+  }
   async getDocumentStorageDataByPublicId(
     publicId: string,
     knowledgeSpaceId: number,
