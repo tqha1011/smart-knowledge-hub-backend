@@ -39,6 +39,8 @@ export class DocumentRepository
           title: true,
           status: true,
           visibility: true,
+          content: true,
+          knowledgeSpaceId: true,
         },
       });
       if (!document) {
@@ -46,8 +48,10 @@ export class DocumentRepository
       }
       return ok({
         id: document.id,
+        knowledgeSpaceId: document.knowledgeSpaceId,
         storagePath: document.storagePath,
         fileName: document.title,
+        content: document.content,
         status: toDomainStatus(document.status),
         visibility: toDomainVisibility(document.visibility),
       });

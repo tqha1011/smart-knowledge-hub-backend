@@ -14,8 +14,10 @@ export type DocumentStorageData = {
 
 export type DocumentIngestionData = {
   id: number;
+  knowledgeSpaceId: number;
   storagePath: string;
   fileName: string;
+  content: string | null;
   status: CommonDocumentStatus;
   visibility: CommonDocumentVisibility;
 };
