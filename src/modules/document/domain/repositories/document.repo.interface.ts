@@ -1,11 +1,24 @@
 import { Result } from 'neverthrow';
-import { CommonDocumentVisibility } from 'src/shared/domain/enum';
+import {
+  CommonDocumentStatus,
+  CommonDocumentVisibility,
+} from 'src/shared/domain/enum';
 import { Document } from '../entities/document.entity';
 
 export type DocumentStorageData = {
   id: number;
   storagePath: string;
   fileName: string;
+  visibility: CommonDocumentVisibility;
+};
+
+export type DocumentIngestionData = {
+  id: number;
+  knowledgeSpaceId: number;
+  storagePath: string;
+  fileName: string;
+  content: string | null;
+  status: CommonDocumentStatus;
   visibility: CommonDocumentVisibility;
 };
 export abstract class IDocumentRepository {
@@ -22,4 +35,13 @@ export abstract class IDocumentRepository {
     publicId: string,
     knowledgeSpaceId: number,
   ): Promise<Result<DocumentStorageData | null, Error>>;
+
+  abstract getDocumentIngestionDataByPublicId(
+    publicId: string,
+  ): Promise<Result<DocumentIngestionData | null, Error>>;
+
+  abstract updateDocumentStatus(
+    documentId: number,
+    status: CommonDocumentStatus,
+  ): Promise<Result<undefined, Error>>;
 }
