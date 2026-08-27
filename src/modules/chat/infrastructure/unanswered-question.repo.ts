@@ -17,18 +17,19 @@ export class UnansweredQuestionRepository
   async markResolveQuestion(
     knowledgeSpaceId: number,
     questionPublicId: string,
-  ): Promise<Result<undefined, Error>> {
+  ): Promise<Result<boolean, Error>> {
     try {
-      await this.prismaService.unAnsweredQuestion.update({
+      const result = await this.prismaService.unAnsweredQuestion.updateMany({
         where: {
-          knowledgeSpaceId: knowledgeSpaceId,
+          knowledgeSpaceId,
           publicId: questionPublicId,
+          resolvedAt: null,
         },
         data: {
           resolvedAt: new Date(),
         },
       });
-      return ok(undefined);
+      return ok(result.count > 0);
     } catch (error) {
       return err(new Error(`Failed to mark resolve question: ${error}`));
     }
