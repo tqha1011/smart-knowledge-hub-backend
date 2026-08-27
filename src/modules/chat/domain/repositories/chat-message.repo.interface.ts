@@ -1,9 +1,8 @@
-import { CommonChatRole } from 'src/shared/domain/enum';
+import { Result } from 'neverthrow';
+import { ChatMessage } from '../entities/chat-message.entity';
 
-export abstract class ChatMessageRepository {
+export abstract class IChatMessageRepository {
   abstract addMessage(
-    chatSessionId: number,
-    role: CommonChatRole,
-    content: string,
-  ): Promise<void>;
+    newMessage: ChatMessage,
+  ): Promise<Result<undefined, Error>>;
 }

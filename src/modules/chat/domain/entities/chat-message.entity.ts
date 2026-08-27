@@ -1,3 +1,4 @@
+import { UUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { CommonChatRole } from 'src/shared/domain/enum';
 import {
@@ -7,6 +8,7 @@ import {
 
 export type ChatMessageGetParams = {
   readonly chatSessionId: number;
+  readonly messagePublicId: UUID;
   readonly messageId: number;
   readonly content: string;
   readonly role: CommonChatRole;
@@ -36,6 +38,7 @@ export class ChatMessage {
     return ok(
       new ChatMessage({
         ...params,
+        messagePublicId: crypto.randomUUID(),
         messageId: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
