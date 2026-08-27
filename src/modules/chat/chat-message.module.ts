@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
 import { RagModule } from 'src/modules/rag/rag.module';
+import { ChatMessageController } from './api/chat-message.controller';
 import { IChatAnswerService } from './application/interfaces/chat-answer.service.interface';
 import { IChatMessageService } from './application/interfaces/chat-message.service.interface';
 import { ChatAnswerService } from './application/services/chat-answer.service';
@@ -16,6 +17,7 @@ import { UnansweredQuestionRepository } from './infrastructure/unanswered-questi
 
 @Module({
   imports: [KnowledgeSpaceModule, RagModule],
+  controllers: [ChatMessageController],
   providers: [
     {
       provide: IChatMessageRepository,
