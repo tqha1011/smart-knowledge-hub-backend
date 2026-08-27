@@ -11,4 +11,9 @@ export abstract class IUnansweredQuestionRepository {
   abstract addUnansweredQuestion(
     input: UnansweredQuestionInput,
   ): Promise<Result<undefined, Error>>;
+
+  abstract markResolveQuestion(
+    knowledgeSpaceId: number,
+    questionPublicId: string,
+  ): Promise<Result<undefined, Error>>;
 }
