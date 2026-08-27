@@ -21,5 +21,6 @@ import { QueueName } from './constant/queue-name';
       name: QueueName.IngestionQueue,
     }),
   ],
+  exports: [BullModule],
 })
 export class QueueModule {}

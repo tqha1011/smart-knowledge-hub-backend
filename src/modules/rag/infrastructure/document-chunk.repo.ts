@@ -5,7 +5,17 @@ import { PrismaService } from 'src/shared/infrastructure/database/prisma.service
 import {
   DocumentChunkAddData,
   IDocumentChunkRepository,
+  SimilarChunk,
 } from '../domain/repositories/document-chunk.repo.interface';
+
+type SimilarChunkRow = {
+  chunk_id: number;
+  document_id: number;
+  document_public_id: string;
+  document_title: string;
+  content: string;
+  score: number;
+};
 
 @Injectable()
 export class DocumentChunkRepository implements IDocumentChunkRepository {
@@ -36,6 +46,52 @@ export class DocumentChunkRepository implements IDocumentChunkRepository {
       return ok(undefined);
     } catch (error) {
       return err(new Error(`Failed to add document chunks: ${error}`));
+    }
+  }
+
+  async searchSimilarChunks(
+    knowledgeSpaceId: number,
+    userId: number,
+    queryEmbedding: number[],
+    topK: number,
+  ): Promise<Result<SimilarChunk[], Error>> {
+    try {
+      const vectorLiteral = `[${queryEmbedding.join(',')}]`;
+      const rows = await this.prisma.$queryRaw<SimilarChunkRow[]>(Prisma.sql`
+        SELECT
+          dc.id AS chunk_id,
+          dc.document_id AS document_id,
+          d.public_id AS document_public_id,
+          d.title AS document_title,
+          dc.content_chunk AS content,
+          1 - (dc.embedding <=> ${vectorLiteral}::vector) AS score
+        FROM document_chunk dc
+        JOIN document d ON d.id = dc.document_id
+        WHERE dc.knowledge_space_id = ${knowledgeSpaceId}
+          AND d.status = 'Ready'
+          AND (
+            d.visibility = 'Public'
+            OR EXISTS (
+              SELECT 1 FROM document_permission dp
+              WHERE dp.document_id = d.id AND dp.user_id = ${userId}
+            )
+          )
+        ORDER BY dc.embedding <=> ${vectorLiteral}::vector
+        LIMIT ${topK}
+      `);
+
+      return ok(
+        rows.map((row) => ({
+          chunkId: row.chunk_id,
+          documentId: row.document_id,
+          documentPublicId: row.document_public_id,
+          documentTitle: row.document_title,
+          content: row.content,
+          score: row.score,
+        })),
+      );
+    } catch (error) {
+      return err(new Error(`Failed to search similar chunks: ${error}`));
     }
   }
 }

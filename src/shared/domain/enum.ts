@@ -42,3 +42,8 @@ export enum CommonPermissionType {
   Edit = 'Edit',
   Manage = 'Manage',
 }
+
+export enum CommonChatRole {
+  User = 'User',
+  Assistant = 'Assistant',
+}

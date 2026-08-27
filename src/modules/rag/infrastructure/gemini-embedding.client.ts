@@ -2,7 +2,10 @@ import { GoogleGenAI } from '@google/genai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Result, err, ok } from 'neverthrow';
-import { IEmbeddingClient } from '../domain/repositories/embedding-client.interface';
+import {
+  EmbeddingTaskType,
+  IEmbeddingClient,
+} from '../domain/repositories/embedding-client.interface';
 
 const EMBEDDING_BATCH_SIZE = 100; // Adjust this based on the API's limitations
 
@@ -17,6 +20,7 @@ export class GeminiEmbeddingClient implements IEmbeddingClient {
   }
   async generateEmbeddings(
     texts: string[],
+    taskType: EmbeddingTaskType = 'RETRIEVAL_DOCUMENT',
   ): Promise<Result<number[][], Error>> {
     // Implementation for generating embeddings with Gemini
     try {
@@ -30,7 +34,7 @@ export class GeminiEmbeddingClient implements IEmbeddingClient {
           contents: batch,
           config: {
             outputDimensionality: 1536,
-            taskType: `RETRIEVAL_DOCUMENT`,
+            taskType,
           },
         });
 

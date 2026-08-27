@@ -18,8 +18,8 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
   const options = new DocumentBuilder()
-    .setTitle('DevNotes API')
-    .setDescription('API documentation for DevNotes application')
+    .setTitle('Smart Knowledge API')
+    .setDescription('API documentation for Smart Knowledge Portal application')
     .setVersion('1.0')
     .addTag('auth', 'Authentication related endpoints')
     .addBearerAuth()
