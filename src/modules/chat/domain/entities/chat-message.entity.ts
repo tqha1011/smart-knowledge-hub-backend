@@ -1,4 +1,9 @@
+import { err, ok, Result } from 'neverthrow';
 import { CommonChatRole } from 'src/shared/domain/enum';
+import {
+  ChatMessageDomainError,
+  ChatMessageDomainErrorValidation,
+} from '../errors/chat-message.domain.error';
 
 export type ChatMessageGetParams = {
   readonly chatSessionId: number;
@@ -21,13 +26,21 @@ export class ChatMessage {
     return new ChatMessage(params);
   }
 
-  static createChatMessage(params: ChatMessageCreateParams): ChatMessage {
-    return new ChatMessage({
-      ...params,
-      messageId: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+  static createChatMessage(
+    params: ChatMessageCreateParams,
+  ): Result<ChatMessage, ChatMessageDomainErrorValidation> {
+    const validationResult = ChatMessage.validateInformation(params);
+    if (validationResult.isErr()) {
+      return err(validationResult.error);
+    }
+    return ok(
+      new ChatMessage({
+        ...params,
+        messageId: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
   }
 
   get chatSessionId(): number {
@@ -52,5 +65,29 @@ export class ChatMessage {
 
   get updatedAt(): Date {
     return this.params.updatedAt;
+  }
+
+  private static validateInformation(
+    params: ChatMessageCreateParams,
+  ): Result<void, ChatMessageDomainErrorValidation> {
+    if (params.content.length > 1000) {
+      return err(
+        new ChatMessageDomainErrorValidation(
+          ChatMessageDomainError.ContentTooLong,
+          'Content is too long',
+        ),
+      );
+    }
+
+    if (!Object.values(CommonChatRole).includes(params.role)) {
+      return err(
+        new ChatMessageDomainErrorValidation(
+          ChatMessageDomainError.InvalidRole,
+          'Invalid role',
+        ),
+      );
+    }
+
+    return ok(undefined);
   }
 }
