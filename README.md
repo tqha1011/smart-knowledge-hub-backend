@@ -1,25 +1,22 @@
-# NestJS Template
+# Smart Knowledge Hub — Backend
 
-Template NestJS gọn để bắt đầu API backend với Prisma, Swagger, JWT guard, validation, logging và git hooks cơ bản.
+A NestJS 11 backend for an AI-assisted internal knowledge base: knowledge spaces containing documents that are chunked and embedded for RAG-style chat, with per-workspace roles, per-document permissions, chat sessions, and unanswered-question tracking.
 
-## Có sẵn
+## Stack
 
 - NestJS 11
-- Prisma 7 + PostgreSQL adapter
-- Global `ConfigModule`
-- Global `ValidationPipe`
-- Global exception filter
-- HTTP logger middleware cho route `api/*`
-- Swagger UI tại `/docs`
-- JWT guard + `@User()` decorator
-- `bcrypt` cho password hashing
-- ESLint + Prettier
-- Husky hooks
-- Commitlint theo conventional commits
-- Dockerfile multi-stage build
-- Gợi ý chia module trong `src/modules/MODULE.README.md`
+- Prisma 7 + PostgreSQL (`pgvector`) via the `@prisma/adapter-pg` adapter
+- BullMQ + Redis for the background document ingestion queue (chunking + embedding)
+- Cloudflare R2 / S3-compatible storage for document files (`@aws-sdk/client-s3`)
+- Gemini (`@google/genai`) for embeddings, Groq (`groq-sdk`) for chat answer generation
+- `neverthrow` (`Result`) for error flow in the application/domain layers
+- JWT guard + `@User()` decorator, `RolesGuard` keyed on `SystemRole`
+- Global `ValidationPipe`, global exception filter, HTTP logger middleware on `api/*`
+- Swagger UI at `/docs`
+- ESLint + Prettier, Husky hooks, Commitlint enforcing conventional commits
+- Multi-stage Dockerfile
 
-## Cài đặt
+## Setup
 
 ```bash
 npm install
@@ -27,26 +24,43 @@ cp .env.example .env
 npx prisma generate
 ```
 
-Cập nhật `.env`:
+You'll also need running instances of:
+
+- PostgreSQL with the `pgvector` extension (used by `DocumentChunk.embedding`)
+- Redis (BullMQ uses it for background document ingestion)
+
+Update `.env`:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/db"
-DIRECT_URL="postgresql://user:password@localhost:5432/db"
+DATABASE_URL='postgresql://user:password@localhost:5432/mydb'
+DIRECT_URL=                          # falls back to DATABASE_URL if empty; used for migrations/CLI
+JWT_SECRET='your_jwt_secret_key_here'
+REDIS_URL='redis://localhost:6379'
+
+S3_API_ENDPOINT=
+S3_BUCKET_NAME=
+S3_API_TOKEN=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_ACCOUNT_ID=
+
+GROQ_API_KEY=
+GEMINI_API_KEY=
 ```
 
-`generated/prisma` không được commit. Mỗi máy sau khi clone repo cần chạy lại:
+`generated/prisma` is not committed (the client is generated there instead of `node_modules`). After cloning, or after any schema change, run:
 
 ```bash
 npx prisma generate
 ```
 
-## Chạy app
+## Running the app
 
 ```bash
 npm run start:dev
 ```
 
-App chạy mặc định ở:
+The app runs by default at:
 
 ```txt
 http://localhost:3000
@@ -68,9 +82,33 @@ npm run test
 npm run test:e2e
 ```
 
+Run a single test:
+
+```bash
+npm test -- path/to/file.spec.ts
+npm test -- -t "describe or it name"
+```
+
+## Modules
+
+Each feature lives under `src/modules/<feature>/`, split into four layers: `api/ → application/ → domain/ → infrastructure/` (controllers, services/dtos, entities/repo-interfaces/domain-errors, Prisma repos/mappers).
+
+```txt
+src/modules/
+  auth/             login, JWT issuing
+  user/             user accounts
+  category/         document categories
+  knowledge-space/  knowledge workspaces + membership roles (Owner/Editor/Viewer)
+  document/         upload, permissions, processing status
+  rag/              text chunking, embeddings (Gemini), answer generation (Groq)
+  chat/             chat sessions, chat messages, unanswered-question tracking
+```
+
+`src/shared/` is strictly for cross-feature code (`shared/common`, `shared/domain`, `shared/infrastructure`).
+
 ## Git hooks
 
-Husky đang cấu hình:
+Husky is configured with:
 
 ```txt
 pre-commit  -> npm run lint
@@ -78,7 +116,7 @@ pre-push    -> npm run build
 commit-msg  -> commitlint
 ```
 
-Commit message dùng conventional commits:
+Commit messages follow conventional commits:
 
 ```txt
 feat: add auth module
@@ -89,7 +127,7 @@ chore: setup husky
 
 ## GitHub
 
-Thư mục `.github` đang cấu hình review ownership và CI cho repo.
+The `.github` folder configures review ownership and CI for this repo.
 
 ```txt
 .github/
@@ -98,11 +136,11 @@ Thư mục `.github` đang cấu hình review ownership và CI cho repo.
     backend_ci.yml
 ```
 
-`CODEOWNERS` khai báo owner mặc định của repo. Khi mở pull request, GitHub sẽ tự gợi ý reviewer theo file này.
+`CODEOWNERS` declares the repo's default owners; GitHub uses it to suggest reviewers on pull requests.
 
-Workflow `Backend CI` chạy khi push hoặc mở pull request vào nhánh `develop` và `main`.
+The `Backend CI` workflow runs on push or pull request to `develop` and `main`.
 
-Các bước CI hiện có:
+Current CI steps:
 
 ```txt
 checkout source code
@@ -113,24 +151,41 @@ npm run lint
 npm run build
 ```
 
-## Cấu trúc chính
+## Project layout
 
 ```txt
 src/
   main.ts
   app.module.ts
   modules/
-    MODULE.README.md
+    auth/
+    user/
+    category/
+    knowledge-space/
+    document/
+    rag/
+    chat/
   shared/
     common/
+      app-error.mapper.ts
+      errorCode.ts
       exceptions.filter.ts
       jwt.guard.ts
+      roles.guard.ts
       logger.middleware.ts
       user.decorator.ts
+    domain/
+      enum.ts
     infrastructure/
       database/
         prisma.module.ts
         prisma.service.ts
+      queue/
+      storage/
+      parser/
+prisma/
+  schema.prisma       # generator + datasource only
+  models/*.prisma      # one file per model, merged at generate time
 ```
 
-Feature mới nên đặt trong `src/modules/<feature-name>`.
+New features go under `src/modules/<feature-name>`; new Prisma models go under `prisma/models/`.
