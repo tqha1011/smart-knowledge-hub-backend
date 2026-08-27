@@ -18,7 +18,7 @@ export type ChatMessageGetParams = {
 
 export type ChatMessageCreateParams = Omit<
   ChatMessageGetParams,
-  'messageId' | 'createdAt' | 'updatedAt'
+  'messageId' | 'createdAt' | 'updatedAt' | 'messagePublicId'
 >;
 
 export class ChatMessage {
