@@ -6,10 +6,12 @@ import { StorageModule } from 'src/shared/infrastructure/storage/storage.module'
 import { ChunkingService } from './application/services/chunking-service';
 import { ContentIngestionService } from './application/services/content-ingestion.service';
 import { FileIngestionService } from './application/services/file-ingestion.service';
+import { IAnswerGenerationClient } from './domain/repositories/answer-generation-client.interface';
 import { IDocumentChunkRepository } from './domain/repositories/document-chunk.repo.interface';
 import { IEmbeddingClient } from './domain/repositories/embedding-client.interface';
 import { DocumentChunkRepository } from './infrastructure/document-chunk.repo';
 import { GeminiEmbeddingClient } from './infrastructure/gemini-embedding.client';
+import { GroqChatClient } from './infrastructure/groq-chat.client';
 
 @Module({
   imports: [DocumentModule, StorageModule],
@@ -23,12 +25,20 @@ import { GeminiEmbeddingClient } from './infrastructure/gemini-embedding.client'
       provide: IEmbeddingClient,
       useClass: GeminiEmbeddingClient,
     },
+    {
+      provide: IAnswerGenerationClient,
+      useClass: GroqChatClient,
+    },
     ChunkingService,
     FileIngestionService,
     ContentIngestionService,
     DocxParserService,
     PDFParserService,
   ],
-  exports: [IDocumentChunkRepository, IEmbeddingClient],
+  exports: [
+    IDocumentChunkRepository,
+    IEmbeddingClient,
+    IAnswerGenerationClient,
+  ],
 })
 export class RagModule {}

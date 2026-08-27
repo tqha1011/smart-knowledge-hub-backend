@@ -54,6 +54,10 @@ export class ChatMessage {
     return this.params.messageId;
   }
 
+  get messagePublicId(): UUID {
+    return this.params.messagePublicId;
+  }
+
   get content(): string {
     return this.params.content;
   }

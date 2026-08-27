@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import {
@@ -5,6 +6,7 @@ import {
   IChatSessionRepository,
 } from '../domain/repositories/chat-session.repo.interface';
 
+@Injectable()
 export class ChatSessionRepository implements IChatSessionRepository {
   constructor(private readonly prismaService: PrismaService) {}
   async getSessionIdDataByPublicId(
