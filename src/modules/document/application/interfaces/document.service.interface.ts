@@ -1,10 +1,12 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import {
   DocumentCreateRequestDto,
   DocumentUploadUrlRequestDto,
 } from '../dtos/document.request.dto';
 import {
+  DocumentDetailResponseDto,
   DocumentListResponseDto,
   DocumentUploadUrlResponseDto,
 } from '../dtos/document.response.dto';
@@ -33,4 +35,17 @@ export abstract class IDocumentService {
     userPublicId: string,
     documentCreateRequestDto: DocumentCreateRequestDto,
   ): Promise<Result<DocumentListResponseDto, AppError>>;
+
+  abstract getDocumentListAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>>;
+
+  /** A `Restricted` document additionally requires a `DocumentPermission` row for the caller. */
+  abstract getDocumentDetailAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<DocumentDetailResponseDto, AppError>>;
 }

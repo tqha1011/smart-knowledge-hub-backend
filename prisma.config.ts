@@ -12,6 +12,7 @@ export default defineConfig({
   schema: './prisma',
   migrations: {
     path: './prisma/migrations',
+    seed: 'tsx prisma/seed.ts',
   },
   datasource: {
     url: databaseUrl, // Use the session-mode pooler for migrations to avoid issues with long-running transactions in the transaction-mode pooler

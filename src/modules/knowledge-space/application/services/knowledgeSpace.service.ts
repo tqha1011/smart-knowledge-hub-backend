@@ -2,17 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import {
   KnowledgeSpace,
   KnowledgeSpaceUpdateParams,
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
-import {
-  AddKnowledgeSpaceTypeDto,
-  CreateKnowledgeSpaceDto,
-} from '../dtos/knowledgeSpace.request.dto';
-import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
+import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
+import { GetUserKnowledgeSpace } from '../dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
@@ -23,80 +21,36 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
     private readonly userRepository: IUserRepository,
     private readonly knowledgeSpaceQueryRepository: IKnowledgeSpaceQueryRepository,
   ) {}
-  private readonly logger = new Logger(KnowledgeSpaceService.name);
-  async getKnowledgeSpaceTypes(): Promise<
-    Result<GetKnowledgeSpaceType[], AppError>
-  > {
+  async getKnowledgeSpaceForUser(
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<GetUserKnowledgeSpace>, AppError>> {
     try {
       const result =
-        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypes();
+        await this.knowledgeSpaceQueryRepository.getKnowledgeSpacesForUser(
+          userPublicId,
+          pagination,
+        );
       if (result.isErr()) {
         return err(
           new AppError(
             ErrorCode.InternalServerError,
-            `Failed to get knowledge space types. ${result.error.message}`,
+            'Failed to get knowledge spaces for user',
           ),
         );
       }
       return ok(result.value);
     } catch (error) {
-      this.logger.error('Failed to get knowledge space types', error);
+      this.logger.error('Failed to get knowledge spaces for user', error);
       return err(
         new AppError(
           ErrorCode.InternalServerError,
-          'Failed to get knowledge space types',
+          'Failed to get knowledge spaces for user',
         ),
       );
     }
   }
-  async addNewKnowledgeSpaceType(
-    addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
-  ): Promise<Result<undefined, AppError>> {
-    try {
-      const existingTypeIdResult =
-        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypeIdByName(
-          addKnowledgeSpaceTypeDto.name,
-        );
-      if (existingTypeIdResult.isErr()) {
-        return err(
-          new AppError(
-            ErrorCode.InternalServerError,
-            `Failed to get knowledge space type id by name. ${existingTypeIdResult.error.message}`,
-          ),
-        );
-      }
-      if (existingTypeIdResult.value !== null) {
-        return err(
-          new AppError(
-            ErrorCode.Conflict,
-            `Knowledge space type ${addKnowledgeSpaceTypeDto.name} already exists`,
-          ),
-        );
-      }
-
-      const addResult =
-        await this.knowledgeSpaceQueryRepository.addNewKnowledgeSpaceType(
-          addKnowledgeSpaceTypeDto.name,
-        );
-      if (addResult.isErr()) {
-        return err(
-          new AppError(
-            ErrorCode.InternalServerError,
-            `Failed to add new knowledge space type. ${addResult.error.message}`,
-          ),
-        );
-      }
-      return ok(undefined);
-    } catch (error) {
-      this.logger.error('Failed to add new knowledge space type', error);
-      return err(
-        new AppError(
-          ErrorCode.InternalServerError,
-          'Failed to add new knowledge space type',
-        ),
-      );
-    }
-  }
+  private readonly logger = new Logger(KnowledgeSpaceService.name);
   async createKnowledgeSpace(
     userCreatePublicId: string,
     createKnowledgeSpaceDto: CreateKnowledgeSpaceDto,

@@ -45,7 +45,6 @@ import { StorageModule } from './shared/infrastructure/storage/storage.module';
         },
       ],
     }),
-    KnowledgeSpaceModule,
   ],
   providers: [
     {

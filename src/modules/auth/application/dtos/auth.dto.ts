@@ -7,15 +7,19 @@ import {
 } from 'class-validator';
 
 export class LoginDto {
+  /**
+   * @example 'example@gmail.com'
+   */
   @IsEmail({}, { message: 'Invalid email format' })
   @IsNotEmpty({ message: 'Email is required' })
-  /** @example: 'example@gmail.com' */
   email!: string;
 
+  /**
+   * @example 'Password123!'
+   */
   @IsNotEmpty({ message: 'Password is required' })
   @IsString({ message: 'Password must be a string' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  /** @example: 'Password123!' */
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
     {
@@ -27,15 +31,19 @@ export class LoginDto {
 }
 
 export class RegisterDto {
+  /**
+   * @example 'example@gmail.com'
+   */
   @IsEmail({}, { message: 'Invalid email format' })
   @IsNotEmpty({ message: 'Email is required' })
-  /** @example: 'example@gmail.com' */
   email!: string;
 
+  /**
+   * @example 'Password123!'
+   */
   @IsNotEmpty({ message: 'Password is required' })
   @IsString({ message: 'Password must be a string' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  /** @example: 'Password123!' */
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
     {
@@ -45,8 +53,10 @@ export class RegisterDto {
   )
   password!: string;
 
+  /**
+   * @example 'exampleUser'
+   */
   @IsNotEmpty({ message: 'Username is required' })
-  /** @example: 'exampleUser' */
   @IsString({ message: 'Username must be a string' })
   @MinLength(4, { message: 'Username must be at least 4 characters long' })
   username!: string;

@@ -16,12 +16,21 @@ import {
 
 /** Step 1 of the upload flow: the client asks for a URL to PUT the file straight to R2. */
 export class DocumentUploadUrlRequestDto {
+  /**
+   * @example 'employee-handbook.pdf'
+   */
   @IsString()
   fileName!: string;
 
+  /**
+   * @example 'application/pdf'
+   */
   @IsString()
   contentType!: string;
 
+  /**
+   * @example 204800
+   */
   @IsInt()
   @IsPositive()
   fileSize!: number;
@@ -29,33 +38,58 @@ export class DocumentUploadUrlRequestDto {
 
 /** Step 2: the file already sits in R2, so only its key travels with the metadata. */
 export class DocumentCreateRequestDto {
+  /**
+   * @example 'Employee handbook'
+   */
   @IsString()
   name!: string;
 
+  /**
+   * @example 'Company policies and onboarding guide'
+   */
   @IsString()
   @IsOptional()
   description?: string | null;
 
+  /**
+   * Optional so a document can be created without content.
+   * @example 'Welcome to the team! This document covers...'
+   */
   @IsString()
   @IsOptional()
-  content?: string | null; // in case they want to create a document without content, we allow null value
+  content?: string | null;
 
+  /**
+   * @example '6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b'
+   */
   @IsUUID()
   categoryPublicId!: string;
 
-  /** The key returned by the upload-url step; the real size is read back from R2. */
+  /**
+   * The key returned by the upload-url step; the real size is read back from R2.
+   * @example 'documents/8d4c1a2b-3e5f-4a6b-9c7d-1e2f3a4b5c6d/employee-handbook.pdf'
+   */
   @IsString()
   storageKey!: string;
 
+  /**
+   * @example 'Public'
+   */
   @IsEnum(CommonDocumentVisibility)
   @IsOptional()
   visibility?: CommonDocumentVisibility;
 }
 
 export class DocumentPermissionRequestDto {
+  /**
+   * @example '6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b'
+   */
   @IsUUID()
   userPublicId!: string;
 
+  /**
+   * @example 'Read'
+   */
   @IsEnum(CommonPermissionType)
   permission!: CommonPermissionType;
 }
