@@ -7,13 +7,16 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
 import type { JwtPayload } from 'src/shared/common/jwt.payload.interface';
+import { PaginationQueryDto } from 'src/shared/common/pagination';
 import { Roles } from 'src/shared/common/roles.decorator';
 import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
@@ -154,6 +157,71 @@ export class DocumentController {
       },
       (error: AppError) => {
         throw this.toHttpError(error, 'signing a document download URL');
+      },
+    );
+  }
+
+  /**
+   * Lists the documents in a knowledge space, newest first.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not a member of the knowledge space.
+   * @throws {500} for any unexpected error while fetching the list.
+   * @example
+   * GET /api/knowledge-spaces/6b1f.../documents?pageNumber=1&pageSize=20
+   */
+  @ApiOperation({ summary: 'List documents in a knowledge space' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get()
+  async getDocumentList(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Query(new ValidationPipe({ transform: true }))
+    pagination: PaginationQueryDto,
+  ) {
+    const result = await this.documentService.getDocumentListAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      pagination,
+    );
+    return result.match(
+      (page) => page,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'listing documents');
+      },
+    );
+  }
+
+  /**
+   * Returns the full detail of a document, including its content.
+   * @remarks A `Restricted` document additionally requires a `DocumentPermission`
+   * row for the caller.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not a member of the knowledge space, or lacks
+   * permission on a restricted document.
+   * @throws {404} when the document does not exist in this knowledge space.
+   * @throws {500} for any unexpected error while fetching the document.
+   * @example
+   * GET /api/knowledge-spaces/6b1f.../documents/8d4c...
+   */
+  @ApiOperation({ summary: 'Get a document detail' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get(':documentPublicId')
+  async getDocumentDetail(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+  ) {
+    const result = await this.documentService.getDocumentDetailAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      documentPublicId,
+    );
+    return result.match(
+      (document) => document,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'getting a document detail');
       },
     );
   }

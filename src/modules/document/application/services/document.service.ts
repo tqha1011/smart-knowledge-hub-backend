@@ -8,6 +8,7 @@ import { authorizeMembership } from 'src/modules/knowledge-space/application/ser
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import {
   CommonDocumentType,
   CommonDocumentVisibility,
@@ -19,11 +20,13 @@ import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.int
 import { Document } from '../../domain/entities/document.entity';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
+import { IDocumentQueryRepository } from '../interfaces/document-query.repo.interface';
 import {
   DocumentCreateRequestDto,
   DocumentUploadUrlRequestDto,
 } from '../dtos/document.request.dto';
 import {
+  DocumentDetailResponseDto,
   DocumentListResponseDto,
   DocumentUploadUrlResponseDto,
 } from '../dtos/document.response.dto';
@@ -41,6 +44,7 @@ export class DocumentService implements IDocumentService {
   private readonly logger = new Logger(DocumentService.name);
   constructor(
     private readonly documentRepository: IDocumentRepository,
+    private readonly documentQueryRepository: IDocumentQueryRepository,
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly categoryRepository: ICategoryRepository,
     private readonly userRepository: IUserRepository,
@@ -351,6 +355,131 @@ export class DocumentService implements IDocumentService {
         new AppError(
           ErrorCode.InternalServerError,
           'Failed to create document',
+        ),
+      );
+    }
+  }
+
+  async getDocumentListAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'view documents',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const listResult =
+        await this.documentQueryRepository.getDocumentListInKnowledgeSpace(
+          membership.value.knowledgeSpaceId,
+          pagination,
+        );
+      if (listResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get document list',
+          ),
+        );
+      }
+      return ok(listResult.value);
+    } catch (error) {
+      this.logger.error('Failed to get document list', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get document list',
+        ),
+      );
+    }
+  }
+
+  async getDocumentDetailAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<DocumentDetailResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'view a document',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const documentData =
+        await this.documentRepository.getDocumentStorageDataByPublicId(
+          documentPublicId,
+          membership.value.knowledgeSpaceId,
+        );
+      if (documentData.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to resolve document storage data',
+          ),
+        );
+      }
+      if (documentData.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      if (
+        documentData.value.visibility === CommonDocumentVisibility.Restricted
+      ) {
+        const permissionResult =
+          await this.documentPermissionRepository.checkDocumentPermission(
+            documentData.value.id,
+            membership.value.userId,
+          );
+        if (permissionResult.isErr()) {
+          return err(
+            new AppError(
+              ErrorCode.InternalServerError,
+              'Failed to check document permission',
+            ),
+          );
+        }
+        if (permissionResult.value === null) {
+          return err(new AppError(ErrorCode.Forbidden, 'Access denied'));
+        }
+      }
+
+      const detailResult = await this.documentQueryRepository.getDocumentDetail(
+        membership.value.knowledgeSpaceId,
+        documentPublicId,
+      );
+      if (detailResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get document detail',
+          ),
+        );
+      }
+      if (detailResult.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      return ok(detailResult.value);
+    } catch (error) {
+      this.logger.error('Failed to get document detail', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get document detail',
         ),
       );
     }
