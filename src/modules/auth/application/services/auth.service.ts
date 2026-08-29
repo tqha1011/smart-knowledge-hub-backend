@@ -106,6 +106,7 @@ export class AuthService implements IAuthService {
     const tokenResult = await this.tokenProvider.GenerateAccessToken(
       user.value.publicId,
       user.value.email,
+      user.value.role,
     );
     if (tokenResult.isErr()) {
       return err(
