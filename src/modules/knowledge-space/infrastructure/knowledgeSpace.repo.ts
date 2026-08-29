@@ -5,10 +5,7 @@ import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
-import {
-  GetKnowledgeSpaceType,
-  GetUserKnowledgeSpace,
-} from '../application/dtos/knowledgeSpace.response.dto';
+import { GetUserKnowledgeSpace } from '../application/dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../application/interfaces/knowledgeSpace-query.repo.interface';
 import {
   KnowledgeSpace,
@@ -59,43 +56,6 @@ export class KnowledgeSpaceRepository
         error,
       );
       return err(new Error('Failed to get membership in knowledge space'));
-    }
-  }
-  async addNewKnowledgeSpaceType(
-    name: string,
-  ): Promise<Result<undefined, Error>> {
-    try {
-      await this.prismaService.knowledgeSpaceType.create({
-        data: {
-          publicId: randomUUID(),
-          name,
-        },
-      });
-      return ok(undefined);
-    } catch (error) {
-      this.logger.error(
-        'Failed to add new knowledge space type in repository',
-        error,
-      );
-      return err(new Error('Failed to add new knowledge space type'));
-    }
-  }
-  async getKnowledgeSpaceTypeIdByName(
-    name: string,
-  ): Promise<Result<number | null, Error>> {
-    try {
-      const knowledgeSpaceType =
-        await this.prismaService.knowledgeSpaceType.findUnique({
-          where: { name },
-          select: { id: true },
-        });
-      return ok(knowledgeSpaceType?.id ?? null);
-    } catch (error) {
-      this.logger.error(
-        'Failed to get knowledge space type id by name in repository',
-        error,
-      );
-      return err(new Error('Failed to get knowledge space type id by name'));
     }
   }
   async getKnowledgeSpacesForUser(
@@ -195,26 +155,6 @@ export class KnowledgeSpaceRepository
       return err(
         new Error('Failed to get knowledge space type id by public id'),
       );
-    }
-  }
-  async getKnowledgeSpaceTypes(): Promise<
-    Result<GetKnowledgeSpaceType[], Error>
-  > {
-    try {
-      const knowledgeSpaceTypes =
-        await this.prismaService.knowledgeSpaceType.findMany({
-          select: {
-            publicId: true,
-            name: true,
-          },
-        });
-      return ok(knowledgeSpaceTypes);
-    } catch (error) {
-      this.logger.error(
-        'Failed to get knowledge space types in repository',
-        error,
-      );
-      return err(new Error('Failed to get knowledge space types'));
     }
   }
   private readonly logger = new Logger(KnowledgeSpaceRepository.name);

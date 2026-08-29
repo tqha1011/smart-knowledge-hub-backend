@@ -1,10 +1,6 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
-import {
-  AddKnowledgeSpaceTypeDto,
-  CreateKnowledgeSpaceDto,
-} from '../dtos/knowledgeSpace.request.dto';
-import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
+import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
 
 export abstract class IKnowledgeSpaceService {
   abstract createKnowledgeSpace(
@@ -21,13 +17,5 @@ export abstract class IKnowledgeSpaceService {
     userPublicId: string,
     knowledgeSpacePublicId: string,
     updateKnowledgeSpaceDto: CreateKnowledgeSpaceDto,
-  ): Promise<Result<undefined, AppError>>;
-
-  abstract getKnowledgeSpaceTypes(): Promise<
-    Result<GetKnowledgeSpaceType[], AppError>
-  >;
-
-  abstract addNewKnowledgeSpaceType(
-    addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
   ): Promise<Result<undefined, AppError>>;
 }

@@ -8,12 +8,7 @@ import {
   KnowledgeSpaceUpdateParams,
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
-import {
-  AddKnowledgeSpaceTypeDto,
-  CreateKnowledgeSpaceDto,
-} from '../dtos/knowledgeSpace.request.dto';
-import { GetKnowledgeSpaceType } from '../dtos/knowledgeSpace.response.dto';
-import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
+import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
 @Injectable()
@@ -21,82 +16,8 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
   constructor(
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly userRepository: IUserRepository,
-    private readonly knowledgeSpaceQueryRepository: IKnowledgeSpaceQueryRepository,
   ) {}
   private readonly logger = new Logger(KnowledgeSpaceService.name);
-  async getKnowledgeSpaceTypes(): Promise<
-    Result<GetKnowledgeSpaceType[], AppError>
-  > {
-    try {
-      const result =
-        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypes();
-      if (result.isErr()) {
-        return err(
-          new AppError(
-            ErrorCode.InternalServerError,
-            `Failed to get knowledge space types. ${result.error.message}`,
-          ),
-        );
-      }
-      return ok(result.value);
-    } catch (error) {
-      this.logger.error('Failed to get knowledge space types', error);
-      return err(
-        new AppError(
-          ErrorCode.InternalServerError,
-          'Failed to get knowledge space types',
-        ),
-      );
-    }
-  }
-  async addNewKnowledgeSpaceType(
-    addKnowledgeSpaceTypeDto: AddKnowledgeSpaceTypeDto,
-  ): Promise<Result<undefined, AppError>> {
-    try {
-      const existingTypeIdResult =
-        await this.knowledgeSpaceQueryRepository.getKnowledgeSpaceTypeIdByName(
-          addKnowledgeSpaceTypeDto.name,
-        );
-      if (existingTypeIdResult.isErr()) {
-        return err(
-          new AppError(
-            ErrorCode.InternalServerError,
-            `Failed to get knowledge space type id by name. ${existingTypeIdResult.error.message}`,
-          ),
-        );
-      }
-      if (existingTypeIdResult.value !== null) {
-        return err(
-          new AppError(
-            ErrorCode.Conflict,
-            `Knowledge space type ${addKnowledgeSpaceTypeDto.name} already exists`,
-          ),
-        );
-      }
-
-      const addResult =
-        await this.knowledgeSpaceQueryRepository.addNewKnowledgeSpaceType(
-          addKnowledgeSpaceTypeDto.name,
-        );
-      if (addResult.isErr()) {
-        return err(
-          new AppError(
-            ErrorCode.InternalServerError,
-            `Failed to add new knowledge space type. ${addResult.error.message}`,
-          ),
-        );
-      }
-      return ok(undefined);
-    } catch (error) {
-      this.logger.error('Failed to add new knowledge space type', error);
-      return err(
-        new AppError(
-          ErrorCode.InternalServerError,
-          'Failed to add new knowledge space type',
-        ),
-      );
-    }
-  }
   async createKnowledgeSpace(
     userCreatePublicId: string,
     createKnowledgeSpaceDto: CreateKnowledgeSpaceDto,
