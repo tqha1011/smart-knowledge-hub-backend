@@ -80,6 +80,11 @@ export class KnowledgeSpaceRepository
               name: true,
               description: true,
               userWorkspaces: {
+                where: {
+                  user: {
+                    publicId: userPublicId,
+                  },
+                },
                 select: {
                   role: true,
                 },
