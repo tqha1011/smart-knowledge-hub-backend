@@ -11,6 +11,8 @@ services:
       - '127.0.0.1:${API_PORT:-3000}:3000'
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
     depends_on:
       - database
       - redis
@@ -18,7 +20,7 @@ services:
       - smart-portal-backend
 
   database:
-    image: postgres:15.3-alpine
+    image: pgvector/pgvector:pg15
     restart: unless-stopped
     container_name: smart-portal-db
     environment:
