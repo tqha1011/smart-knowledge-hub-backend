@@ -406,7 +406,10 @@ async function main() {
   // Restricted doc: grant bob read access so the permission flow is exercisable too.
   await seedDocumentPermissions(documents.systemArchitecture.id, bob.id);
 
-  console.log('Seed data ready. All seed users share the password:', SEED_PASSWORD);
+  console.log(
+    'Seed data ready. All seed users share the password:',
+    SEED_PASSWORD,
+  );
   console.log('  admin@example.com (Admin)');
   console.log('  alice@example.com (Employee)');
   console.log('  bob@example.com   (Employee)');
