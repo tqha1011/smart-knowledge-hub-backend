@@ -88,7 +88,19 @@ export class KnowledgeSpaceRepository
                 select: {
                   documents: {
                     where: {
-                      visibility: DocumentVisibility.Public,
+                      OR: [
+                        { visibility: DocumentVisibility.Public },
+                        {
+                          visibility: DocumentVisibility.Restricted,
+                          documentPermissions: {
+                            some: {
+                              user: {
+                                publicId: userPublicId,
+                              },
+                            },
+                          },
+                        },
+                      ],
                     },
                   },
                 },

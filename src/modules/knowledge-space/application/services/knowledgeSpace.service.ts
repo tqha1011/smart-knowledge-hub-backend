@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import {
   KnowledgeSpace,
@@ -9,6 +10,8 @@ import {
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
 import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
+import { GetUserKnowledgeSpace } from '../dtos/knowledgeSpace.response.dto';
+import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
 @Injectable()
@@ -16,7 +19,37 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
   constructor(
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly userRepository: IUserRepository,
+    private readonly knowledgeSpaceQueryRepository: IKnowledgeSpaceQueryRepository,
   ) {}
+  async getKnowledgeSpaceForUser(
+    userPublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<GetUserKnowledgeSpace>, AppError>> {
+    try {
+      const result =
+        await this.knowledgeSpaceQueryRepository.getKnowledgeSpacesForUser(
+          userPublicId,
+          pagination,
+        );
+      if (result.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get knowledge spaces for user',
+          ),
+        );
+      }
+      return ok(result.value);
+    } catch (error) {
+      this.logger.error('Failed to get knowledge spaces for user', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get knowledge spaces for user',
+        ),
+      );
+    }
+  }
   private readonly logger = new Logger(KnowledgeSpaceService.name);
   async createKnowledgeSpace(
     userCreatePublicId: string,
