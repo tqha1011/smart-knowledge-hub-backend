@@ -8,13 +8,16 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
 import type { JwtPayload } from 'src/shared/common/jwt.payload.interface';
+import { PaginationQueryDto } from 'src/shared/common/pagination';
 import { Roles } from 'src/shared/common/roles.decorator';
 import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
@@ -29,6 +32,33 @@ import { IKnowledgeSpaceService } from '../application/interfaces/knowledgeSpace
 export class KnowledgeSpaceController {
   private readonly logger = new Logger(KnowledgeSpaceController.name);
   constructor(private readonly knowledgeSpaceService: IKnowledgeSpaceService) {}
+
+  /**
+   * Lists the knowledge spaces the authenticated user is a member of.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {500} for any unexpected error while fetching the list.
+   * @example
+   * GET /api/knowledge-spaces?pageNumber=1&pageSize=20
+   */
+  @ApiOperation({ summary: 'List knowledge spaces for the current user' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get()
+  async getKnowledgeSpaceForUser(
+    @User() user: JwtPayload,
+    @Query(new ValidationPipe({ transform: true }))
+    pagination: PaginationQueryDto,
+  ) {
+    const result = await this.knowledgeSpaceService.getKnowledgeSpaceForUser(
+      user.sub,
+      pagination,
+    );
+    return result.match(
+      (page) => page,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'listing knowledge spaces');
+      },
+    );
+  }
 
   /**
    * Creates a knowledge space owned by the authenticated user.
