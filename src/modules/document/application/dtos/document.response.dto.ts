@@ -58,5 +58,5 @@ export type DocumentDetailResponseDto = {
     userPublicId: string;
     email: string;
     permission: CommonPermissionType;
-  };
+  }[];
 };
