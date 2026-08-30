@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import {
   CategoryData,
+  CreatedCategoryData,
   ICategoryRepository,
 } from '../domain/repositories/category.repo.interface';
 
@@ -48,15 +48,20 @@ export class CategoryRepository implements ICategoryRepository {
   }
 
   async createCategory(
+    publicId: string,
     name: string,
     knowledgeSpaceId: number,
-  ): Promise<Result<CategoryData, Error>> {
+  ): Promise<Result<CreatedCategoryData, Error>> {
     try {
       const category = await this.prismaService.category.create({
-        data: { publicId: randomUUID(), name, knowledgeSpaceId },
-        select: { id: true, name: true },
+        data: { publicId, name, knowledgeSpaceId },
+        select: { id: true, name: true, publicId: true },
       });
-      return ok({ id: category.id, name: category.name });
+      return ok({
+        id: category.id,
+        name: category.name,
+        publicId: category.publicId,
+      });
     } catch (error) {
       this.logger.error(`Failed to create category: ${error}`);
       return err(new Error(`Failed to create category`));

@@ -7,5 +7,5 @@ export abstract class ICategoryService {
     userPublicId: string,
     knowledgeSpacePublicId: string,
     createCategoryDto: CreateCategoryDto,
-  ): Promise<Result<undefined, AppError>>;
+  ): Promise<Result<{ publicId: string; name: string }, AppError>>;
 }

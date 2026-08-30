@@ -4,6 +4,11 @@ export type CategoryData = {
   readonly id: number;
   readonly name: string;
 };
+
+export type CreatedCategoryData = CategoryData & {
+  readonly publicId: string;
+};
+
 export abstract class ICategoryRepository {
   abstract getCategoryIdByPublicId(
     publicId: string,
@@ -16,7 +21,8 @@ export abstract class ICategoryRepository {
   ): Promise<Result<number | null, Error>>;
 
   abstract createCategory(
+    publicId: string,
     name: string,
     knowledgeSpaceId: number,
-  ): Promise<Result<CategoryData, Error>>;
+  ): Promise<Result<CreatedCategoryData, Error>>;
 }

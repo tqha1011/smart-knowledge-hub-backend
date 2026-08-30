@@ -56,7 +56,11 @@ export class CategoryController {
       createCategoryDto,
     );
     return result.match(
-      () => ({ message: 'Category created successfully' }),
+      ({ publicId, name }) => ({
+        message: 'Category created successfully',
+        publicId,
+        name,
+      }),
       (error: AppError) => {
         throw this.toHttpError(error, 'creating a category');
       },

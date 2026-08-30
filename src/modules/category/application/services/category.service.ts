@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { authorizeMembership } from 'src/modules/knowledge-space/application/services/authorizeMembership';
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
@@ -20,7 +21,7 @@ export class CategoryService implements ICategoryService {
     userPublicId: string,
     knowledgeSpacePublicId: string,
     createCategoryDto: CreateCategoryDto,
-  ): Promise<Result<undefined, AppError>> {
+  ): Promise<Result<{ publicId: string; name: string }, AppError>> {
     try {
       const membership = authorizeMembership(
         await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
@@ -56,7 +57,9 @@ export class CategoryService implements ICategoryService {
         );
       }
 
+      const publicId = randomUUID();
       const createResult = await this.categoryRepository.createCategory(
+        publicId,
         createCategoryDto.name,
         membership.value.knowledgeSpaceId,
       );
@@ -68,7 +71,7 @@ export class CategoryService implements ICategoryService {
           ),
         );
       }
-      return ok(undefined);
+      return ok({ publicId, name: createResult.value.name });
     } catch (error) {
       this.logger.error('Failed to create category', error);
       return err(
