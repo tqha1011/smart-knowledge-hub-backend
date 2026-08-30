@@ -1,4 +1,7 @@
-import { CommonDocumentType } from 'src/shared/domain/enum';
+import {
+  CommonDocumentType,
+  CommonDocumentVisibility,
+} from 'src/shared/domain/enum';
 
 export type DocumentUploadUrlResponseDto = {
   uploadUrl: string;
@@ -11,6 +14,7 @@ export type DocumentListResponseDto = {
   publicId: string;
   title: string;
   fileType: CommonDocumentType;
+  visibility: CommonDocumentVisibility;
   lastUpdated: Date;
   category: {
     publicId: string;

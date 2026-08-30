@@ -206,6 +206,7 @@ export class DocumentRepository
               publicId: true,
               title: true,
               fileType: true,
+              visibility: true,
               updatedAt: true,
               category: {
                 select: {
@@ -243,6 +244,7 @@ export class DocumentRepository
           publicId: document.publicId,
           title: document.title,
           fileType: toDomainType(document.fileType),
+          visibility: toDomainVisibility(document.visibility),
           lastUpdated: document.updatedAt,
           category: {
             publicId: document.category.publicId,
