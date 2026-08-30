@@ -9,7 +9,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -43,6 +49,16 @@ export class CategoryController {
    * { "name": "Onboarding" }
    */
   @ApiOperation({ summary: 'Create a category in a knowledge space' })
+  @ApiCreatedResponse({
+    description: 'Category created successfully',
+    schema: {
+      example: {
+        message: 'Category created successfully',
+        publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+        name: 'Onboarding',
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Post()
   async createCategory(
@@ -79,6 +95,21 @@ export class CategoryController {
    * GET /api/knowledge-spaces/6b1f.../categories
    */
   @ApiOperation({ summary: 'List categories in a knowledge space' })
+  @ApiOkResponse({
+    description: 'List of categories in the knowledge space',
+    schema: {
+      example: [
+        {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'Onboarding',
+        },
+        {
+          publicId: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
+          name: 'Policies',
+        },
+      ],
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get()
   async getCategoryList(
