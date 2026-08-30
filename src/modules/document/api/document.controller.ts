@@ -11,7 +11,13 @@ import {
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -54,6 +60,17 @@ export class DocumentController {
    * }
    */
   @ApiOperation({ summary: 'Get a presigned URL to upload a document file' })
+  @ApiCreatedResponse({
+    description: 'Presigned upload URL issued successfully',
+    schema: {
+      example: {
+        uploadUrl:
+          'https://bucket.r2.cloudflarestorage.com/documents/6b1f.../9c3e....pdf?X-Amz-Signature=...',
+        storageKey: 'documents/6b1f.../9c3e....pdf',
+        expiresAt: '2026-08-30T10:05:00.000Z',
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Post('upload-url')
   async getUploadUrl(
@@ -100,6 +117,28 @@ export class DocumentController {
    * }
    */
   @ApiOperation({ summary: 'Create a document from an uploaded file' })
+  @ApiCreatedResponse({
+    description: 'Document created successfully',
+    schema: {
+      example: {
+        publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+        title: 'handbook.pdf',
+        fileType: 'PDF',
+        visibility: 'Public',
+        lastUpdated: '2026-08-30T10:00:00.000Z',
+        category: {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'Onboarding',
+        },
+        updatedBy: {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'jane.doe',
+          avatarUrl: null,
+        },
+        cited: 0,
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Post()
   async createDocument(
@@ -138,6 +177,15 @@ export class DocumentController {
    * // { "downloadUrl": "https://....r2.cloudflarestorage.com/...?X-Amz-Signature=..." }
    */
   @ApiOperation({ summary: 'Get a presigned URL to read a document file' })
+  @ApiOkResponse({
+    description: 'Presigned download URL issued successfully',
+    schema: {
+      example: {
+        downloadUrl:
+          'https://bucket.r2.cloudflarestorage.com/documents/6b1f.../9c3e....pdf?X-Amz-Signature=...',
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get(':documentPublicId/download-url')
   async getDownloadUrl(
@@ -170,6 +218,38 @@ export class DocumentController {
    * GET /api/knowledge-spaces/6b1f.../documents?pageNumber=1&pageSize=20
    */
   @ApiOperation({ summary: 'List documents in a knowledge space' })
+  @ApiOkResponse({
+    description: 'Paginated list of documents in the knowledge space',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+            title: 'handbook.pdf',
+            fileType: 'PDF',
+            visibility: 'Public',
+            lastUpdated: '2026-08-30T10:00:00.000Z',
+            category: {
+              publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+              name: 'Onboarding',
+            },
+            updatedBy: {
+              publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+              name: 'jane.doe',
+              avatarUrl: null,
+            },
+            cited: 3,
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get()
   async getDocumentList(
@@ -205,6 +285,45 @@ export class DocumentController {
    * GET /api/knowledge-spaces/6b1f.../documents/8d4c...
    */
   @ApiOperation({ summary: 'Get a document detail' })
+  @ApiOkResponse({
+    description: 'Document detail retrieved successfully',
+    schema: {
+      example: {
+        publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+        title: 'handbook.pdf',
+        description: 'Everything a new engineer needs',
+        fileType: 'PDF',
+        fileSize: 248310,
+        content: 'Welcome to the team...',
+        visibility: 'Public',
+        status: 'Ready',
+        lastUpdated: '2026-08-30T10:00:00.000Z',
+        category: {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'Onboarding',
+        },
+        updatedBy: {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'jane.doe',
+          avatarUrl: null,
+        },
+        citedQuestion: [
+          {
+            publicId: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
+            name: 'What is the onboarding checklist?',
+            lastAsked: '2026-08-29T14:20:00.000Z',
+          },
+        ],
+        permissions: [
+          {
+            userPublicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+            email: 'jane.doe@example.com',
+            permission: 'Edit',
+          },
+        ],
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get(':documentPublicId')
   async getDocumentDetail(

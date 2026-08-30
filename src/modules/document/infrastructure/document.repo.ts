@@ -19,7 +19,10 @@ import {
   toDomainType,
   toDomainVisibility,
   toPrismaStatus,
+  toPrismaType,
+  toPrismaVisibility,
 } from './document.mapper';
+import { toDomainPermission } from './document-permission.mapper';
 
 @Injectable()
 export class DocumentRepository
@@ -120,6 +123,8 @@ export class DocumentRepository
           publicId: true,
           title: true,
           description: true,
+          visibility: true,
+          status: true,
           fileType: true,
           fileSize: true,
           content: true,
@@ -135,6 +140,17 @@ export class DocumentRepository
               publicId: true,
               username: true,
               avatarUrl: true,
+            },
+          },
+          documentPermissions: {
+            select: {
+              user: {
+                select: {
+                  email: true,
+                  publicId: true,
+                },
+              },
+              permission: true,
             },
           },
           answerSources: {
@@ -156,11 +172,18 @@ export class DocumentRepository
       if (!document) {
         return ok(null);
       }
+      const usersAccess = document.documentPermissions?.map((p) => ({
+        userPublicId: p.user.publicId,
+        email: p.user.email,
+        permission: toDomainPermission(p.permission),
+      }));
 
       return ok({
         publicId: document.publicId,
         title: document.title,
         description: document.description,
+        visibility: toDomainVisibility(document.visibility),
+        status: toDomainStatus(document.status),
         fileType: toDomainType(document.fileType),
         fileSize: Number(document.fileSize),
         content: document.content,
@@ -187,6 +210,7 @@ export class DocumentRepository
             ]),
           ).values(),
         ),
+        permissions: usersAccess,
       });
     } catch (error) {
       this.logger.error(`Failed to get document detail: ${error}`);
@@ -206,6 +230,7 @@ export class DocumentRepository
               publicId: true,
               title: true,
               fileType: true,
+              visibility: true,
               updatedAt: true,
               category: {
                 select: {
@@ -243,6 +268,7 @@ export class DocumentRepository
           publicId: document.publicId,
           title: document.title,
           fileType: toDomainType(document.fileType),
+          visibility: toDomainVisibility(document.visibility),
           lastUpdated: document.updatedAt,
           category: {
             publicId: document.category.publicId,
@@ -284,10 +310,10 @@ export class DocumentRepository
           knowledgeSpaceId: newDocument.knowledgeSpaceId,
           categoryId: newDocument.categoryId,
           status: toPrismaStatus(newDocument.status),
-          visibility: newDocument.visibility,
+          visibility: toPrismaVisibility(newDocument.visibility),
           storagePath: newDocument.storagePath,
           fileSize: newDocument.fileSize,
-          fileType: newDocument.fileType,
+          fileType: toPrismaType(newDocument.fileType),
           createdAt: newDocument.createdAt,
           updatedAt: newDocument.updatedAt,
         },
@@ -306,7 +332,7 @@ export class DocumentRepository
         where: { publicId },
         select: { id: true },
       });
-      return ok(documentId?.id || null);
+      return ok(documentId?.id ?? null);
     } catch (error) {
       this.logger.error(`Failed to get document ID by public ID: ${error}`);
       return err(new Error(`Failed to get document ID by public ID`));

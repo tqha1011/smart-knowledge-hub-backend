@@ -1,4 +1,8 @@
-import { DocumentStatus, FileType } from 'generated/prisma/enums';
+import {
+  DocumentStatus,
+  DocumentVisibility,
+  FileType,
+} from 'generated/prisma/enums';
 import {
   CommonDocumentStatus,
   CommonDocumentType,
@@ -31,10 +35,11 @@ const typeToDomain: Record<FileType, CommonDocumentType> = {
   [FileType.MD]: CommonDocumentType.MD,
 };
 
-const visibilityToPrisma: Record<CommonDocumentVisibility, string> = {
-  [CommonDocumentVisibility.Public]: 'Public',
-  [CommonDocumentVisibility.Restricted]: 'Restricted',
-};
+const visibilityToPrisma: Record<CommonDocumentVisibility, DocumentVisibility> =
+  {
+    [CommonDocumentVisibility.Public]: DocumentVisibility.Public,
+    [CommonDocumentVisibility.Restricted]: DocumentVisibility.Restricted,
+  };
 
 const visibilityToDomain: Record<string, CommonDocumentVisibility> = {
   ['Public']: CommonDocumentVisibility.Public,
@@ -43,7 +48,7 @@ const visibilityToDomain: Record<string, CommonDocumentVisibility> = {
 
 export function toPrismaVisibility(
   visibility: CommonDocumentVisibility,
-): string {
+): DocumentVisibility {
   return visibilityToPrisma[visibility];
 }
 
