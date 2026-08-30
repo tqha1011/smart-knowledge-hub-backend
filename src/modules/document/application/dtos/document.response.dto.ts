@@ -1,6 +1,8 @@
 import {
+  CommonDocumentStatus,
   CommonDocumentType,
   CommonDocumentVisibility,
+  CommonPermissionType,
 } from 'src/shared/domain/enum';
 
 export type DocumentUploadUrlResponseDto = {
@@ -35,6 +37,8 @@ export type DocumentDetailResponseDto = {
   fileType: CommonDocumentType;
   fileSize: number;
   content: string | null;
+  visibility: CommonDocumentVisibility;
+  status: CommonDocumentStatus;
   lastUpdated: Date;
   category: {
     publicId: string;
@@ -50,4 +54,9 @@ export type DocumentDetailResponseDto = {
     name: string;
     lastAsked: Date;
   }[]; // if doesn't have any cited question, return empty array
+  permissions: {
+    userPublicId: string;
+    email: string;
+    permission: CommonPermissionType;
+  };
 };
