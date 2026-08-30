@@ -9,4 +9,14 @@ export abstract class ICategoryRepository {
     publicId: string,
     knowledgeSpaceId: number,
   ): Promise<Result<CategoryData | null, Error>>;
+
+  abstract getCategoryIdByName(
+    name: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<number | null, Error>>;
+
+  abstract createCategory(
+    name: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<CategoryData, Error>>;
 }
