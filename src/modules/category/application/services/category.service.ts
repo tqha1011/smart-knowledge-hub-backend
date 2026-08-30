@@ -5,7 +5,10 @@ import { authorizeMembership } from 'src/modules/knowledge-space/application/ser
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
-import { ICategoryRepository } from '../../domain/repositories/category.repo.interface';
+import {
+  GetCategoryData,
+  ICategoryRepository,
+} from '../../domain/repositories/category.repo.interface';
 import { CreateCategoryDto } from '../dtos/category.request.dto';
 import { ICategoryService } from '../interfaces/category.service.interface';
 
@@ -16,6 +19,44 @@ export class CategoryService implements ICategoryService {
     private readonly categoryRepository: ICategoryRepository,
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
   ) {}
+  async getCategoryList(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+  ): Promise<Result<GetCategoryData[], AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'get category',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+      const categories = await this.categoryRepository.getCategoryList(
+        membership.value.knowledgeSpaceId,
+      );
+      if (categories.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get category list. ${categories.error.message}`,
+          ),
+        );
+      }
+      return ok(categories.value);
+    } catch (error) {
+      this.logger.error('Failed to get category list', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get category list',
+        ),
+      );
+    }
+  }
 
   async createCategory(
     userPublicId: string,

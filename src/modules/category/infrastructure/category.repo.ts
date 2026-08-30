@@ -4,6 +4,7 @@ import { PrismaService } from 'src/shared/infrastructure/database/prisma.service
 import {
   CategoryData,
   CreatedCategoryData,
+  GetCategoryData,
   ICategoryRepository,
 } from '../domain/repositories/category.repo.interface';
 
@@ -11,6 +12,20 @@ import {
 export class CategoryRepository implements ICategoryRepository {
   private readonly logger = new Logger(CategoryRepository.name);
   constructor(private readonly prismaService: PrismaService) {}
+  async getCategoryList(
+    knowledgeSpaceId: number,
+  ): Promise<Result<GetCategoryData[], Error>> {
+    try {
+      const categories = await this.prismaService.category.findMany({
+        where: { knowledgeSpaceId },
+        select: { publicId: true, name: true },
+      });
+      return ok(categories as GetCategoryData[]);
+    } catch (error) {
+      this.logger.error(`Failed to get category list: ${error}`);
+      return err(new Error(`Failed to get category list`));
+    }
+  }
 
   async getCategoryIdByPublicId(
     publicId: string,

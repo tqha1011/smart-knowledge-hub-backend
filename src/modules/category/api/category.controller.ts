@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   Logger,
   Param,
@@ -63,6 +64,36 @@ export class CategoryController {
       }),
       (error: AppError) => {
         throw this.toHttpError(error, 'creating a category');
+      },
+    );
+  }
+
+  /**
+   * Lists the categories defined in a knowledge space.
+   * @remarks The caller must be at least an Editor of the knowledge space.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not at least an Editor of the knowledge space.
+   * @throws {404} when the user or the knowledge space does not exist.
+   * @throws {500} for any unexpected error while listing categories.
+   * @example
+   * GET /api/knowledge-spaces/6b1f.../categories
+   */
+  @ApiOperation({ summary: 'List categories in a knowledge space' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get()
+  async getCategoryList(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+  ) {
+    const result = await this.categoryService.getCategoryList(
+      user.sub,
+      knowledgeSpacePublicId,
+    );
+    return result.match(
+      (categories) => categories,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'listing categories');
       },
     );
   }
