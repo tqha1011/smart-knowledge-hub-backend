@@ -11,3 +11,11 @@ export type GetUserKnowledgeSpace = {
   totalDocuments: number;
   role: KnowledgeSpaceRole;
 };
+
+export type UserSpaceData = {
+  publicId: string;
+  name: string;
+  email: string;
+  role: KnowledgeSpaceRole;
+  joinedAt: Date;
+};
