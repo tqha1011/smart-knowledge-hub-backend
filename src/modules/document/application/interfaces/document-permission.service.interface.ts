@@ -9,4 +9,11 @@ export abstract class IDocumentPermissionService {
     documentPublicId: string,
     permissionRequest: DocumentPermissionRequestDto[],
   ): Promise<Result<undefined, AppError>>;
+
+  abstract updateDocumentPermissionAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+    permissionRequest: DocumentPermissionRequestDto[],
+  ): Promise<Result<undefined, AppError>>;
 }

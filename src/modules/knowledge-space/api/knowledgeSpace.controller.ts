@@ -12,7 +12,12 @@ import {
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -167,6 +172,62 @@ export class KnowledgeSpaceController {
       },
       (error: AppError) => {
         throw this.toHttpError(error, 'updating a knowledge space');
+      },
+    );
+  }
+
+  /**
+   * Lists the members of a knowledge space, newest first.
+   * @remarks The caller must be a member (any role) of the space.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not a member of the knowledge space.
+   * @throws {404} when the user or the knowledge space does not exist.
+   * @throws {500} for any unexpected error while fetching the list.
+   * @example
+   * GET /api/knowledge-spaces/6b1f.../members?pageNumber=1&pageSize=20
+   */
+  @ApiOperation({ summary: 'List members of a knowledge space' })
+  @ApiOkResponse({
+    description: 'Paginated list of members in the knowledge space',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+            name: 'jane.doe',
+            email: 'jane.doe@example.com',
+            role: 'Owner',
+            joinedAt: '2026-08-30T10:00:00.000Z',
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get(':knowledgeSpacePublicId/members')
+  async getUserDataInKnowledgeSpace(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Query(new ValidationPipe({ transform: true }))
+    pagination: PaginationQueryDto,
+  ) {
+    const result =
+      await this.knowledgeSpaceService.getUserDataInKnowledgeSpaceAsync(
+        user.sub,
+        knowledgeSpacePublicId,
+        pagination,
+      );
+    return result.match(
+      (page) => page,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'listing knowledge space members');
       },
     );
   }

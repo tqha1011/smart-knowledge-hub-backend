@@ -10,7 +10,10 @@ import {
 } from '../../domain/entities/knowledgeSpace.entity';
 import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
 import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
-import { GetUserKnowledgeSpace } from '../dtos/knowledgeSpace.response.dto';
+import {
+  GetUserKnowledgeSpace,
+  UserSpaceData,
+} from '../dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../interfaces/knowledgeSpace-query.repo.interface';
 import { IKnowledgeSpaceService } from '../interfaces/knowledgeSpace.service.interface';
 
@@ -267,6 +270,68 @@ export class KnowledgeSpaceService implements IKnowledgeSpaceService {
         new AppError(
           ErrorCode.InternalServerError,
           'Failed to update knowledge space',
+        ),
+      );
+    }
+  }
+
+  async getUserDataInKnowledgeSpaceAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<UserSpaceData>, AppError>> {
+    try {
+      const contextResult = await this.resolveUserAndKnowledgeSpaceId(
+        userPublicId,
+        knowledgeSpacePublicId,
+      );
+      if (contextResult.isErr()) {
+        return err(contextResult.error);
+      }
+      const { userId, knowledgeSpaceId } = contextResult.value;
+
+      const roleResult =
+        await this.knowledgeSpaceRepository.getUserKnowledgeSpaceRole(
+          userId,
+          knowledgeSpaceId,
+        );
+      if (roleResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get user knowledge space role. ${roleResult.error.message}`,
+          ),
+        );
+      }
+      if (roleResult.value === null) {
+        return err(
+          new AppError(
+            ErrorCode.Forbidden,
+            `You are not a member of knowledge space ${knowledgeSpacePublicId}`,
+          ),
+        );
+      }
+
+      const result =
+        await this.knowledgeSpaceQueryRepository.getUserDataInKnowledgeSpace(
+          knowledgeSpaceId,
+          pagination,
+        );
+      if (result.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to get user data in knowledge space. ${result.error.message}`,
+          ),
+        );
+      }
+      return ok(result.value);
+    } catch (error) {
+      this.logger.error('Failed to get user data in knowledge space', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get user data in knowledge space',
         ),
       );
     }

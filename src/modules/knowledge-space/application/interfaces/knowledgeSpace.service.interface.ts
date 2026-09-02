@@ -2,7 +2,10 @@ import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { CreateKnowledgeSpaceDto } from '../dtos/knowledgeSpace.request.dto';
-import { GetUserKnowledgeSpace } from '../dtos/knowledgeSpace.response.dto';
+import {
+  GetUserKnowledgeSpace,
+  UserSpaceData,
+} from '../dtos/knowledgeSpace.response.dto';
 
 export abstract class IKnowledgeSpaceService {
   abstract createKnowledgeSpace(
@@ -25,4 +28,11 @@ export abstract class IKnowledgeSpaceService {
     userPublicId: string,
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<GetUserKnowledgeSpace>, AppError>>;
+
+  /** The caller must be a member (any role) of the knowledge space. */
+  abstract getUserDataInKnowledgeSpaceAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<UserSpaceData>, AppError>>;
 }

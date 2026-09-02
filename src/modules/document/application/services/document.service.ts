@@ -10,6 +10,7 @@ import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import {
+  CommonDocumentStatus,
   CommonDocumentType,
   CommonDocumentVisibility,
   KnowledgeSpaceRole,
@@ -17,12 +18,16 @@ import {
 import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
-import { Document } from '../../domain/entities/document.entity';
+import {
+  Document,
+  DocumentUpdateParams,
+} from '../../domain/entities/document.entity';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
 import { IDocumentQueryRepository } from '../interfaces/document-query.repo.interface';
 import {
   DocumentCreateRequestDto,
+  DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
 } from '../dtos/document.request.dto';
 import {
@@ -481,6 +486,144 @@ export class DocumentService implements IDocumentService {
         new AppError(
           ErrorCode.InternalServerError,
           'Failed to get document detail',
+        ),
+      );
+    }
+  }
+
+  async updateDocumentAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+    documentUpdateRequestDto: DocumentUpdateRequestDto,
+  ): Promise<Result<DocumentListResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'update document',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const documentData =
+        await this.documentRepository.getDocumentStorageDataByPublicId(
+          documentPublicId,
+          membership.value.knowledgeSpaceId,
+        );
+      if (documentData.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to resolve document storage data',
+          ),
+        );
+      }
+      if (documentData.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+
+      let categoryId: number | undefined;
+      if (documentUpdateRequestDto.categoryPublicId) {
+        const categoryResult =
+          await this.categoryRepository.getCategoryIdByPublicId(
+            documentUpdateRequestDto.categoryPublicId,
+            membership.value.knowledgeSpaceId,
+          );
+        if (categoryResult.isErr()) {
+          return err(
+            new AppError(
+              ErrorCode.InternalServerError,
+              'Failed to resolve category',
+            ),
+          );
+        }
+        if (categoryResult.value === null) {
+          return err(new AppError(ErrorCode.NotFound, 'Category not found'));
+        }
+        categoryId = categoryResult.value.id;
+      }
+
+      const updateParams: DocumentUpdateParams = {
+        title: documentUpdateRequestDto.name ?? undefined,
+        description: documentUpdateRequestDto.description,
+        content: documentUpdateRequestDto.content,
+        categoryId,
+        visibility: documentUpdateRequestDto.visibility ?? undefined,
+      };
+      const validationResult = Document.validateUpdate(updateParams);
+      if (validationResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.BadRequest,
+            `Failed to update document. ${validationResult.error.message}`,
+          ),
+        );
+      }
+
+      // Providing content re-triggers ingestion; addChunks deletes the document's old
+      // chunks before inserting the new ones, so there is no separate cleanup step here.
+      const contentProvided = documentUpdateRequestDto.content !== undefined;
+      const updateResult = await this.documentRepository.updateDocument(
+        documentData.value.id,
+        {
+          ...updateParams,
+          status: contentProvided ? CommonDocumentStatus.Processing : undefined,
+        },
+      );
+      if (updateResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to update document',
+          ),
+        );
+      }
+
+      if (contentProvided) {
+        try {
+          await this.ingestionQueue.add(
+            EventName.IngestionDocument,
+            { documentPublicId },
+            {
+              attempts: 3, // retry up to 3 times in case of failure
+            },
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to enqueue document ingestion for document ${documentPublicId}`,
+            error,
+          );
+        }
+      }
+
+      const updatedItem =
+        await this.documentQueryRepository.getDocumentListItemByPublicId(
+          membership.value.knowledgeSpaceId,
+          documentPublicId,
+        );
+      if (updatedItem.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get updated document',
+          ),
+        );
+      }
+      if (updatedItem.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      return ok(updatedItem.value);
+    } catch (error) {
+      this.logger.error('Failed to update document', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to update document',
         ),
       );
     }

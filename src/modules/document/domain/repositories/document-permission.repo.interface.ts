@@ -15,4 +15,9 @@ export abstract class IDocumentPermissionRepository {
   abstract addDocumentPermission(
     permissionRequest: DocumentPermissionRequest[],
   ): Promise<Result<undefined, Error>>;
+
+  abstract updateDocumentPermission(
+    documentId: number,
+    permissionRequest: DocumentPermissionRequest[],
+  ): Promise<Result<undefined, Error>>;
 }

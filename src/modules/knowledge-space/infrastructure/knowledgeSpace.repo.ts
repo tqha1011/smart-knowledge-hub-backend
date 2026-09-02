@@ -5,7 +5,10 @@ import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
-import { GetUserKnowledgeSpace } from '../application/dtos/knowledgeSpace.response.dto';
+import {
+  GetUserKnowledgeSpace,
+  UserSpaceData,
+} from '../application/dtos/knowledgeSpace.response.dto';
 import { IKnowledgeSpaceQueryRepository } from '../application/interfaces/knowledgeSpace-query.repo.interface';
 import {
   KnowledgeSpace,
@@ -22,6 +25,58 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getUserDataInKnowledgeSpace(
+    knowledgeSpaceId: number,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<UserSpaceData>, Error>> {
+    try {
+      const [userWorkspaces, totalUsers] =
+        await this.prismaService.$transaction([
+          this.prismaService.userWorkspace.findMany({
+            where: { knowledgeSpaceId },
+            select: {
+              role: true,
+              createdAt: true,
+              user: {
+                select: {
+                  publicId: true,
+                  username: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (pagination.pageNumber - 1) * pagination.pageSize,
+            take: pagination.pageSize,
+          }),
+          this.prismaService.userWorkspace.count({
+            where: { knowledgeSpaceId },
+          }),
+        ]);
+      const response: UserSpaceData[] = userWorkspaces.map((uw) => ({
+        publicId: uw.user.publicId,
+        name: uw.user.username,
+        email: uw.user.email,
+        role: toDomainRole(uw.role),
+        joinedAt: uw.createdAt,
+      }));
+      return ok(
+        new PageResult<UserSpaceData>(
+          response,
+          totalUsers,
+          pagination.pageNumber,
+          pagination.pageNumber,
+          pagination.pageSize,
+        ),
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to get user data in knowledge space in repository',
+        error,
+      );
+      return err(new Error('Failed to get user data in knowledge space'));
+    }
+  }
   async getMembershipInKnowledgeSpace(
     userPublicId: string,
     knowledgeSpacePublicId: string,
