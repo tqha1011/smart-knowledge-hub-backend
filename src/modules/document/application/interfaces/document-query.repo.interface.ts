@@ -18,4 +18,9 @@ export abstract class IDocumentQueryRepository {
     knowledgeSpaceId: number,
     documentPublicId: string,
   ): Promise<Result<DocumentDetailResponseDto | null, Error>>;
+
+  abstract getDocumentListItemByPublicId(
+    knowledgeSpaceId: number,
+    documentPublicId: string,
+  ): Promise<Result<DocumentListResponseDto | null, Error>>;
 }

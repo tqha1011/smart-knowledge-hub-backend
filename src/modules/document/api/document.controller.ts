@@ -6,6 +6,7 @@ import {
   Logger,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -29,6 +30,7 @@ import { User } from 'src/shared/common/user.decorator';
 import { SystemRole } from 'src/shared/domain/enum';
 import {
   DocumentCreateRequestDto,
+  DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
 } from '../application/dtos/document.request.dto';
 import { IDocumentService } from '../application/interfaces/document.service.interface';
@@ -341,6 +343,68 @@ export class DocumentController {
       (document) => document,
       (error: AppError) => {
         throw this.toHttpError(error, 'getting a document detail');
+      },
+    );
+  }
+
+  /**
+   * Partially updates a document's metadata.
+   * @remarks Only the provided fields are changed. Providing `content` marks the
+   * document `Processing` again and re-enqueues it for ingestion. Permission grants
+   * are handled separately by `POST .../documents/:documentPublicId/permissions`,
+   * not by this endpoint.
+   * @throws {400} when a provided field fails validation, or the category does not
+   * belong to this knowledge space.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not at least an Editor of the knowledge space.
+   * @throws {404} when the document, or the given category, does not exist.
+   * @throws {500} for any unexpected error while updating the document.
+   * @example
+   * PATCH /api/knowledge-spaces/6b1f.../documents/8d4c...
+   * { "description": "Updated onboarding guide", "visibility": "Restricted" }
+   */
+  @ApiOperation({ summary: 'Update a document' })
+  @ApiOkResponse({
+    description: 'Document updated successfully',
+    schema: {
+      example: {
+        publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+        title: 'handbook.pdf',
+        fileType: 'PDF',
+        visibility: 'Restricted',
+        lastUpdated: '2026-08-30T10:10:00.000Z',
+        category: {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'Onboarding',
+        },
+        updatedBy: {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'jane.doe',
+          avatarUrl: null,
+        },
+        cited: 3,
+      },
+    },
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Patch(':documentPublicId')
+  async updateDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+    @Body() documentUpdateRequestDto: DocumentUpdateRequestDto,
+  ) {
+    const result = await this.documentService.updateDocumentAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      documentPublicId,
+      documentUpdateRequestDto,
+    );
+    return result.match(
+      (document) => document,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'updating a document');
       },
     );
   }

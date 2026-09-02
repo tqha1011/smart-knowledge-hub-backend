@@ -100,3 +100,40 @@ export class AddDocumentPermissionRequestDto {
   @Type(() => DocumentPermissionRequestDto)
   permissions!: DocumentPermissionRequestDto[];
 }
+
+export class DocumentUpdateRequestDto {
+  /**
+   * @example 'Employee handbook'
+   */
+  @IsString()
+  @IsOptional()
+  name?: string | null;
+
+  /**
+   * @example 'Welcome to the team! This document covers...'
+   */
+  @IsString()
+  @IsOptional()
+  content?: string | null;
+
+  /**
+   * @example 'Company policies and onboarding guide'
+   */
+  @IsString()
+  @IsOptional()
+  description?: string | null;
+
+  /**
+   * @example 'Public'
+   */
+  @IsEnum(CommonDocumentVisibility)
+  @IsOptional()
+  visibility?: CommonDocumentVisibility | null;
+
+  @IsOptional()
+  @IsUUID()
+  categoryPublicId?: string | null;
+
+  @IsOptional()
+  permissions?: AddDocumentPermissionRequestDto | [];
+}

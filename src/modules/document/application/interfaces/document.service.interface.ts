@@ -3,6 +3,7 @@ import { AppError } from 'src/shared/common/errorCode';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import {
   DocumentCreateRequestDto,
+  DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
 } from '../dtos/document.request.dto';
 import {
@@ -48,4 +49,16 @@ export abstract class IDocumentService {
     userPublicId: string,
     documentPublicId: string,
   ): Promise<Result<DocumentDetailResponseDto, AppError>>;
+
+  /**
+   * Partial update of a document's metadata. Providing `content` marks the document
+   * `Processing` again and re-enqueues it for ingestion. Permission grants are handled
+   * separately by the document-permission endpoints, not through this method.
+   */
+  abstract updateDocumentAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+    documentUpdateRequestDto: DocumentUpdateRequestDto,
+  ): Promise<Result<DocumentListResponseDto, AppError>>;
 }

@@ -40,11 +40,29 @@ export type DocumentCreateParams = {
   readonly fileSize: number;
   readonly fileType: CommonDocumentType;
 };
+
+export type DocumentUpdateParams = {
+  readonly title?: string;
+  readonly description?: string | null;
+  readonly content?: string | null;
+  readonly categoryId?: number;
+  readonly visibility?: CommonDocumentVisibility;
+};
 export class Document {
   private constructor(private params: DocumentGetParams) {}
 
   static getDocument(params: DocumentGetParams): Document {
     return new Document(params);
+  }
+
+  /**
+   * Validates a partial update payload without loading the aggregate, for callers
+   * that only hold the document id (see IDocumentRepository.updateDocument).
+   */
+  static validateUpdate(
+    params: DocumentUpdateParams,
+  ): Result<undefined, DocumentDomainErrorValidation> {
+    return Document.valideteInformation(params);
   }
 
   static createDocument(
@@ -127,7 +145,7 @@ export class Document {
   }
 
   private static valideteInformation(
-    params: DocumentCreateParams,
+    params: Partial<Pick<DocumentCreateParams, 'title' | 'description'>>,
   ): Result<undefined, DocumentDomainErrorValidation> {
     if (params.title && params.title.length > 255) {
       return err(

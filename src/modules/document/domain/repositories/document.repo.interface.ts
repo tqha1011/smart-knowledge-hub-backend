@@ -4,7 +4,7 @@ import {
   CommonDocumentType,
   CommonDocumentVisibility,
 } from 'src/shared/domain/enum';
-import { Document } from '../entities/document.entity';
+import { Document, DocumentUpdateParams } from '../entities/document.entity';
 
 export type DocumentStorageData = {
   id: number;
@@ -23,6 +23,11 @@ export type DocumentIngestionData = {
   visibility: CommonDocumentVisibility;
   fileType: CommonDocumentType;
 };
+
+export type DocumentUpdateData = DocumentUpdateParams & {
+  status?: CommonDocumentStatus;
+};
+
 export abstract class IDocumentRepository {
   abstract getDocumentIdByPublicId(
     publicId: string,
@@ -45,5 +50,10 @@ export abstract class IDocumentRepository {
   abstract updateDocumentStatus(
     documentId: number,
     status: CommonDocumentStatus,
+  ): Promise<Result<undefined, Error>>;
+
+  abstract updateDocument(
+    documentId: number,
+    data: DocumentUpdateData,
   ): Promise<Result<undefined, Error>>;
 }

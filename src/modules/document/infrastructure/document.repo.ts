@@ -12,6 +12,7 @@ import { Document } from '../domain/entities/document.entity';
 import {
   DocumentIngestionData,
   DocumentStorageData,
+  DocumentUpdateData,
   IDocumentRepository,
 } from '../domain/repositories/document.repo.interface';
 import {
@@ -21,7 +22,7 @@ import {
   toPrismaStatus,
   toPrismaType,
   toPrismaVisibility,
-} from './document.mapper';
+} from '../document.mapper';
 import { toDomainPermission } from './document-permission.mapper';
 
 @Injectable()
@@ -322,6 +323,98 @@ export class DocumentRepository
     } catch (error) {
       this.logger.error(`Failed to add document: ${error}`);
       return err(new Error(`Failed to add document`));
+    }
+  }
+  async updateDocument(
+    documentId: number,
+    data: DocumentUpdateData,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.document.update({
+        where: { id: documentId },
+        data: {
+          ...(data.title !== undefined && { title: data.title }),
+          ...(data.description !== undefined && {
+            description: data.description,
+          }),
+          ...(data.content !== undefined && { content: data.content }),
+          ...(data.categoryId !== undefined && {
+            categoryId: data.categoryId,
+          }),
+          ...(data.visibility !== undefined && {
+            visibility: toPrismaVisibility(data.visibility),
+          }),
+          ...(data.status !== undefined && {
+            status: toPrismaStatus(data.status),
+          }),
+        },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error(`Failed to update document: ${error}`);
+      return err(new Error(`Failed to update document`));
+    }
+  }
+  async getDocumentListItemByPublicId(
+    knowledgeSpaceId: number,
+    documentPublicId: string,
+  ): Promise<Result<DocumentListResponseDto | null, Error>> {
+    try {
+      const document = await this.prismaService.document.findUnique({
+        where: { publicId: documentPublicId, knowledgeSpaceId },
+        select: {
+          publicId: true,
+          title: true,
+          fileType: true,
+          visibility: true,
+          updatedAt: true,
+          category: {
+            select: {
+              publicId: true,
+              name: true,
+            },
+          },
+          author: {
+            select: {
+              publicId: true,
+              username: true,
+              avatarUrl: true,
+            },
+          },
+          _count: {
+            select: {
+              answerSources: {
+                where: { knowledgeSpaceId },
+              },
+            },
+          },
+        },
+      });
+      if (!document) {
+        return ok(null);
+      }
+      return ok({
+        publicId: document.publicId,
+        title: document.title,
+        fileType: toDomainType(document.fileType),
+        visibility: toDomainVisibility(document.visibility),
+        lastUpdated: document.updatedAt,
+        category: {
+          publicId: document.category.publicId,
+          name: document.category.name,
+        },
+        updatedBy: {
+          publicId: document.author.publicId,
+          name: document.author.username,
+          avatarUrl: document.author.avatarUrl,
+        },
+        cited: document._count.answerSources,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to get document list item by public ID: ${error}`,
+      );
+      return err(new Error(`Failed to get document list item by public ID`));
     }
   }
   async getDocumentIdByPublicId(
