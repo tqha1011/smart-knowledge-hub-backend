@@ -133,7 +133,4 @@ export class DocumentUpdateRequestDto {
   @IsOptional()
   @IsUUID()
   categoryPublicId?: string | null;
-
-  @IsOptional()
-  permissions?: AddDocumentPermissionRequestDto | [];
 }
