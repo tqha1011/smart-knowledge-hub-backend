@@ -6,9 +6,15 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -67,6 +73,50 @@ export class DocumentPermissionController {
       () => ({ success: true }),
       (error: AppError) => {
         throw this.toHttpError(error, 'granting document permissions');
+      },
+    );
+  }
+
+  /**
+   * Replaces every permission row on a document with the given list.
+   * @remarks Unlike `POST .../permissions` (which only adds), this removes any
+   * user not included in the request. Send an empty `permissions` array to
+   * revoke every permission on the document.
+   * @throws {400} when a `userPublicId` is not a valid UUID.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not at least an Editor of the knowledge space.
+   * @throws {404} when the document does not exist, or a `userPublicId` does not
+   * resolve to any user.
+   * @throws {500} for any unexpected error while updating permissions.
+   * @example
+   * PUT /api/knowledge-spaces/6b1f.../documents/8d4c.../permissions
+   * { "permissions": [{ "userPublicId": "0f2a...", "permission": "Edit" }] }
+   */
+  @ApiOperation({ summary: 'Replace document permissions' })
+  @ApiOkResponse({
+    description: 'Document permissions updated successfully',
+    schema: { example: { success: true } },
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Put()
+  async updateDocumentPermission(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+    @Body() addDocumentPermissionRequestDto: AddDocumentPermissionRequestDto,
+  ) {
+    const result =
+      await this.documentPermissionService.updateDocumentPermissionAsync(
+        knowledgeSpacePublicId,
+        user.sub,
+        documentPublicId,
+        addDocumentPermissionRequestDto.permissions,
+      );
+    return result.match(
+      () => ({ success: true }),
+      (error: AppError) => {
+        throw this.toHttpError(error, 'updating document permissions');
       },
     );
   }

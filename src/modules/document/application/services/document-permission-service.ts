@@ -94,6 +94,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
 
       const addResult =
         await this.documentPermissionRepository.updateDocumentPermission(
+          documentId,
           permissionRequests,
         );
       if (addResult.isErr()) {

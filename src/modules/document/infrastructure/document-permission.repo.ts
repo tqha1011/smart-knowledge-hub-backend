@@ -13,23 +13,24 @@ export class DocumentPermissionRepository implements IDocumentPermissionReposito
   private readonly logger = new Logger(DocumentPermissionRepository.name);
   constructor(private readonly prismaService: PrismaService) {}
   async updateDocumentPermission(
+    documentId: number,
     permissionRequest: DocumentPermissionRequest[],
   ): Promise<Result<undefined, Error>> {
     try {
       await this.prismaService.$transaction(async (tx) => {
         await tx.documentPermission.deleteMany({
-          where: {
-            documentId: permissionRequest[0].documentId,
-          },
+          where: { documentId },
         });
-        await tx.documentPermission.createMany({
-          data: permissionRequest.map((req) => ({
-            userId: req.userId,
-            documentId: req.documentId,
-            permission: req.permission,
-          })),
-          skipDuplicates: true,
-        });
+        if (permissionRequest.length > 0) {
+          await tx.documentPermission.createMany({
+            data: permissionRequest.map((req) => ({
+              userId: req.userId,
+              documentId: req.documentId,
+              permission: req.permission,
+            })),
+            skipDuplicates: true,
+          });
+        }
       });
       return ok(undefined);
     } catch (error) {
