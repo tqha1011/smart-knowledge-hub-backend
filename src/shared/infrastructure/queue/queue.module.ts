@@ -17,9 +17,14 @@ import { QueueName } from './constant/queue-name';
       }),
     }),
 
-    BullModule.registerQueue({
-      name: QueueName.IngestionQueue,
-    }),
+    BullModule.registerQueue(
+      {
+        name: QueueName.IngestionQueue,
+      },
+      {
+        name: QueueName.GenerateTitleQueue,
+      },
+    ),
   ],
   exports: [BullModule],
 })

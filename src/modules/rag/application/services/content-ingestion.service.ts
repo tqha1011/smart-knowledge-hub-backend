@@ -4,7 +4,7 @@ import { Job } from 'bullmq';
 import { IDocumentRepository } from 'src/modules/document/domain/repositories/document.repo.interface';
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
-import { IngestionJobRequestDto } from 'src/shared/infrastructure/queue/types/ingestion-job.request.dto';
+import { IngestionJobRequestDto } from 'src/shared/infrastructure/queue/types/job.request.dto';
 import {
   EmbeddingResult,
   IDocumentChunkRepository,

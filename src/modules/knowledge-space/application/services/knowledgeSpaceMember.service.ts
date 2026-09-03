@@ -1,4 +1,6 @@
+import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { err, ok, Result } from 'neverthrow';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
@@ -17,6 +19,8 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
     private readonly knowledgeSpaceMemberRepository: IKnowledgeSpaceMemberRepository,
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
     private readonly userRepository: IUserRepository,
+    private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
   ) {}
 
   async addMembersAsync(
@@ -62,11 +66,77 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
           ),
         );
       }
+
+      // Best-effort: members are already added successfully, so a failure to
+      // notify them by email must not fail the request.
+      await this.notifyMembersAdded(
+        userPublicId,
+        membership.value.knowledgeSpaceId,
+        members,
+        userIdByPublicId,
+      );
+
       return ok(undefined);
     } catch (error) {
       this.logger.error('Failed to add members', error);
       return err(
         new AppError(ErrorCode.InternalServerError, 'Failed to add members'),
+      );
+    }
+  }
+
+  private async notifyMembersAdded(
+    inviterPublicId: string,
+    knowledgeSpaceId: number,
+    members: AddMemberRequestDto[],
+    userIdByPublicId: Map<string, number>,
+  ): Promise<void> {
+    try {
+      const [inviterResult, spaceNameResult, contactsResult] =
+        await Promise.all([
+          this.userRepository.GetUserDataByPublicId(inviterPublicId),
+          this.knowledgeSpaceRepository.getKnowledgeSpaceNameById(
+            knowledgeSpaceId,
+          ),
+          this.userRepository.GetUsersContactDataByIds([
+            ...userIdByPublicId.values(),
+          ]),
+        ]);
+      if (
+        inviterResult.isErr() ||
+        spaceNameResult.isErr() ||
+        contactsResult.isErr()
+      ) {
+        throw new Error('Failed to resolve data needed for the email');
+      }
+
+      const roleByUserId = new Map(
+        members.map((m) => [userIdByPublicId.get(m.userPublicId), m.role]),
+      );
+      const loginUrl = this.configService.get<string>('FRONTEND_URL');
+      const knowledgeSpaceName = spaceNameResult.value ?? 'a knowledge space';
+      const invitedBy = inviterResult.value?.name;
+
+      await Promise.all(
+        contactsResult.value.map((contact) =>
+          this.mailerService.sendMail({
+            to: contact.email,
+            subject: `You've been added to ${knowledgeSpaceName}`,
+            template: 'member-added',
+            context: {
+              memberName: contact.username,
+              role: roleByUserId.get(contact.id),
+              knowledgeSpaceName,
+              invitedBy,
+              loginUrl,
+            },
+          }),
+        ),
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to send member-added notification emails',
+        error,
       );
     }
   }

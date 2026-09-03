@@ -17,6 +17,7 @@ import { RagModule } from './modules/rag/rag.module';
 import { UserModule } from './modules/user/user.module';
 import { LoggerMiddleware } from './shared/common/logger.middleware';
 import { PrismaModule } from './shared/infrastructure/database/prisma.module';
+import { NotificationModule } from './shared/infrastructure/notification/notification.module';
 import { QueueModule } from './shared/infrastructure/queue/queue.module';
 import { StorageModule } from './shared/infrastructure/storage/storage.module';
 
@@ -36,6 +37,7 @@ import { StorageModule } from './shared/infrastructure/storage/storage.module';
     KnowledgeSpaceModule,
     StorageModule,
     RagModule,
+    NotificationModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {

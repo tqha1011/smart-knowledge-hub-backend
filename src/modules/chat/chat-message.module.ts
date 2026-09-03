@@ -3,14 +3,17 @@ import { CategoryModule } from 'src/modules/category/category.module';
 import { DocumentModule } from 'src/modules/document/document.module';
 import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
 import { RagModule } from 'src/modules/rag/rag.module';
+import { ChatSessionController } from './api/chat-session.controller';
 import { ChatMessageController } from './api/chat-message.controller';
 import { UnansweredQuestionController } from './api/unanswered-question.controller';
 import { IChatAnswerService } from './application/interfaces/chat-answer.service.interface';
 import { IChatMessageService } from './application/interfaces/chat-message.service.interface';
+import { IChatSessionService } from './application/interfaces/chat-session.service.interface';
 import { IUnansweredQuestionQueryRepository } from './application/interfaces/unanswered-question.query.repo.interface';
 import { IUnansweredQuestionService } from './application/interfaces/unanswered-question.service.interface';
 import { ChatAnswerService } from './application/services/chat-answer.service';
 import { ChatMessageService } from './application/services/chat-message.service';
+import { ChatSessionService } from './application/services/chat-session.service';
 import { UnansweredQuestionService } from './application/services/unanswered-question.service';
 import { IAnswerSourceRepository } from './domain/repositories/answer-source.repo.interface';
 import { IChatMessageRepository } from './domain/repositories/chat-message.repo.interface';
@@ -20,10 +23,15 @@ import { AnswerSourceRepository } from './infrastructure/answer-source.repo';
 import { ChatMessageRepository } from './infrastructure/chat-message.repo';
 import { ChatSessionRepository } from './infrastructure/chat-session.repo';
 import { UnansweredQuestionRepository } from './infrastructure/unanswered-question.repo';
+import { GenerationTitleService } from './application/services/generation-title.service';
 
 @Module({
   imports: [KnowledgeSpaceModule, RagModule, DocumentModule, CategoryModule],
-  controllers: [ChatMessageController, UnansweredQuestionController],
+  controllers: [
+    ChatMessageController,
+    ChatSessionController,
+    UnansweredQuestionController,
+  ],
   providers: [
     {
       provide: IChatMessageRepository,
@@ -57,6 +65,11 @@ import { UnansweredQuestionRepository } from './infrastructure/unanswered-questi
       provide: IUnansweredQuestionService,
       useClass: UnansweredQuestionService,
     },
+    {
+      provide: IChatSessionService,
+      useClass: ChatSessionService,
+    },
+    GenerationTitleService,
   ],
   exports: [IChatMessageRepository, IChatMessageService],
 })
