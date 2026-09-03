@@ -8,6 +8,7 @@ import { PrismaService } from 'src/shared/infrastructure/database/prisma.service
 import { User } from '../domain/entities/user.entity';
 import {
   IUserRepository,
+  UserContactData,
   UserData,
 } from '../domain/repositories/user.repo.interface';
 
@@ -30,6 +31,21 @@ export class UserRepository implements IUserRepository {
       );
     } catch (error) {
       return err(new Error(`Failed to get user IDs by public IDs. ${error}`));
+    }
+  }
+  async GetUsersContactDataByIds(
+    ids: number[],
+  ): Promise<Result<UserContactData[], Error>> {
+    try {
+      const users = await this.prismaService.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, email: true, username: true },
+      });
+      return ok(users);
+    } catch (error) {
+      return err(
+        new Error(`Failed to get users contact data by IDs. ${error}`),
+      );
     }
   }
   async GetUserDataByPublicId(

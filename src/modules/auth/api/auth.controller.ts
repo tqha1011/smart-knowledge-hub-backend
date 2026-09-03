@@ -8,10 +8,18 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
-import { LoginDto, RegisterDto } from '../application/dtos/auth.dto';
+import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
+import { Roles } from 'src/shared/common/roles.decorator';
+import { RolesGuard } from 'src/shared/common/roles.guard';
+import { SystemRole } from 'src/shared/domain/enum';
+import {
+  CreateUserByAdminDto,
+  LoginDto,
+  RegisterDto,
+} from '../application/dtos/auth.dto';
 import { IAuthService } from '../application/interfaces/auth.service.interface';
 
 @ApiTags('auth')
@@ -107,6 +115,56 @@ export class AuthController {
           default:
             this.logger.error(
               'Unexpected error during registration:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Creates a user account with a generated temporary password, emailed to
+   * them. Only an Admin may call this.
+   * @throws {400} when the provided data is invalid.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not an Admin.
+   * @throws {409} when the email provided is already in use.
+   * @throws {500} for any unexpected errors while creating the account.
+   * @example
+   * POST /api/auth/users
+   * {
+   *   "email": "example@gmail.com",
+   *   "username": "exampleUser",
+   *   "role": "Employee"
+   * }
+   */
+  @ApiOperation({ summary: 'Create a user account (Admin only)' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles([SystemRole.Admin])
+  @Post('users')
+  async createUser(@Body() createUserByAdminDto: CreateUserByAdminDto) {
+    const result =
+      await this.authService.adminCreateUserAsync(createUserByAdminDto);
+    return result.match(
+      (user) => user,
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.Conflict:
+            throw new ConflictException(error.message, {
+              cause: error,
+              description: 'The email provided is already in use.',
+            });
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error during admin user creation:',
               error.stack,
             );
             throw new InternalServerErrorException(error.message, {

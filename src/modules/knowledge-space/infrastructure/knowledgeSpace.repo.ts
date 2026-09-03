@@ -25,6 +25,25 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getKnowledgeSpaceNameById(
+    knowledgeSpaceId: number,
+  ): Promise<Result<string | null, Error>> {
+    try {
+      const knowledgeSpace = await this.prismaService.knowledgeSpace.findUnique(
+        {
+          where: { id: knowledgeSpaceId },
+          select: { name: true },
+        },
+      );
+      return ok(knowledgeSpace?.name ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space name by id in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space name by id'));
+    }
+  }
   async getFaqDocumentId(
     knowledgeSpaceId: number,
   ): Promise<Result<number | null, Error>> {

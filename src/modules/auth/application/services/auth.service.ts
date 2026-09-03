@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { MailerService } from '@nestjs-modules/mailer';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'crypto';
 import { Result, err, ok } from 'neverthrow';
 import { User } from 'src/modules/user/domain/entities/user.entity';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
@@ -8,15 +11,24 @@ import {
   IPasswordHasher,
   ITokenProvider,
 } from '../../domain/repositories/auth.interface';
-import { LoginDto, RegisterDto } from '../dtos/auth.dto';
+import { CreateUserByAdminDto, LoginDto, RegisterDto } from '../dtos/auth.dto';
 import { IAuthService } from '../interfaces/auth.service.interface';
+
+const TEMP_PASSWORD_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid look-alikes
+const TEMP_PASSWORD_LOWER = 'abcdefghijkmnpqrstuvwxyz';
+const TEMP_PASSWORD_DIGITS = '23456789';
+const TEMP_PASSWORD_SPECIAL = '@$!%*?&';
+const TEMP_PASSWORD_LENGTH = 12;
 
 @Injectable()
 export class AuthService implements IAuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenProvider: ITokenProvider,
     private readonly userRepository: IUserRepository,
+    private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
   ) {}
 
   async registerAsync(
@@ -117,5 +129,110 @@ export class AuthService implements IAuthService {
       );
     }
     return ok(tokenResult.value);
+  }
+
+  async adminCreateUserAsync(
+    createUserByAdminDto: CreateUserByAdminDto,
+  ): Promise<Result<{ publicId: string }, AppError>> {
+    const emailExists = await this.userRepository.CheckUserExistsByEmail(
+      createUserByAdminDto.email,
+    );
+    if (emailExists.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (emailExists.value) {
+      return err(new AppError(ErrorCode.Conflict, 'Email already exists.'));
+    }
+
+    const temporaryPassword = AuthService.generateTemporaryPassword();
+    const passwordHashResult =
+      await this.passwordHasher.GenerateHashPassword(temporaryPassword);
+    if (passwordHashResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+
+    const newUser = User.create({
+      email: createUserByAdminDto.email,
+      username: createUserByAdminDto.username,
+      password: passwordHashResult.value,
+      role: createUserByAdminDto.role ?? SystemRole.Employee,
+    });
+    if (newUser.isErr()) {
+      return err(new AppError(ErrorCode.BadRequest, newUser.error.message));
+    }
+
+    const addUserResult = await this.userRepository.AddUser(newUser.value);
+    if (addUserResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+
+    // Best-effort: the account is already created, so a failure to deliver
+    // the temporary password by email must not fail the request.
+    try {
+      await this.mailerService.sendMail({
+        to: newUser.value.email,
+        subject: 'Your Smart Knowledge Portal account',
+        template: 'new-user-welcome',
+        context: {
+          userName: newUser.value.username,
+          email: newUser.value.email,
+          temporaryPassword,
+          loginUrl: this.configService.get<string>('FRONTEND_URL'),
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send welcome email to ${newUser.value.email}`,
+        error,
+      );
+    }
+
+    return ok({ publicId: newUser.value.publicId });
+  }
+
+  /**
+   * Generates a random password that satisfies the same complexity rule
+   * enforced on RegisterDto/LoginDto (upper, lower, digit, special, 8+ chars).
+   */
+  private static generateTemporaryPassword(): string {
+    const pickChar = (chars: string) => chars[randomInt(chars.length)];
+    const passwordChars = [
+      pickChar(TEMP_PASSWORD_UPPER),
+      pickChar(TEMP_PASSWORD_LOWER),
+      pickChar(TEMP_PASSWORD_DIGITS),
+      pickChar(TEMP_PASSWORD_SPECIAL),
+    ];
+    const allChars =
+      TEMP_PASSWORD_UPPER +
+      TEMP_PASSWORD_LOWER +
+      TEMP_PASSWORD_DIGITS +
+      TEMP_PASSWORD_SPECIAL;
+    while (passwordChars.length < TEMP_PASSWORD_LENGTH) {
+      passwordChars.push(pickChar(allChars));
+    }
+    // Fisher-Yates shuffle so the fixed-class characters aren't always first.
+    for (let i = passwordChars.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [passwordChars[i], passwordChars[j]] = [
+        passwordChars[j],
+        passwordChars[i],
+      ];
+    }
+    return passwordChars.join('');
   }
 }

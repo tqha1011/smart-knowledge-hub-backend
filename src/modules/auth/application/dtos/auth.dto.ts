@@ -1,10 +1,13 @@
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MinLength,
 } from 'class-validator';
+import { SystemRole } from 'src/shared/domain/enum';
 
 export class LoginDto {
   /**
@@ -60,4 +63,29 @@ export class RegisterDto {
   @IsString({ message: 'Username must be a string' })
   @MinLength(4, { message: 'Username must be at least 4 characters long' })
   username!: string;
+}
+
+export class CreateUserByAdminDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+
+  /**
+   * @example 'exampleUser'
+   */
+  @IsNotEmpty({ message: 'Username is required' })
+  @IsString({ message: 'Username must be a string' })
+  @MinLength(4, { message: 'Username must be at least 4 characters long' })
+  username!: string;
+
+  /**
+   * Defaults to Employee when omitted.
+   * @example 'Employee'
+   */
+  @IsOptional()
+  @IsEnum(SystemRole)
+  role?: SystemRole;
 }
