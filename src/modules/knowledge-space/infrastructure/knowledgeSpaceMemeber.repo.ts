@@ -17,29 +17,13 @@ export class KnowledgeSpaceMemberRepository implements IKnowledgeSpaceMemberRepo
     knowledgeSpaceId: number,
   ): Promise<Result<undefined, Error>> {
     try {
-      const existingMembers = await this.prismaService.userWorkspace.findMany({
-        where: {
-          knowledgeSpaceId,
-          userId: { in: users.map((user) => user.userId) },
-        },
-        select: { userId: true },
-      });
-      const existingUserIds = new Set(
-        existingMembers.map((member) => member.userId),
-      );
-      const newUsers = users.filter(
-        (user) => !existingUserIds.has(user.userId),
-      );
-      if (newUsers.length === 0) {
-        return ok(undefined);
-      }
-
       await this.prismaService.userWorkspace.createMany({
-        data: newUsers.map((user) => ({
+        data: users.map((user) => ({
           userId: user.userId,
           knowledgeSpaceId,
           role: toPrismaRole(user.role),
         })),
+        skipDuplicates: true, // Skip if the user is already a member of this space
       });
       return ok(undefined);
     } catch (error) {

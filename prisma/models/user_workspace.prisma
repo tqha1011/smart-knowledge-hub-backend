@@ -9,6 +9,7 @@ model UserWorkspace {
   user             User           @relation(fields: [userId], references: [id])
   knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
 
+  @@unique([userId, knowledgeSpaceId], name: "unique_user_workspace_per_space")
   @@index([userId])
   @@index([knowledgeSpaceId])
   @@map("user_workspace")
