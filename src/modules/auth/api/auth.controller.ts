@@ -5,20 +5,26 @@ import {
   Controller,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
+  Patch,
   Post,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
+import type { JwtPayload } from 'src/shared/common/jwt.payload.interface';
 import { Roles } from 'src/shared/common/roles.decorator';
 import { RolesGuard } from 'src/shared/common/roles.guard';
+import { User } from 'src/shared/common/user.decorator';
 import { SystemRole } from 'src/shared/domain/enum';
 import {
   CreateUserByAdminDto,
   LoginDto,
   RegisterDto,
+  SetPasswordRequestDto,
 } from '../application/dtos/auth.dto';
 import { IAuthService } from '../application/interfaces/auth.service.interface';
 
@@ -165,6 +171,56 @@ export class AuthController {
           default:
             this.logger.error(
               'Unexpected error during admin user creation:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Changes the authenticated user's own password, given the current one.
+   * @throws {400} when the new password fails validation.
+   * @throws {401} when no valid bearer token is provided, or `oldPassword`
+   * does not match.
+   * @throws {404} when the authenticated user no longer exists.
+   * @throws {500} for any unexpected errors while updating the password.
+   * @example
+   * PATCH /api/auth/password
+   * {
+   *   "oldPassword": "Password123!",
+   *   "newPassword": "NewPassword456!"
+   * }
+   */
+  @ApiOperation({ summary: "Change the caller's own password" })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Patch('password')
+  async setPassword(
+    @User() user: JwtPayload,
+    @Body() setPasswordRequestDto: SetPasswordRequestDto,
+  ) {
+    const result = await this.authService.setPasswordAsync(
+      setPasswordRequestDto,
+      user.sub,
+    );
+    return result.match(
+      () => ({ message: 'Password updated successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.Unauthorized:
+            throw new UnauthorizedException(error.message, { cause: error });
+          case ErrorCode.NotFound:
+            throw new NotFoundException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error during password update:',
               error.stack,
             );
             throw new InternalServerErrorException(error.message, {

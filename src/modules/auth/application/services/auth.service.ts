@@ -53,11 +53,19 @@ export class AuthService implements IAuthService {
     if (!userData.value) {
       return err(new AppError(ErrorCode.NotFound, 'User not found.'));
     }
-    const isMatched = await this.passwordHasher.VerifyPassword(
+    const isMatchedResult = await this.passwordHasher.VerifyPassword(
       setPasswordRequestDto.oldPassword,
       userData.value.passwordHashed,
     );
-    if (!isMatched) {
+    if (isMatchedResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to verify old password.',
+        ),
+      );
+    }
+    if (!isMatchedResult.value) {
       return err(new AppError(ErrorCode.Unauthorized, 'Invalid old password.'));
     }
     const newPasswordHashResult =
