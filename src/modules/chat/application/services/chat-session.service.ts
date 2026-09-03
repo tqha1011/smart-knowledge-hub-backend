@@ -16,7 +16,7 @@ import {
   IChatSessionService,
 } from '../interfaces/chat-session.service.interface';
 
-const DEFAULT_SESSION_TITLE = 'New chat';
+export const DEFAULT_SESSION_TITLE = 'New chat';
 
 @Injectable()
 export class ChatSessionService implements IChatSessionService {

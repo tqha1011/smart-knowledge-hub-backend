@@ -9,6 +9,7 @@ import {
 export type ChatSessionIdData = {
   id: number;
   knowledgeSpaceId: number;
+  title: string;
 };
 
 export type ChatSessionDetailRecord = ChatSessionDetailData & {
