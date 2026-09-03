@@ -1,6 +1,11 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
-import { CreateUserByAdminDto, LoginDto, RegisterDto } from '../dtos/auth.dto';
+import {
+  CreateUserByAdminDto,
+  LoginDto,
+  RegisterDto,
+  SetPasswordRequestDto,
+} from '../dtos/auth.dto';
 
 export abstract class IAuthService {
   abstract registerAsync(
@@ -16,4 +21,9 @@ export abstract class IAuthService {
   abstract adminCreateUserAsync(
     createUserByAdminDto: CreateUserByAdminDto,
   ): Promise<Result<{ publicId: string }, AppError>>;
+
+  abstract setPasswordAsync(
+    setPasswordRequestDto: SetPasswordRequestDto,
+    userPublicId: string,
+  ): Promise<Result<undefined, AppError>>;
 }

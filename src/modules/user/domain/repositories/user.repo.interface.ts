@@ -7,6 +7,11 @@ export type UserData = {
   readonly avatarUrl: string | null;
 };
 
+export type UserCredentials = {
+  id: number;
+  passwordHashed: string;
+};
+
 export type UserContactData = {
   readonly id: number;
   readonly email: string;
@@ -40,4 +45,13 @@ export abstract class IUserRepository {
   abstract GetUsersContactDataByIds(
     ids: number[],
   ): Promise<Result<UserContactData[], Error>>;
+
+  abstract getUserPasswordAsync(
+    userPublicId: string,
+  ): Promise<Result<UserCredentials | null, Error>>;
+
+  abstract updatePasswordAsync(
+    userId: number,
+    newPasswordHash: string,
+  ): Promise<Result<undefined, Error>>;
 }

@@ -11,7 +11,12 @@ import {
   IPasswordHasher,
   ITokenProvider,
 } from '../../domain/repositories/auth.interface';
-import { CreateUserByAdminDto, LoginDto, RegisterDto } from '../dtos/auth.dto';
+import {
+  CreateUserByAdminDto,
+  LoginDto,
+  RegisterDto,
+  SetPasswordRequestDto,
+} from '../dtos/auth.dto';
 import { IAuthService } from '../interfaces/auth.service.interface';
 
 const TEMP_PASSWORD_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid look-alikes
@@ -30,6 +35,58 @@ export class AuthService implements IAuthService {
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
   ) {}
+  async setPasswordAsync(
+    setPasswordRequestDto: SetPasswordRequestDto,
+    userPublicId: string,
+  ): Promise<Result<undefined, AppError>> {
+    const userData =
+      await this.userRepository.getUserPasswordAsync(userPublicId);
+
+    if (userData.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to retrieve user data.',
+        ),
+      );
+    }
+    if (!userData.value) {
+      return err(new AppError(ErrorCode.NotFound, 'User not found.'));
+    }
+    const isMatched = await this.passwordHasher.VerifyPassword(
+      setPasswordRequestDto.oldPassword,
+      userData.value.passwordHashed,
+    );
+    if (!isMatched) {
+      return err(new AppError(ErrorCode.Unauthorized, 'Invalid old password.'));
+    }
+    const newPasswordHashResult =
+      await this.passwordHasher.GenerateHashPassword(
+        setPasswordRequestDto.newPassword,
+      );
+    if (newPasswordHashResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to hash new password.',
+        ),
+      );
+    }
+    const newPasswordHash = newPasswordHashResult.value;
+    const result = await this.userRepository.updatePasswordAsync(
+      userData.value.id,
+      newPasswordHash,
+    );
+    if (result.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to update password.',
+        ),
+      );
+    }
+    return ok(undefined);
+  }
 
   async registerAsync(
     registerDto: RegisterDto,

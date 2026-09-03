@@ -9,6 +9,7 @@ import { User } from '../domain/entities/user.entity';
 import {
   IUserRepository,
   UserContactData,
+  UserCredentials,
   UserData,
 } from '../domain/repositories/user.repo.interface';
 
@@ -18,6 +19,36 @@ export class UserRepository implements IUserRepository {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+  async updatePasswordAsync(
+    userId: number,
+    newPasswordHash: string,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.user.update({
+        where: { id: userId },
+        data: { password: newPasswordHash },
+      });
+      return ok(undefined);
+    } catch (error) {
+      return err(new Error(`Failed to update password. ${error}`));
+    }
+  }
+  async getUserPasswordAsync(
+    userPublicId: string,
+  ): Promise<Result<UserCredentials | null, Error>> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { publicId: userPublicId },
+        select: { id: true, password: true },
+      });
+      if (!user) {
+        return ok(null);
+      }
+      return ok({ id: user.id, passwordHashed: user.password });
+    } catch (error) {
+      return err(new Error(`Failed to get user password. ${error}`));
+    }
+  }
   async GetUserIdsByPublicIds(
     publicIds: string[],
   ): Promise<Result<{ publicId: string; id: number }[], Error>> {
