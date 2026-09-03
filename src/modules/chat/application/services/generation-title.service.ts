@@ -32,7 +32,7 @@ export class GenerationTitleService extends WorkerHost {
       pagination,
     );
     if (messages.isErr()) throw messages.error;
-    if (!messages.value) throw new Error('No messages found');
+    if (messages.value.items.length === 0) throw new Error('No messages found');
     const prompt = messages.value.items
       .map((message) => `${message.role}: ${message.content}`)
       .join('\n');

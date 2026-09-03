@@ -23,6 +23,7 @@ import { AnswerSourceRepository } from './infrastructure/answer-source.repo';
 import { ChatMessageRepository } from './infrastructure/chat-message.repo';
 import { ChatSessionRepository } from './infrastructure/chat-session.repo';
 import { UnansweredQuestionRepository } from './infrastructure/unanswered-question.repo';
+import { GenerationTitleService } from './application/services/generation-title.service';
 
 @Module({
   imports: [KnowledgeSpaceModule, RagModule, DocumentModule, CategoryModule],
@@ -68,6 +69,7 @@ import { UnansweredQuestionRepository } from './infrastructure/unanswered-questi
       provide: IChatSessionService,
       useClass: ChatSessionService,
     },
+    GenerationTitleService,
   ],
   exports: [IChatMessageRepository, IChatMessageService],
 })
