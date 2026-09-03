@@ -10,4 +10,8 @@ export abstract class IAnswerGenerationClient {
     question: string,
     context: AnswerContextChunk[],
   ): Promise<Result<string, Error>>;
+
+  abstract generateSessionTitle(
+    messages: string,
+  ): Promise<Result<string, Error>>;
 }

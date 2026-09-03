@@ -6,4 +6,11 @@ export class SystemPrompt {
       "index. If the context does not contain the answer, say you don't know."
     );
   }
+
+  static GenerateSessionTitlePrompt(): string {
+    return (
+      'You are a knowledge base assistant. Generate a concise and descriptive title ' +
+      'for the session based on the chat history and the latest user question.'
+    );
+  }
 }

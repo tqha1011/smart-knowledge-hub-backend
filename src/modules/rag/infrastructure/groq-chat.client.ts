@@ -58,4 +58,32 @@ export class GroqChatClient implements IAnswerGenerationClient {
       return err(new Error('Failed to generate answer'));
     }
   }
+
+  async generateSessionTitle(messages: string): Promise<Result<string, Error>> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: SystemPrompt.GenerateSessionTitlePrompt(),
+          },
+          {
+            role: 'user',
+            content: messages,
+          },
+        ],
+      });
+
+      const title = completion.choices[0]?.message?.content;
+      if (!title) {
+        return err(new Error('Groq returned no title content'));
+      }
+
+      return ok(title);
+    } catch (error) {
+      this.logger.error(`Error generating session title: ${error}`);
+      return err(new Error('Failed to generate session title'));
+    }
+  }
 }

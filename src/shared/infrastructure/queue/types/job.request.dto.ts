@@ -4,4 +4,5 @@ export type IngestionJobRequestDto = {
 
 export type GenerateTitleJobRequestDto = {
   chatSessionPublicId: string;
+  knowledgeSpacePublicId: string;
 };

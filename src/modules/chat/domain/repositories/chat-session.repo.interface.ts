@@ -46,4 +46,9 @@ export abstract class IChatSessionRepository {
     userId: number,
     knowledgeSpaceId: number,
   ): Promise<Result<ChatSessionDetailRecord | null, Error>>;
+
+  abstract updateSessionTitle(
+    chatSessionId: number,
+    title: string,
+  ): Promise<Result<undefined, Error>>;
 }

@@ -127,4 +127,18 @@ export class ChatSessionRepository implements IChatSessionRepository {
       return err(new Error(`Failed to get chat session detail: ${error}`));
     }
   }
+  async updateSessionTitle(
+    chatSessionId: number,
+    title: string,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.chatSession.update({
+        where: { id: chatSessionId },
+        data: { title },
+      });
+      return ok(undefined);
+    } catch (error) {
+      return err(new Error(`Failed to update chat session title: ${error}`));
+    }
+  }
 }
