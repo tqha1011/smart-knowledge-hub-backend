@@ -10,7 +10,12 @@ import {
   UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -42,6 +47,26 @@ export class UnansweredQuestionController {
    * GET /api/knowledge-spaces/6b1f.../unanswered-questions?pageNumber=1&pageSize=20
    */
   @ApiOperation({ summary: 'List unresolved questions for a knowledge space' })
+  @ApiOkResponse({
+    description: 'Paginated list of unresolved questions',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
+            question: 'What is the parental leave policy?',
+            reason: 'No document in this knowledge space covers this topic',
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get()
   async getUnansweredQuestions(
@@ -76,6 +101,10 @@ export class UnansweredQuestionController {
    * PATCH /api/knowledge-spaces/6b1f.../unanswered-questions/8d4c.../resolve
    */
   @ApiOperation({ summary: 'Mark an unanswered question as resolved' })
+  @ApiOkResponse({
+    description: 'Question resolved successfully',
+    schema: { example: { resolved: true } },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Patch(':questionPublicId/resolve')
   async resolveUnansweredQuestion(
