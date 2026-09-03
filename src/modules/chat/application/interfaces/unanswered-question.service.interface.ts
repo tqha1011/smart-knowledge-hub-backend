@@ -10,9 +10,14 @@ export abstract class IUnansweredQuestionService {
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<UnansweredQuestionListData>, AppError>>;
 
+  /**
+   * Marks the question resolved and folds the answer into the knowledge
+   * space's FAQ document (created on first use), which is then re-ingested.
+   */
   abstract resolveUnansweredQuestionAsync(
     knowledgeSpacePublicId: string,
     userPublicId: string,
     questionPublicId: string,
+    answer: string,
   ): Promise<Result<undefined, AppError>>;
 }

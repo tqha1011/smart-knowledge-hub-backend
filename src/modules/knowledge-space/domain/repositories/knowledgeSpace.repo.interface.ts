@@ -38,4 +38,13 @@ export abstract class IKnowledgeSpaceRepository {
     userPublicId: string,
     knowledgeSpacePublicId: string,
   ): Promise<Result<KnowledgeSpaceMembership | null, Error>>;
+
+  abstract getFaqDocumentId(
+    knowledgeSpaceId: number,
+  ): Promise<Result<number | null, Error>>;
+
+  abstract setFaqDocumentId(
+    knowledgeSpaceId: number,
+    documentId: number,
+  ): Promise<Result<undefined, Error>>;
 }

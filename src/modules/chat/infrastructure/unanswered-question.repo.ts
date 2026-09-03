@@ -14,6 +14,24 @@ export class UnansweredQuestionRepository
   implements IUnansweredQuestionRepository, IUnansweredQuestionQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getUnresolvedQuestion(
+    knowledgeSpaceId: number,
+    questionPublicId: string,
+  ): Promise<Result<{ question: string } | null, Error>> {
+    try {
+      const question = await this.prismaService.unAnsweredQuestion.findFirst({
+        where: {
+          knowledgeSpaceId,
+          publicId: questionPublicId,
+          resolvedAt: null,
+        },
+        select: { question: true },
+      });
+      return ok(question);
+    } catch (error) {
+      return err(new Error(`Failed to get unresolved question: ${error}`));
+    }
+  }
   async markResolveQuestion(
     knowledgeSpaceId: number,
     questionPublicId: string,

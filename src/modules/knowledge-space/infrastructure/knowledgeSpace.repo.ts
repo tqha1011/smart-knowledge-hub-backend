@@ -25,6 +25,43 @@ export class KnowledgeSpaceRepository
   implements IKnowledgeSpaceRepository, IKnowledgeSpaceQueryRepository
 {
   constructor(private readonly prismaService: PrismaService) {}
+  async getFaqDocumentId(
+    knowledgeSpaceId: number,
+  ): Promise<Result<number | null, Error>> {
+    try {
+      const knowledgeSpace = await this.prismaService.knowledgeSpace.findUnique(
+        {
+          where: { id: knowledgeSpaceId },
+          select: { faqDocumentId: true },
+        },
+      );
+      return ok(knowledgeSpace?.faqDocumentId ?? null);
+    } catch (error) {
+      this.logger.error(
+        'Failed to get FAQ document id for knowledge space in repository',
+        error,
+      );
+      return err(new Error('Failed to get FAQ document id'));
+    }
+  }
+  async setFaqDocumentId(
+    knowledgeSpaceId: number,
+    documentId: number,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.knowledgeSpace.update({
+        where: { id: knowledgeSpaceId },
+        data: { faqDocumentId: documentId },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error(
+        'Failed to set FAQ document id for knowledge space in repository',
+        error,
+      );
+      return err(new Error('Failed to set FAQ document id'));
+    }
+  }
   async getUserDataInKnowledgeSpace(
     knowledgeSpaceId: number,
     pagination: PaginationRequest,

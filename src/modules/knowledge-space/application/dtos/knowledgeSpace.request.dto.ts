@@ -1,4 +1,14 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 
 export class AddKnowledgeSpaceTypeDto {
   /**
@@ -64,4 +74,42 @@ export class UpdateKnowledgeSpaceDto {
   @IsOptional()
   @IsUUID()
   typePublicId?: string | null;
+}
+
+export class AddMemberRequestDto {
+  /**
+   * @example '6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b'
+   */
+  @IsUUID()
+  userPublicId!: string;
+
+  /**
+   * @example 'Editor'
+   */
+  @IsEnum(KnowledgeSpaceRole)
+  role!: KnowledgeSpaceRole;
+}
+
+export class AddMembersRequestDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddMemberRequestDto)
+  members!: AddMemberRequestDto[];
+}
+
+export class KickMembersRequestDto {
+  /**
+   * @example ['6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b']
+   */
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  userPublicIds!: string[];
+}
+
+export class UpdateMemberRoleRequestDto {
+  /**
+   * @example 'Editor'
+   */
+  @IsEnum(KnowledgeSpaceRole)
+  role!: KnowledgeSpaceRole;
 }

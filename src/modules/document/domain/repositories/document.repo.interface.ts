@@ -28,6 +28,11 @@ export type DocumentUpdateData = DocumentUpdateParams & {
   status?: CommonDocumentStatus;
 };
 
+export type DocumentContentData = {
+  publicId: string;
+  content: string | null;
+};
+
 export abstract class IDocumentRepository {
   abstract getDocumentIdByPublicId(
     publicId: string,
@@ -56,4 +61,8 @@ export abstract class IDocumentRepository {
     documentId: number,
     data: DocumentUpdateData,
   ): Promise<Result<undefined, Error>>;
+
+  abstract getDocumentContentById(
+    documentId: number,
+  ): Promise<Result<DocumentContentData | null, Error>>;
 }

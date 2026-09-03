@@ -21,4 +21,11 @@ export abstract class IUnansweredQuestionRepository {
     knowledgeSpaceId: number,
     questionPublicId: string,
   ): Promise<Result<boolean, Error>>;
+
+  /** Resolves `null` when the question does not exist, is out of scope, or is
+   * already resolved — callers can distinguish that from an actual failure. */
+  abstract getUnresolvedQuestion(
+    knowledgeSpaceId: number,
+    questionPublicId: string,
+  ): Promise<Result<{ question: string } | null, Error>>;
 }

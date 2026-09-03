@@ -10,6 +10,7 @@ import {
 import { IDocumentQueryRepository } from '../application/interfaces/document-query.repo.interface';
 import { Document } from '../domain/entities/document.entity';
 import {
+  DocumentContentData,
   DocumentIngestionData,
   DocumentStorageData,
   DocumentUpdateData,
@@ -429,6 +430,23 @@ export class DocumentRepository
     } catch (error) {
       this.logger.error(`Failed to get document ID by public ID: ${error}`);
       return err(new Error(`Failed to get document ID by public ID`));
+    }
+  }
+  async getDocumentContentById(
+    documentId: number,
+  ): Promise<Result<DocumentContentData | null, Error>> {
+    try {
+      const document = await this.prismaService.document.findUnique({
+        where: { id: documentId },
+        select: { publicId: true, content: true },
+      });
+      if (!document) {
+        return ok(null);
+      }
+      return ok({ publicId: document.publicId, content: document.content });
+    } catch (error) {
+      this.logger.error(`Failed to get document content by ID: ${error}`);
+      return err(new Error(`Failed to get document content by ID`));
     }
   }
 }
