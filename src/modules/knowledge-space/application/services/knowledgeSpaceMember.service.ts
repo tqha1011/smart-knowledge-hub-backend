@@ -174,6 +174,91 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
     }
   }
 
+  async updateMemberRoleAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    targetUserPublicId: string,
+    role: KnowledgeSpaceRole,
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Owner,
+        'update member role',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const resolveResult = await this.resolveUserIds([targetUserPublicId]);
+      if (resolveResult.isErr()) {
+        return err(resolveResult.error);
+      }
+      // Safe: resolveUserIds already confirmed targetUserPublicId is present.
+      const targetUserId = resolveResult.value.get(targetUserPublicId)!;
+
+      const currentRoleResult =
+        await this.knowledgeSpaceRepository.getUserKnowledgeSpaceRole(
+          targetUserId,
+          membership.value.knowledgeSpaceId,
+        );
+      if (currentRoleResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to resolve member role. ${currentRoleResult.error.message}`,
+          ),
+        );
+      }
+      if (currentRoleResult.value === null) {
+        return err(
+          new AppError(
+            ErrorCode.NotFound,
+            `User ${targetUserPublicId} is not a member of this knowledge space`,
+          ),
+        );
+      }
+
+      // Owner count can only decrease when the target stops being an Owner.
+      if (role !== KnowledgeSpaceRole.Owner) {
+        const guardResult = await this.guardLastOwner(
+          membership.value.knowledgeSpaceId,
+          [targetUserId],
+        );
+        if (guardResult.isErr()) {
+          return err(guardResult.error);
+        }
+      }
+
+      const updateResult =
+        await this.knowledgeSpaceMemberRepository.updateMemberRole(
+          targetUserId,
+          membership.value.knowledgeSpaceId,
+          role,
+        );
+      if (updateResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to update member role. ${updateResult.error.message}`,
+          ),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to update member role', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to update member role',
+        ),
+      );
+    }
+  }
+
   /**
    * Resolves public ids to internal ids, matched by publicId (not index) since a
    * missing publicId is simply absent from the repository result.

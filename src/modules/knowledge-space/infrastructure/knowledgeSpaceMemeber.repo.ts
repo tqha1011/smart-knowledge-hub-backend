@@ -7,11 +7,36 @@ import {
   IKnowledgeSpaceMemberRepository,
 } from '../domain/repositories/knowledgeSpaceMember.repo.interface';
 import { toPrismaRole } from './knowledgeSpace.mapper';
+import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 
 @Injectable()
 export class KnowledgeSpaceMemberRepository implements IKnowledgeSpaceMemberRepository {
   private readonly logger = new Logger(KnowledgeSpaceMemberRepository.name);
   constructor(private readonly prismaService: PrismaService) {}
+  async updateMemberRole(
+    userId: number,
+    knowledgeSpaceId: number,
+    role: KnowledgeSpaceRole,
+  ): Promise<Result<undefined, Error>> {
+    try {
+      await this.prismaService.userWorkspace.update({
+        where: {
+          unique_user_workspace_per_space: {
+            userId,
+            knowledgeSpaceId,
+          },
+        },
+        data: {
+          role: toPrismaRole(role),
+          updatedAt: new Date(),
+        },
+      });
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to update member role', error);
+      return err(new Error('Failed to update member role'));
+    }
+  }
   async addMembers(
     users: AddMembersRequest[],
     knowledgeSpaceId: number,

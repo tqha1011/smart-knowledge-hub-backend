@@ -24,4 +24,10 @@ export abstract class IKnowledgeSpaceMemberRepository {
   abstract countOwners(
     knowledgeSpaceId: number,
   ): Promise<Result<number, Error>>;
+
+  abstract updateMemberRole(
+    userId: number,
+    knowledgeSpaceId: number,
+    role: KnowledgeSpaceRole,
+  ): Promise<Result<undefined, Error>>;
 }

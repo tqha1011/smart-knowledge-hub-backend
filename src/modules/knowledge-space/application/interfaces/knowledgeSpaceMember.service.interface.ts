@@ -1,5 +1,6 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
+import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
 import { AddMemberRequestDto } from '../dtos/knowledgeSpace.request.dto';
 
 export abstract class IKnowledgeSpaceMemberService {
@@ -27,5 +28,16 @@ export abstract class IKnowledgeSpaceMemberService {
   abstract leaveKnowledgeSpaceAsync(
     userPublicId: string,
     knowledgeSpacePublicId: string,
+  ): Promise<Result<undefined, AppError>>;
+
+  /**
+   * Only the Owner may change a member's role. Rejects when demoting the last
+   * Owner of the knowledge space away from the Owner role.
+   */
+  abstract updateMemberRoleAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    targetUserPublicId: string,
+    role: KnowledgeSpaceRole,
   ): Promise<Result<undefined, AppError>>;
 }

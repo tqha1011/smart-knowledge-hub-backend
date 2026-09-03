@@ -105,3 +105,11 @@ export class KickMembersRequestDto {
   @IsUUID(undefined, { each: true })
   userPublicIds!: string[];
 }
+
+export class UpdateMemberRoleRequestDto {
+  /**
+   * @example 'Editor'
+   */
+  @IsEnum(KnowledgeSpaceRole)
+  role!: KnowledgeSpaceRole;
+}

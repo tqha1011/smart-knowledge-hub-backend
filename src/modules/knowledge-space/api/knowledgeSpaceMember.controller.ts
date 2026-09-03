@@ -6,6 +6,7 @@ import {
   Logger,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -27,6 +28,7 @@ import { SystemRole } from 'src/shared/domain/enum';
 import {
   AddMembersRequestDto,
   KickMembersRequestDto,
+  UpdateMemberRoleRequestDto,
 } from '../application/dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceMemberService } from '../application/interfaces/knowledgeSpaceMember.service.interface';
 
@@ -154,6 +156,49 @@ export class KnowledgeSpaceMemberController {
       () => ({ success: true }),
       (error: AppError) => {
         throw this.toHttpError(error, 'leaving a knowledge space');
+      },
+    );
+  }
+
+  /**
+   * Changes the role of a member in a knowledge space.
+   * @remarks Only the Owner may change roles. Rejected if it would demote the
+   * last Owner of the knowledge space away from the Owner role.
+   * @throws {400} when `role` is invalid, or the change would leave the
+   * knowledge space with no Owner.
+   * @throws {401} when no valid bearer token is provided.
+   * @throws {403} when the caller is not the Owner of the knowledge space.
+   * @throws {404} when the knowledge space does not exist, `userPublicId` does
+   * not resolve to any user, or that user is not a member of the space.
+   * @throws {500} for any unexpected error while updating the role.
+   * @example
+   * PATCH /api/knowledge-spaces/6b1f.../members/0f2a...
+   * { "role": "Viewer" }
+   */
+  @ApiOperation({ summary: "Update a member's role in a knowledge space" })
+  @ApiOkResponse({
+    description: 'Member role updated successfully',
+    schema: { example: { success: true } },
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Patch(':userPublicId')
+  async updateMemberRole(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('userPublicId', ParseUUIDPipe) userPublicId: string,
+    @Body() updateMemberRoleRequestDto: UpdateMemberRoleRequestDto,
+  ) {
+    const result = await this.knowledgeSpaceMemberService.updateMemberRoleAsync(
+      user.sub,
+      knowledgeSpacePublicId,
+      userPublicId,
+      updateMemberRoleRequestDto.role,
+    );
+    return result.match(
+      () => ({ success: true }),
+      (error: AppError) => {
+        throw this.toHttpError(error, 'updating a knowledge space member role');
       },
     );
   }
