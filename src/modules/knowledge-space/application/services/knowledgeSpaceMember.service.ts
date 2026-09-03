@@ -1,0 +1,262 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { err, ok, Result } from 'neverthrow';
+import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
+import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
+import { AddMembersRequest } from '../../domain/repositories/knowledgeSpaceMember.repo.interface';
+import { IKnowledgeSpaceRepository } from '../../domain/repositories/knowledgeSpace.repo.interface';
+import { IKnowledgeSpaceMemberRepository } from '../../domain/repositories/knowledgeSpaceMember.repo.interface';
+import { AddMemberRequestDto } from '../dtos/knowledgeSpace.request.dto';
+import { IKnowledgeSpaceMemberService } from '../interfaces/knowledgeSpaceMember.service.interface';
+import { authorizeMembership } from './authorizeMembership';
+
+@Injectable()
+export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService {
+  private readonly logger = new Logger(KnowledgeSpaceMemberService.name);
+  constructor(
+    private readonly knowledgeSpaceMemberRepository: IKnowledgeSpaceMemberRepository,
+    private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
+    private readonly userRepository: IUserRepository,
+  ) {}
+
+  async addMembersAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    members: AddMemberRequestDto[],
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Owner,
+        'add members',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const userPublicIds = members.map((m) => m.userPublicId);
+      const resolveResult = await this.resolveUserIds(userPublicIds);
+      if (resolveResult.isErr()) {
+        return err(resolveResult.error);
+      }
+      const userIdByPublicId = resolveResult.value;
+
+      const addMembersRequest: AddMembersRequest[] = members.map((m) => ({
+        // Safe: resolveUserIds already confirmed every userPublicId is present.
+        userId: userIdByPublicId.get(m.userPublicId)!,
+        role: m.role,
+      }));
+
+      const addResult = await this.knowledgeSpaceMemberRepository.addMembers(
+        addMembersRequest,
+        membership.value.knowledgeSpaceId,
+      );
+      if (addResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to add members. ${addResult.error.message}`,
+          ),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to add members', error);
+      return err(
+        new AppError(ErrorCode.InternalServerError, 'Failed to add members'),
+      );
+    }
+  }
+
+  async kickMembersAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+    targetUserPublicIds: string[],
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Owner,
+        'kick members',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const resolveResult = await this.resolveUserIds(targetUserPublicIds);
+      if (resolveResult.isErr()) {
+        return err(resolveResult.error);
+      }
+      const targetUserIds = [...resolveResult.value.values()];
+
+      const guardResult = await this.guardLastOwner(
+        membership.value.knowledgeSpaceId,
+        targetUserIds,
+      );
+      if (guardResult.isErr()) {
+        return err(guardResult.error);
+      }
+
+      const kickResult = await this.knowledgeSpaceMemberRepository.kickMembers(
+        targetUserIds,
+        membership.value.knowledgeSpaceId,
+      );
+      if (kickResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to kick members. ${kickResult.error.message}`,
+          ),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to kick members', error);
+      return err(
+        new AppError(ErrorCode.InternalServerError, 'Failed to kick members'),
+      );
+    }
+  }
+
+  async leaveKnowledgeSpaceAsync(
+    userPublicId: string,
+    knowledgeSpacePublicId: string,
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'leave knowledge space',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const guardResult = await this.guardLastOwner(
+        membership.value.knowledgeSpaceId,
+        [membership.value.userId],
+      );
+      if (guardResult.isErr()) {
+        return err(guardResult.error);
+      }
+
+      const leaveResult =
+        await this.knowledgeSpaceMemberRepository.leaveKnowledgeSpace(
+          membership.value.userId,
+          membership.value.knowledgeSpaceId,
+        );
+      if (leaveResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            `Failed to leave knowledge space. ${leaveResult.error.message}`,
+          ),
+        );
+      }
+      return ok(undefined);
+    } catch (error) {
+      this.logger.error('Failed to leave knowledge space', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to leave knowledge space',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Resolves public ids to internal ids, matched by publicId (not index) since a
+   * missing publicId is simply absent from the repository result.
+   */
+  private async resolveUserIds(
+    userPublicIds: string[],
+  ): Promise<Result<Map<string, number>, AppError>> {
+    const userIdsResult =
+      await this.userRepository.GetUserIdsByPublicIds(userPublicIds);
+    if (userIdsResult.isErr()) {
+      return err(
+        new AppError(ErrorCode.InternalServerError, 'Failed to get user IDs'),
+      );
+    }
+    const userIdByPublicId = new Map(
+      userIdsResult.value.map((user) => [user.publicId, user.id]),
+    );
+    const missingPublicIds = userPublicIds.filter(
+      (publicId) => !userIdByPublicId.has(publicId),
+    );
+    if (missingPublicIds.length > 0) {
+      return err(
+        new AppError(
+          ErrorCode.NotFound,
+          `User(s) not found: ${missingPublicIds.join(', ')}`,
+        ),
+      );
+    }
+    return ok(userIdByPublicId);
+  }
+
+  /**
+   * Blocks removing every Owner from a knowledge space: counts how many of the
+   * target userIds currently hold the Owner role, and rejects if removing them
+   * would leave none.
+   */
+  private async guardLastOwner(
+    knowledgeSpaceId: number,
+    targetUserIds: number[],
+  ): Promise<Result<undefined, AppError>> {
+    const roleResults = await Promise.all(
+      targetUserIds.map((userId) =>
+        this.knowledgeSpaceRepository.getUserKnowledgeSpaceRole(
+          userId,
+          knowledgeSpaceId,
+        ),
+      ),
+    );
+    const failedRoleResult = roleResults.find((result) => result.isErr());
+    if (failedRoleResult && failedRoleResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          `Failed to resolve member roles. ${failedRoleResult.error.message}`,
+        ),
+      );
+    }
+
+    const ownersBeingRemoved = roleResults.filter(
+      (result) => result.isOk() && result.value === KnowledgeSpaceRole.Owner,
+    ).length;
+    if (ownersBeingRemoved === 0) {
+      return ok(undefined);
+    }
+
+    const ownerCountResult =
+      await this.knowledgeSpaceMemberRepository.countOwners(knowledgeSpaceId);
+    if (ownerCountResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          `Failed to count owners. ${ownerCountResult.error.message}`,
+        ),
+      );
+    }
+    if (ownerCountResult.value - ownersBeingRemoved < 1) {
+      return err(
+        new AppError(
+          ErrorCode.BadRequest,
+          'Cannot remove the last owner of the knowledge space',
+        ),
+      );
+    }
+    return ok(undefined);
+  }
+}
