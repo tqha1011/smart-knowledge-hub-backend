@@ -7,7 +7,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -36,6 +42,21 @@ export class KnowledgeSpaceTypeController {
    * GET /api/knowledge-spaces/types
    */
   @ApiOperation({ summary: 'List knowledge space types' })
+  @ApiOkResponse({
+    description: 'List of knowledge space types',
+    schema: {
+      example: [
+        {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'HANDBOOK',
+        },
+        {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'PROJECT',
+        },
+      ],
+    },
+  })
   @Roles([SystemRole.Admin])
   @Get()
   async getKnowledgeSpaceTypes() {
@@ -59,6 +80,12 @@ export class KnowledgeSpaceTypeController {
    * { "name": "HANDBOOK" }
    */
   @ApiOperation({ summary: 'Add a new knowledge space type' })
+  @ApiCreatedResponse({
+    description: 'Knowledge space type added successfully',
+    schema: {
+      example: { message: 'Knowledge space type added successfully' },
+    },
+  })
   @Roles([SystemRole.Admin])
   @Post()
   async addNewKnowledgeSpaceType(
