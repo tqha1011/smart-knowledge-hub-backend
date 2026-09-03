@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CategoryModule } from 'src/modules/category/category.module';
+import { DocumentModule } from 'src/modules/document/document.module';
 import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
 import { RagModule } from 'src/modules/rag/rag.module';
 import { ChatMessageController } from './api/chat-message.controller';
@@ -20,7 +22,7 @@ import { ChatSessionRepository } from './infrastructure/chat-session.repo';
 import { UnansweredQuestionRepository } from './infrastructure/unanswered-question.repo';
 
 @Module({
-  imports: [KnowledgeSpaceModule, RagModule],
+  imports: [KnowledgeSpaceModule, RagModule, DocumentModule, CategoryModule],
   controllers: [ChatMessageController, UnansweredQuestionController],
   providers: [
     {

@@ -20,6 +20,7 @@ model Document {
   documentPermissions DocumentPermission[]
   documentChunks      DocumentChunk[]
   answerSources       AnswerSource[]
+  faqForKnowledgeSpace KnowledgeSpace?     @relation("KnowledgeSpaceFaqDocument")
 
   @@unique([id, storagePath], name: "unique_document_storage_path_per_workspace")
   @@index([knowledgeSpaceId])

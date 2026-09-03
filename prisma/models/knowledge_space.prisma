@@ -14,6 +14,8 @@ model KnowledgeSpace {
   chatSessions        ChatSession[]
   answerSources       AnswerSource[]
   unansweredQuestions UnAnsweredQuestion[]
+  faqDocumentId       Int?                  @unique @map("faq_document_id")
+  faqDocument         Document?             @relation("KnowledgeSpaceFaqDocument", fields: [faqDocumentId], references: [id])
 
   @@map("knowledge_space")
 }
