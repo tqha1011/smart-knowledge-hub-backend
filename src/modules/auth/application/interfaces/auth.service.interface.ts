@@ -26,4 +26,6 @@ export abstract class IAuthService {
     setPasswordRequestDto: SetPasswordRequestDto,
     userPublicId: string,
   ): Promise<Result<undefined, AppError>>;
+
+  abstract sendOtpAsync(email: string): Promise<Result<undefined, AppError>>;
 }
