@@ -12,13 +12,33 @@ import {
   UserCredentials,
   UserData,
 } from '../domain/repositories/user.repo.interface';
+import { IUserQueryRepository } from '../application/interfaces/user-query.repo.interface';
+import { UserInformationDto } from '../application/dtos/user.response.dto';
 
 @Injectable()
-export class UserRepository implements IUserRepository {
+export class UserRepository implements IUserRepository, IUserQueryRepository {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+  async getUserInformationByPublicId(
+    publicId: string,
+  ): Promise<Result<UserInformationDto | null, Error>> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { publicId },
+        select: {
+          publicId: true,
+          email: true,
+          username: true,
+          avatarUrl: true,
+        },
+      });
+      return ok(user);
+    } catch (error) {
+      return err(new Error(`Failed to get user information. ${error}`));
+    }
+  }
   async updatePasswordAsync(
     userId: number,
     newPasswordHash: string,

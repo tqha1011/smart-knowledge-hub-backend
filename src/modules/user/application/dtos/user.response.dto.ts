@@ -14,3 +14,14 @@ export type UserResponseWithPasswordDto = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type UserInformationDto = {
+  publicId: string;
+  email: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
+export type UserInformationResponseDto = UserInformationDto & {
+  avatarInitials: string;
+};
