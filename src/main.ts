@@ -31,7 +31,11 @@ async function bootstrap() {
     },
   });
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'], // default react dev server port
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5174',
+    ], // default react dev server port
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
