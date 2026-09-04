@@ -28,4 +28,9 @@ export abstract class IAuthService {
   ): Promise<Result<undefined, AppError>>;
 
   abstract sendOtpAsync(email: string): Promise<Result<undefined, AppError>>;
+
+  abstract verifyOtpAsync(
+    email: string,
+    otp: string,
+  ): Promise<Result<undefined, AppError>>;
 }

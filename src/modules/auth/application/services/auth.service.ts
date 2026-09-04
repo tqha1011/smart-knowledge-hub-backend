@@ -1,5 +1,5 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
 import { Result, err, ok } from 'neverthrow';
@@ -7,6 +7,7 @@ import { User } from 'src/modules/user/domain/entities/user.entity';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { SystemRole } from 'src/shared/domain/enum';
+import { NotificationService } from 'src/shared/infrastructure/notification/notification.service';
 import {
   IPasswordHasher,
   ITokenProvider,
@@ -18,6 +19,9 @@ import {
   SetPasswordRequestDto,
 } from '../dtos/auth.dto';
 import { IAuthService } from '../interfaces/auth.service.interface';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import type { Cache } from 'cache-manager';
 
 const TEMP_PASSWORD_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid look-alikes
 const TEMP_PASSWORD_LOWER = 'abcdefghijkmnpqrstuvwxyz';
@@ -34,7 +38,35 @@ export class AuthService implements IAuthService {
     private readonly userRepository: IUserRepository,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly notificationService: NotificationService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
+  async verifyOtpAsync(
+    email: string,
+    otp: string,
+  ): Promise<Result<undefined, AppError>> {
+    const user = await this.userRepository.GetUserByEmail(email);
+    if (user.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (user.value === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
+    }
+    const key = CacheKey.generateOtpKey(email);
+    const cachedOtp = await this.cacheManager.get<string>(key);
+    if (cachedOtp !== otp || cachedOtp === undefined) {
+      return err(
+        new AppError(ErrorCode.BadRequest, 'Invalid OTP or OTP is expired.'),
+      );
+    }
+    await this.cacheManager.del(key);
+    return ok(undefined);
+  }
   async setPasswordAsync(
     setPasswordRequestDto: SetPasswordRequestDto,
     userPublicId: string,
@@ -94,6 +126,22 @@ export class AuthService implements IAuthService {
       );
     }
     return ok(undefined);
+  }
+
+  async sendOtpAsync(email: string): Promise<Result<undefined, AppError>> {
+    const user = await this.userRepository.GetUserByEmail(email);
+    if (user.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (user.value === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
+    }
+    return this.notificationService.sendOtpAsync(email, user.value.username);
   }
 
   async registerAsync(

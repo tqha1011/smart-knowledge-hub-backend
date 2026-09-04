@@ -122,6 +122,32 @@ export class SetPasswordRequestDto {
   newPassword!: string;
 }
 
+export class SendOtpRequestDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+}
+
+export class VerifyOtpRequestDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+
+  /**
+   * @example '123456'
+   */
+  @IsNotEmpty({ message: 'OTP is required' })
+  @IsString({ message: 'OTP must be a string' })
+  @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit code' })
+  otp!: string;
+}
+
 export class RecoveryPasswordRequestDto {
   /**
    * @example 'Password123!'

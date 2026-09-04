@@ -24,7 +24,9 @@ import {
   CreateUserByAdminDto,
   LoginDto,
   RegisterDto,
+  SendOtpRequestDto,
   SetPasswordRequestDto,
+  VerifyOtpRequestDto,
 } from '../application/dtos/auth.dto';
 import { IAuthService } from '../application/interfaces/auth.service.interface';
 
@@ -221,6 +223,87 @@ export class AuthController {
           default:
             this.logger.error(
               'Unexpected error during password update:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Sends a one-time verification code to the given email if an account
+   * exists for it. Always responds with a generic success message so the
+   * caller cannot use this endpoint to enumerate registered emails.
+   * @throws {400} when the provided email is invalid, or no account exists for it.
+   * @throws {500} for any unexpected errors while sending the OTP.
+   * @example
+   * POST /api/auth/otp/send
+   * {
+   *   "email": "example@gmail.com"
+   * }
+   */
+  @ApiOperation({ summary: 'Send an OTP verification code to an email' })
+  @Post('otp/send')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async sendOtp(@Body() sendOtpRequestDto: SendOtpRequestDto) {
+    const result = await this.authService.sendOtpAsync(sendOtpRequestDto.email);
+    return result.match(
+      () => ({ message: 'OTP sent successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while sending OTP:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Verifies a one-time code previously sent to the given email.
+   * @throws {400} when the OTP is invalid or expired.
+   * @throws {404} when no account exists for the given email.
+   * @throws {500} for any unexpected errors while verifying the OTP.
+   * @example
+   * POST /api/auth/otp/verify
+   * {
+   *   "email": "example@gmail.com",
+   *   "otp": "123456"
+   * }
+   */
+  @ApiOperation({ summary: 'Verify an OTP code for an email' })
+  @Post('otp/verify')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async verifyOtp(@Body() verifyOtpRequestDto: VerifyOtpRequestDto) {
+    const result = await this.authService.verifyOtpAsync(
+      verifyOtpRequestDto.email,
+      verifyOtpRequestDto.otp,
+    );
+    return result.match(
+      () => ({ message: 'OTP verified successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.NotFound:
+            throw new NotFoundException(error.message, { cause: error });
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while verifying OTP:',
               error.stack,
             );
             throw new InternalServerErrorException(error.message, {
