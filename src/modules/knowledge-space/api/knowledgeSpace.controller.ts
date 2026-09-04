@@ -16,6 +16,7 @@ import {
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
@@ -46,6 +47,7 @@ export class KnowledgeSpaceController {
    * GET /api/knowledge-spaces?pageNumber=1&pageSize=20
    */
   @ApiOperation({ summary: 'List knowledge spaces for the current user' })
+  @ApiQuery({ type: PaginationQueryDto })
   @ApiOkResponse({
     description: 'Paginated list of knowledge spaces the user is a member of',
     schema: {
@@ -227,6 +229,7 @@ export class KnowledgeSpaceController {
    * GET /api/knowledge-spaces/6b1f.../members?pageNumber=1&pageSize=20
    */
   @ApiOperation({ summary: 'List members of a knowledge space' })
+  @ApiQuery({ type: PaginationQueryDto })
   @ApiOkResponse({
     description: 'Paginated list of members in the knowledge space',
     schema: {

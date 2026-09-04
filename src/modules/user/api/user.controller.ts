@@ -46,7 +46,9 @@ export class UserController {
         email: 'jane.doe@example.com',
         username: 'jane.doe',
         avatarUrl: 'https://www.gravatar.com/avatar/abc123?d=identicon',
+        role: 'Employee',
         avatarInitials: 'J',
+        isAdmin: false,
       },
     },
   })

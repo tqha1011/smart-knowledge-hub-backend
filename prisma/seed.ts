@@ -22,21 +22,42 @@ const prisma = new PrismaClient({
 
 const SEED_PASSWORD = 'Password123!';
 
+/** Deterministic publicId so the seed can be re-run (upsert) without creating duplicates. */
+function seqId(prefixDigit: string, n: number): string {
+  return `${prefixDigit}0000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
+/**
+ * Number of extra "load test" employees to bulk-create on top of
+ * admin/alice/bob, so paginated/list endpoints have enough rows for a cache
+ * hit vs. cache miss to show a measurable time difference.
+ */
+const BULK_USER_COUNT = 500;
+
 /** Fixed publicIds so the seed can be re-run (upsert) without creating duplicates. */
 const ids = {
   users: {
     admin: '10000000-0000-4000-8000-000000000001',
     alice: '10000000-0000-4000-8000-000000000002',
     bob: '10000000-0000-4000-8000-000000000003',
+    bulk: Array.from({ length: BULK_USER_COUNT }, (_, i) =>
+      seqId('1', 1000 + i),
+    ),
   },
   types: {
     handbook: '20000000-0000-4000-8000-000000000001',
     policy: '20000000-0000-4000-8000-000000000002',
     engineering: '20000000-0000-4000-8000-000000000003',
+    faq: '20000000-0000-4000-8000-000000000004',
+    runbook: '20000000-0000-4000-8000-000000000005',
+    announcements: '20000000-0000-4000-8000-000000000006',
   },
   spaces: {
     engineeringHandbook: '30000000-0000-4000-8000-000000000001',
     hrPolicies: '30000000-0000-4000-8000-000000000002',
+    faqSpace: '30000000-0000-4000-8000-000000000003',
+    runbookSpace: '30000000-0000-4000-8000-000000000004',
+    announcementsSpace: '30000000-0000-4000-8000-000000000005',
   },
   workspaces: {
     adminOwnsEngineering: '40000000-0000-4000-8000-000000000001',
@@ -44,6 +65,9 @@ const ids = {
     aliceEditsEngineering: '40000000-0000-4000-8000-000000000003',
     aliceViewsHr: '40000000-0000-4000-8000-000000000004',
     bobViewsEngineering: '40000000-0000-4000-8000-000000000005',
+    adminOwnsFaq: '40000000-0000-4000-8000-000000000006',
+    adminOwnsRunbook: '40000000-0000-4000-8000-000000000007',
+    adminOwnsAnnouncements: '40000000-0000-4000-8000-000000000008',
   },
   categories: {
     onboarding: '50000000-0000-4000-8000-000000000001',
@@ -98,7 +122,27 @@ async function seedUsers() {
     },
   });
 
-  return { admin, alice, bob };
+  // Bulk-insert the load-test users in a single round trip instead of
+  // BULK_USER_COUNT sequential upserts — createMany + skipDuplicates keeps
+  // this idempotent across re-runs while staying fast at this volume.
+  const bulkUsersData = Array.from({ length: BULK_USER_COUNT }, (_, i) => {
+    const n = String(i + 1).padStart(4, '0');
+    return {
+      publicId: ids.users.bulk[i],
+      username: `user${n}`,
+      email: `user${n}@example.com`,
+      password: passwordHash,
+      role: Role.Employee,
+    };
+  });
+  await prisma.user.createMany({ data: bulkUsersData, skipDuplicates: true });
+  const bulkUsers = await prisma.user.findMany({
+    where: { publicId: { in: ids.users.bulk } },
+    select: { id: true },
+    orderBy: { publicId: 'asc' },
+  });
+
+  return { admin, alice, bob, bulkUserIds: bulkUsers.map((u) => u.id) };
 }
 
 async function seedKnowledgeSpaceTypes() {
@@ -120,12 +164,33 @@ async function seedKnowledgeSpaceTypes() {
     create: { publicId: ids.types.engineering, name: 'Engineering' },
   });
 
-  return { handbook, policy, engineering };
+  const faq = await prisma.knowledgeSpaceType.upsert({
+    where: { publicId: ids.types.faq },
+    update: {},
+    create: { publicId: ids.types.faq, name: 'FAQ' },
+  });
+
+  const runbook = await prisma.knowledgeSpaceType.upsert({
+    where: { publicId: ids.types.runbook },
+    update: {},
+    create: { publicId: ids.types.runbook, name: 'Runbook' },
+  });
+
+  const announcements = await prisma.knowledgeSpaceType.upsert({
+    where: { publicId: ids.types.announcements },
+    update: {},
+    create: { publicId: ids.types.announcements, name: 'Announcements' },
+  });
+
+  return { handbook, policy, engineering, faq, runbook, announcements };
 }
 
 async function seedKnowledgeSpaces(typeIds: {
   engineeringTypeId: number;
   policyTypeId: number;
+  faqTypeId: number;
+  runbookTypeId: number;
+  announcementsTypeId: number;
 }) {
   const engineeringHandbook = await prisma.knowledgeSpace.upsert({
     where: { publicId: ids.spaces.engineeringHandbook },
@@ -149,13 +214,55 @@ async function seedKnowledgeSpaces(typeIds: {
     },
   });
 
-  return { engineeringHandbook, hrPolicies };
+  // Light-weight spaces just to give the "list knowledge spaces" endpoint a
+  // few more rows too — no bulk membership needed on these.
+  const faqSpace = await prisma.knowledgeSpace.upsert({
+    where: { publicId: ids.spaces.faqSpace },
+    update: {},
+    create: {
+      publicId: ids.spaces.faqSpace,
+      name: 'FAQ',
+      description: 'Frequently asked questions across the company',
+      typeId: typeIds.faqTypeId,
+    },
+  });
+
+  const runbookSpace = await prisma.knowledgeSpace.upsert({
+    where: { publicId: ids.spaces.runbookSpace },
+    update: {},
+    create: {
+      publicId: ids.spaces.runbookSpace,
+      name: 'Runbooks',
+      description: 'Operational runbooks for on-call engineers',
+      typeId: typeIds.runbookTypeId,
+    },
+  });
+
+  const announcementsSpace = await prisma.knowledgeSpace.upsert({
+    where: { publicId: ids.spaces.announcementsSpace },
+    update: {},
+    create: {
+      publicId: ids.spaces.announcementsSpace,
+      name: 'Announcements',
+      description: 'Company-wide announcements',
+      typeId: typeIds.announcementsTypeId,
+    },
+  });
+
+  return {
+    engineeringHandbook,
+    hrPolicies,
+    faqSpace,
+    runbookSpace,
+    announcementsSpace,
+  };
 }
 
 async function seedMemberships(userIds: {
   adminId: number;
   aliceId: number;
   bobId: number;
+  bulkUserIds: number[];
 }) {
   const memberships: {
     publicId: string;
@@ -164,18 +271,29 @@ async function seedMemberships(userIds: {
     role: WorkSpaceRole;
   }[] = [];
 
-  const engineeringHandbookId = (
-    await prisma.knowledgeSpace.findUniqueOrThrow({
-      where: { publicId: ids.spaces.engineeringHandbook },
-      select: { id: true },
-    })
-  ).id;
-  const hrPoliciesId = (
-    await prisma.knowledgeSpace.findUniqueOrThrow({
-      where: { publicId: ids.spaces.hrPolicies },
-      select: { id: true },
-    })
-  ).id;
+  const [
+    engineeringHandbookId,
+    hrPoliciesId,
+    faqSpaceId,
+    runbookSpaceId,
+    announcementsSpaceId,
+  ] = await Promise.all(
+    [
+      ids.spaces.engineeringHandbook,
+      ids.spaces.hrPolicies,
+      ids.spaces.faqSpace,
+      ids.spaces.runbookSpace,
+      ids.spaces.announcementsSpace,
+    ].map(
+      async (publicId) =>
+        (
+          await prisma.knowledgeSpace.findUniqueOrThrow({
+            where: { publicId },
+            select: { id: true },
+          })
+        ).id,
+    ),
+  );
 
   memberships.push(
     {
@@ -208,6 +326,24 @@ async function seedMemberships(userIds: {
       knowledgeSpaceId: engineeringHandbookId,
       role: WorkSpaceRole.Viewer,
     },
+    {
+      publicId: ids.workspaces.adminOwnsFaq,
+      userId: userIds.adminId,
+      knowledgeSpaceId: faqSpaceId,
+      role: WorkSpaceRole.Owner,
+    },
+    {
+      publicId: ids.workspaces.adminOwnsRunbook,
+      userId: userIds.adminId,
+      knowledgeSpaceId: runbookSpaceId,
+      role: WorkSpaceRole.Owner,
+    },
+    {
+      publicId: ids.workspaces.adminOwnsAnnouncements,
+      userId: userIds.adminId,
+      knowledgeSpaceId: announcementsSpaceId,
+      role: WorkSpaceRole.Owner,
+    },
   );
 
   for (const membership of memberships) {
@@ -217,6 +353,20 @@ async function seedMemberships(userIds: {
       create: membership,
     });
   }
+
+  // Bulk-assign the load-test users as Viewers, alternating between the two
+  // busiest spaces, so each ends up with ~250 members — enough for a
+  // paginated member-list query (and its cache) to show a real difference.
+  const bulkMemberships = userIds.bulkUserIds.map((userId, i) => ({
+    publicId: seqId('4', 1000 + i),
+    userId,
+    knowledgeSpaceId: i % 2 === 0 ? engineeringHandbookId : hrPoliciesId,
+    role: WorkSpaceRole.Viewer,
+  }));
+  await prisma.userWorkspace.createMany({
+    data: bulkMemberships,
+    skipDuplicates: true,
+  });
 
   return { engineeringHandbookId, hrPoliciesId };
 }
@@ -379,16 +529,20 @@ async function seedDocumentPermissions(documentId: number, userId: number) {
 }
 
 async function main() {
-  const { admin, alice, bob } = await seedUsers();
+  const { admin, alice, bob, bulkUserIds } = await seedUsers();
   const types = await seedKnowledgeSpaceTypes();
   await seedKnowledgeSpaces({
     engineeringTypeId: types.engineering.id,
     policyTypeId: types.policy.id,
+    faqTypeId: types.faq.id,
+    runbookTypeId: types.runbook.id,
+    announcementsTypeId: types.announcements.id,
   });
   const { engineeringHandbookId, hrPoliciesId } = await seedMemberships({
     adminId: admin.id,
     aliceId: alice.id,
     bobId: bob.id,
+    bulkUserIds,
   });
   const categories = await seedCategories({
     engineeringHandbookId,
@@ -413,6 +567,12 @@ async function main() {
   console.log('  admin@example.com (Admin)');
   console.log('  alice@example.com (Employee)');
   console.log('  bob@example.com   (Employee)');
+  console.log(
+    `  + ${bulkUserIds.length} load-test employees (user0001@example.com .. ` +
+      `user${String(bulkUserIds.length).padStart(4, '0')}@example.com), ` +
+      'split as Viewers across Engineering Handbook / HR Policies (~' +
+      `${Math.ceil(bulkUserIds.length / 2)} members each)`,
+  );
 }
 
 main()
