@@ -14,6 +14,7 @@ import {
 } from '../domain/repositories/user.repo.interface';
 import { IUserQueryRepository } from '../application/interfaces/user-query.repo.interface';
 import { UserInformationDto } from '../application/dtos/user.response.dto';
+import { mapRoleToDomain } from './user.mapper';
 
 @Injectable()
 export class UserRepository implements IUserRepository, IUserQueryRepository {
@@ -32,9 +33,18 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
           email: true,
           username: true,
           avatarUrl: true,
+          role: true,
         },
       });
-      return ok(user);
+      if (!user) return ok(null);
+      const response: UserInformationDto = {
+        publicId: user.publicId,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        role: mapRoleToDomain(user.role),
+      };
+      return ok(response);
     } catch (error) {
       return err(new Error(`Failed to get user information. ${error}`));
     }

@@ -4,6 +4,7 @@ import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { UserInformationResponseDto } from '../dtos/user.response.dto';
 import { IUserQueryRepository } from '../interfaces/user-query.repo.interface';
 import { IUserService } from '../interfaces/user.service.interface';
+import { SystemRole } from 'src/shared/domain/enum';
 
 @Injectable()
 export class UserService implements IUserService {
@@ -29,6 +30,7 @@ export class UserService implements IUserService {
     return ok({
       ...userInformation,
       avatarInitials: userInformation.username.charAt(0).toUpperCase(),
+      isAdmin: userInformation.role === SystemRole.Admin,
     });
   }
 }
