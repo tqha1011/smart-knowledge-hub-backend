@@ -46,6 +46,28 @@ export class KnowledgeSpaceController {
    * GET /api/knowledge-spaces?pageNumber=1&pageSize=20
    */
   @ApiOperation({ summary: 'List knowledge spaces for the current user' })
+  @ApiOkResponse({
+    description: 'Paginated list of knowledge spaces the user is a member of',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+            name: 'Engineering handbook',
+            totalDocuments: 12,
+            typeName: 'HANDBOOK',
+            role: 'Owner',
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get()
   async getKnowledgeSpaceForUser(
@@ -77,10 +99,16 @@ export class KnowledgeSpaceController {
    * {
    *   "name": "Engineering handbook",
    *   "description": "Everything a new engineer needs",
-   *   "type": "HANDBOOK"
+   *   "typePublicId": "6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b"
    * }
    */
   @ApiOperation({ summary: 'Create a new knowledge space' })
+  @ApiOkResponse({
+    description: 'Confirmation that the knowledge space was created',
+    schema: {
+      example: { message: 'Knowledge space created successfully' },
+    },
+  })
   @Roles([SystemRole.Admin])
   @Post()
   async createKnowledgeSpace(
@@ -113,6 +141,12 @@ export class KnowledgeSpaceController {
    */
   @ApiOperation({
     summary: 'Get the role of the current user in a knowledge space',
+  })
+  @ApiOkResponse({
+    description: "The user's role in the knowledge space, or null",
+    schema: {
+      example: { role: 'Owner' },
+    },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
   @Get(':knowledgeSpacePublicId/role')
@@ -149,10 +183,16 @@ export class KnowledgeSpaceController {
    * {
    *   "name": "Engineering handbook",
    *   "description": "Everything a new engineer needs",
-   *   "type": "HANDBOOK"
+   *   "typePublicId": "6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b"
    * }
    */
   @ApiOperation({ summary: 'Update a knowledge space' })
+  @ApiOkResponse({
+    description: 'Confirmation that the knowledge space was updated',
+    schema: {
+      example: { message: 'Knowledge space updated successfully' },
+    },
+  })
   @Roles([SystemRole.Admin])
   @Put(':knowledgeSpacePublicId')
   async updateKnowledgeSpace(

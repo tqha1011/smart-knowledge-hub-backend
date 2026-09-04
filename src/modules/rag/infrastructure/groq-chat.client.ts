@@ -8,7 +8,7 @@ import {
   IAnswerGenerationClient,
 } from '../domain/repositories/answer-generation-client.interface';
 
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 @Injectable()
 export class GroqChatClient implements IAnswerGenerationClient {

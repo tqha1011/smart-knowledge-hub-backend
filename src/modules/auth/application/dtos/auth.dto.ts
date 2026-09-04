@@ -122,7 +122,47 @@ export class SetPasswordRequestDto {
   newPassword!: string;
 }
 
+export class SendOtpRequestDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+}
+
+export class VerifyOtpRequestDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+
+  /**
+   * @example '123456'
+   */
+  @IsNotEmpty({ message: 'OTP is required' })
+  @IsString({ message: 'OTP must be a string' })
+  @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit code' })
+  otp!: string;
+}
+
 export class RecoveryPasswordRequestDto {
+  /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+
+  /**
+   * The reset token returned by `POST /api/auth/otp/verify`.
+   */
+  @IsNotEmpty({ message: 'Reset token is required' })
+  @IsString({ message: 'Reset token must be a string' })
+  resetToken!: string;
+
   /**
    * @example 'Password123!'
    */
@@ -136,5 +176,5 @@ export class RecoveryPasswordRequestDto {
         'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
     },
   )
-  password!: string;
+  newPassword!: string;
 }

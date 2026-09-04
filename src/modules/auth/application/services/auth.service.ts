@@ -1,12 +1,13 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomInt } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { Result, err, ok } from 'neverthrow';
 import { User } from 'src/modules/user/domain/entities/user.entity';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { SystemRole } from 'src/shared/domain/enum';
+import { NotificationService } from 'src/shared/infrastructure/notification/notification.service';
 import {
   IPasswordHasher,
   ITokenProvider,
@@ -17,13 +18,20 @@ import {
   RegisterDto,
   SetPasswordRequestDto,
 } from '../dtos/auth.dto';
-import { IAuthService } from '../interfaces/auth.service.interface';
+import {
+  IAuthService,
+  OtpVerifiedResult,
+} from '../interfaces/auth.service.interface';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import type { Cache } from 'cache-manager';
 
 const TEMP_PASSWORD_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid look-alikes
 const TEMP_PASSWORD_LOWER = 'abcdefghijkmnpqrstuvwxyz';
 const TEMP_PASSWORD_DIGITS = '23456789';
 const TEMP_PASSWORD_SPECIAL = '@$!%*?&';
 const TEMP_PASSWORD_LENGTH = 12;
+const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -34,7 +42,95 @@ export class AuthService implements IAuthService {
     private readonly userRepository: IUserRepository,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly notificationService: NotificationService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
+  async verifyOtpAsync(
+    email: string,
+    otp: string,
+  ): Promise<Result<OtpVerifiedResult, AppError>> {
+    const user = await this.userRepository.GetUserByEmail(email);
+    if (user.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (user.value === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
+    }
+    const otpKey = CacheKey.generateOtpKey(email);
+    const cachedOtp = await this.cacheManager.get<string>(otpKey);
+    if (cachedOtp !== otp || cachedOtp === undefined) {
+      return err(
+        new AppError(ErrorCode.BadRequest, 'Invalid OTP or OTP is expired.'),
+      );
+    }
+    await this.cacheManager.del(otpKey);
+
+    const resetToken = randomBytes(32).toString('hex');
+    await this.cacheManager.set(
+      CacheKey.generateResetTokenKey(email),
+      resetToken,
+      RESET_TOKEN_TTL_MS,
+    );
+    return ok({ resetToken });
+  }
+
+  async recoverPasswordAsync(
+    email: string,
+    resetToken: string,
+    newPassword: string,
+  ): Promise<Result<undefined, AppError>> {
+    const user = await this.userRepository.GetUserByEmail(email);
+    if (user.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (user.value === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
+    }
+
+    const resetTokenKey = CacheKey.generateResetTokenKey(email);
+    const cachedResetToken = await this.cacheManager.get<string>(resetTokenKey);
+    if (cachedResetToken !== resetToken || cachedResetToken === undefined) {
+      return err(
+        new AppError(ErrorCode.BadRequest, 'Invalid or expired reset token.'),
+      );
+    }
+    await this.cacheManager.del(resetTokenKey);
+
+    const newPasswordHashResult =
+      await this.passwordHasher.GenerateHashPassword(newPassword);
+    if (newPasswordHashResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to hash new password.',
+        ),
+      );
+    }
+
+    const result = await this.userRepository.updatePasswordAsync(
+      user.value.id,
+      newPasswordHashResult.value,
+    );
+    if (result.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to update password.',
+        ),
+      );
+    }
+    return ok(undefined);
+  }
   async setPasswordAsync(
     setPasswordRequestDto: SetPasswordRequestDto,
     userPublicId: string,
@@ -94,6 +190,22 @@ export class AuthService implements IAuthService {
       );
     }
     return ok(undefined);
+  }
+
+  async sendOtpAsync(email: string): Promise<Result<undefined, AppError>> {
+    const user = await this.userRepository.GetUserByEmail(email);
+    if (user.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    if (user.value === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
+    }
+    return this.notificationService.sendOtpAsync(email, user.value.username);
   }
 
   async registerAsync(

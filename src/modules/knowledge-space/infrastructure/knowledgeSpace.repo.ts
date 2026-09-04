@@ -200,6 +200,11 @@ export class KnowledgeSpaceRepository
                   role: true,
                 },
               },
+              type: {
+                select: {
+                  name: true,
+                },
+              },
               _count: {
                 select: {
                   documents: {
@@ -241,6 +246,7 @@ export class KnowledgeSpaceRepository
       const response: GetUserKnowledgeSpace[] = knowledgeSpaces.map((ks) => ({
         publicId: ks.publicId,
         name: ks.name,
+        typeName: ks.type.name,
         totalDocuments: ks._count.documents,
         role: toDomainRole(ks.userWorkspaces[0].role),
       }));

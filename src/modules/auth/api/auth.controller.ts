@@ -23,8 +23,11 @@ import { SystemRole } from 'src/shared/domain/enum';
 import {
   CreateUserByAdminDto,
   LoginDto,
+  RecoveryPasswordRequestDto,
   RegisterDto,
+  SendOtpRequestDto,
   SetPasswordRequestDto,
+  VerifyOtpRequestDto,
 } from '../application/dtos/auth.dto';
 import { IAuthService } from '../application/interfaces/auth.service.interface';
 
@@ -221,6 +224,136 @@ export class AuthController {
           default:
             this.logger.error(
               'Unexpected error during password update:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Sends a one-time verification code to the given email if an account
+   * exists for it. Always responds with a generic success message so the
+   * caller cannot use this endpoint to enumerate registered emails.
+   * @throws {400} when the provided email is invalid, or no account exists for it.
+   * @throws {500} for any unexpected errors while sending the OTP.
+   * @example
+   * POST /api/auth/otp/send
+   * {
+   *   "email": "example@gmail.com"
+   * }
+   */
+  @ApiOperation({ summary: 'Send an OTP verification code to an email' })
+  @Post('otp/send')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async sendOtp(@Body() sendOtpRequestDto: SendOtpRequestDto) {
+    const result = await this.authService.sendOtpAsync(sendOtpRequestDto.email);
+    return result.match(
+      () => ({ message: 'OTP sent successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while sending OTP:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Verifies a one-time code previously sent to the given email. On success,
+   * returns a short-lived reset token to be passed to
+   * `POST /api/auth/password/recovery` — the OTP itself is consumed and
+   * cannot be reused.
+   * @throws {400} when the OTP is invalid or expired, or no account exists for the given email.
+   * @throws {500} for any unexpected errors while verifying the OTP.
+   * @example
+   * POST /api/auth/otp/verify
+   * {
+   *   "email": "example@gmail.com",
+   *   "otp": "123456"
+   * }
+   */
+  @ApiOperation({ summary: 'Verify an OTP code for an email' })
+  @Post('otp/verify')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async verifyOtp(@Body() verifyOtpRequestDto: VerifyOtpRequestDto) {
+    const result = await this.authService.verifyOtpAsync(
+      verifyOtpRequestDto.email,
+      verifyOtpRequestDto.otp,
+    );
+    return result.match(
+      ({ resetToken }) => ({
+        message: 'OTP verified successfully',
+        resetToken,
+      }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while verifying OTP:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Sets a new password for an email using the reset token issued by
+   * `POST /api/auth/otp/verify`. Used for the "forgot password" flow, where
+   * the caller has no valid Bearer token.
+   * @throws {400} when the reset token is invalid/expired, or no account exists for the given email.
+   * @throws {500} for any unexpected errors while resetting the password.
+   * @example
+   * POST /api/auth/password/recovery
+   * {
+   *   "email": "example@gmail.com",
+   *   "resetToken": "…",
+   *   "newPassword": "NewPassword456!"
+   * }
+   */
+  @ApiOperation({ summary: 'Reset a password via OTP-issued reset token' })
+  @Post('password/recovery')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async recoverPassword(
+    @Body() recoveryPasswordRequestDto: RecoveryPasswordRequestDto,
+  ) {
+    const result = await this.authService.recoverPasswordAsync(
+      recoveryPasswordRequestDto.email,
+      recoveryPasswordRequestDto.resetToken,
+      recoveryPasswordRequestDto.newPassword,
+    );
+    return result.match(
+      () => ({ message: 'Password reset successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while recovering password:',
               error.stack,
             );
             throw new InternalServerErrorException(error.message, {
