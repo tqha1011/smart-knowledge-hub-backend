@@ -150,6 +150,20 @@ export class VerifyOtpRequestDto {
 
 export class RecoveryPasswordRequestDto {
   /**
+   * @example 'example@gmail.com'
+   */
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email!: string;
+
+  /**
+   * The reset token returned by `POST /api/auth/otp/verify`.
+   */
+  @IsNotEmpty({ message: 'Reset token is required' })
+  @IsString({ message: 'Reset token must be a string' })
+  resetToken!: string;
+
+  /**
    * @example 'Password123!'
    */
   @IsNotEmpty({ message: 'Password is required' })
@@ -162,5 +176,5 @@ export class RecoveryPasswordRequestDto {
         'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
     },
   )
-  password!: string;
+  newPassword!: string;
 }

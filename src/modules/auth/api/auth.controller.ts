@@ -23,6 +23,7 @@ import { SystemRole } from 'src/shared/domain/enum';
 import {
   CreateUserByAdminDto,
   LoginDto,
+  RecoveryPasswordRequestDto,
   RegisterDto,
   SendOtpRequestDto,
   SetPasswordRequestDto,
@@ -274,9 +275,11 @@ export class AuthController {
   }
 
   /**
-   * Verifies a one-time code previously sent to the given email.
-   * @throws {400} when the OTP is invalid or expired.
-   * @throws {404} when no account exists for the given email.
+   * Verifies a one-time code previously sent to the given email. On success,
+   * returns a short-lived reset token to be passed to
+   * `POST /api/auth/password/recovery` — the OTP itself is consumed and
+   * cannot be reused.
+   * @throws {400} when the OTP is invalid or expired, or no account exists for the given email.
    * @throws {500} for any unexpected errors while verifying the OTP.
    * @example
    * POST /api/auth/otp/verify
@@ -294,16 +297,63 @@ export class AuthController {
       verifyOtpRequestDto.otp,
     );
     return result.match(
-      () => ({ message: 'OTP verified successfully' }),
+      ({ resetToken }) => ({
+        message: 'OTP verified successfully',
+        resetToken,
+      }),
       (error: AppError) => {
         switch (error.code) {
-          case ErrorCode.NotFound:
-            throw new NotFoundException(error.message, { cause: error });
           case ErrorCode.BadRequest:
             throw new BadRequestException(error.message, { cause: error });
           default:
             this.logger.error(
               'Unexpected error while verifying OTP:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Sets a new password for an email using the reset token issued by
+   * `POST /api/auth/otp/verify`. Used for the "forgot password" flow, where
+   * the caller has no valid Bearer token.
+   * @throws {400} when the reset token is invalid/expired, or no account exists for the given email.
+   * @throws {500} for any unexpected errors while resetting the password.
+   * @example
+   * POST /api/auth/password/recovery
+   * {
+   *   "email": "example@gmail.com",
+   *   "resetToken": "…",
+   *   "newPassword": "NewPassword456!"
+   * }
+   */
+  @ApiOperation({ summary: 'Reset a password via OTP-issued reset token' })
+  @Post('password/recovery')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async recoverPassword(
+    @Body() recoveryPasswordRequestDto: RecoveryPasswordRequestDto,
+  ) {
+    const result = await this.authService.recoverPasswordAsync(
+      recoveryPasswordRequestDto.email,
+      recoveryPasswordRequestDto.resetToken,
+      recoveryPasswordRequestDto.newPassword,
+    );
+    return result.match(
+      () => ({ message: 'Password reset successfully' }),
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+            throw new BadRequestException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error while recovering password:',
               error.stack,
             );
             throw new InternalServerErrorException(error.message, {
