@@ -1,13 +1,31 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
 
 export class PaginationQueryDto {
+  /**
+   * Declared explicitly (rather than relying on the `@nestjs/swagger` CLI
+   * plugin's shim) because this file doesn't match the plugin's default
+   * `dtoFileNameSuffix` (`.dto.ts`/`.entity.ts`), so it wouldn't otherwise
+   * get auto-detected — routes using `@ApiQuery({ type: PaginationQueryDto })`
+   * need this to show up in Swagger at all.
+   */
+  @ApiPropertyOptional({
+    description: 'Page number (1-based)',
+    default: 1,
+    minimum: 1,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'pageNumber must be an integer' })
   @Min(1, { message: 'pageNumber must be at least 1' })
   pageNumber: number = 1;
 
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    default: 20,
+    minimum: 1,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'pageSize must be an integer' })
