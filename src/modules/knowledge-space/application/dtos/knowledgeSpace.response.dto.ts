@@ -9,6 +9,7 @@ export type GetUserKnowledgeSpace = {
   publicId: string;
   name: string;
   totalDocuments: number;
+  typeName: string;
   role: KnowledgeSpaceRole;
 };
 
