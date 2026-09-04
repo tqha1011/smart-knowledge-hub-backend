@@ -30,7 +30,7 @@ export class GeminiEmbeddingClient implements IEmbeddingClient {
         // Call the Gemini API to generate embeddings for the batch
         // For demonstration, we'll simulate the API call with a placeholder
         const response = await this.client.models.embedContent({
-          model: 'gemini-embedding-model', // Replace with the actual model name
+          model: 'gemini-embedding-001',
           contents: batch,
           config: {
             outputDimensionality: 1536,
