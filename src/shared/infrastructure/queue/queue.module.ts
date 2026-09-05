@@ -24,6 +24,9 @@ import { QueueName } from './constant/queue-name';
       {
         name: QueueName.GenerateTitleQueue,
       },
+      {
+        name: QueueName.SendEmailQueue,
+      },
     ),
   ],
   exports: [BullModule],
