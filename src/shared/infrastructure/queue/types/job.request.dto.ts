@@ -13,5 +13,6 @@ export type SendEmailJobRequestDto = {
   inviterPublicId: string;
   knowledgeSpaceId: number;
   members: AddMemberRequestDto[];
-  userIdByEmail: Map<string, number>;
+  // Map doesn't survive BullMQ's JSON serialization over Redis; store entries instead.
+  userIdByEmail: [string, number][];
 };

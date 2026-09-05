@@ -83,9 +83,10 @@ export class SendEmailService extends WorkerHost {
     inviterPublicId: string,
     knowledgeSpaceId: number,
     members: AddMemberRequestDto[],
-    userIdByEmail: Map<string, number>,
+    userIdByEmailEntries: [string, number][],
   ): Promise<void | Error> {
     try {
+      const userIdByEmail = new Map(userIdByEmailEntries);
       const [inviterResult, spaceNameResult, contactsResult] =
         await Promise.all([
           this.userRepository.GetUserDataByPublicId(inviterPublicId),
@@ -132,6 +133,7 @@ export class SendEmailService extends WorkerHost {
         'Failed to send member-added notification emails',
         error,
       );
+      return error instanceof Error ? error : new Error(String(error));
     }
   }
 }
