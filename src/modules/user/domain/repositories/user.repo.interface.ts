@@ -54,4 +54,8 @@ export abstract class IUserRepository {
     userId: number,
     newPasswordHash: string,
   ): Promise<Result<undefined, Error>>;
+
+  abstract getUserIdsByEmails(
+    emails: string[],
+  ): Promise<Result<{ email: string; id: number }[], Error>>;
 }

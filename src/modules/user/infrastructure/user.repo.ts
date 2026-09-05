@@ -22,6 +22,19 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
   ) {}
+  async getUserIdsByEmails(
+    emails: string[],
+  ): Promise<Result<{ email: string; id: number }[], Error>> {
+    try {
+      const users = await this.prismaService.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true, id: true },
+      });
+      return ok(users);
+    } catch (error) {
+      return err(error);
+    }
+  }
   async getUserInformationByPublicId(
     publicId: string,
   ): Promise<Result<UserInformationDto | null, Error>> {

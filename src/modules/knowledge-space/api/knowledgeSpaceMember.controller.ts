@@ -44,17 +44,17 @@ export class KnowledgeSpaceMemberController {
 
   /**
    * Adds one or more users as members of a knowledge space.
-   * @remarks Only the Owner may add members. A `userPublicId` that is already a
+   * @remarks Only the Owner may add members. An `email` that is already a
    * member is skipped rather than failing the request.
-   * @throws {400} when a `userPublicId` is not a valid UUID or `role` is invalid.
+   * @throws {400} when `email` is not a valid email address or `role` is invalid.
    * @throws {401} when no valid bearer token is provided.
    * @throws {403} when the caller is not the Owner of the knowledge space.
-   * @throws {404} when the knowledge space does not exist, or a `userPublicId`
+   * @throws {404} when the knowledge space does not exist, or an `email`
    * does not resolve to any user.
    * @throws {500} for any unexpected error while adding members.
    * @example
    * POST /api/knowledge-spaces/6b1f.../members
-   * { "members": [{ "userPublicId": "0f2a...", "role": "Editor" }] }
+   * { "members": [{ "email": "editor@company.com", "role": "Editor" }] }
    */
   @ApiOperation({ summary: 'Add members to a knowledge space' })
   @ApiCreatedResponse({

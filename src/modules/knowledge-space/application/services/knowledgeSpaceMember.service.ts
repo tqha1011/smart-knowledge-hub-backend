@@ -41,16 +41,16 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
         return err(membership.error);
       }
 
-      const userPublicIds = members.map((m) => m.userPublicId);
-      const resolveResult = await this.resolveUserIds(userPublicIds);
+      const userEmails = members.map((m) => m.email);
+      const resolveResult = await this.resolveUserEmails(userEmails);
       if (resolveResult.isErr()) {
         return err(resolveResult.error);
       }
-      const userIdByPublicId = resolveResult.value;
+      const userIdByEmails = resolveResult.value;
 
       const addMembersRequest: AddMembersRequest[] = members.map((m) => ({
         // Safe: resolveUserIds already confirmed every userPublicId is present.
-        userId: userIdByPublicId.get(m.userPublicId)!,
+        userId: userIdByEmails.get(m.email)!,
         role: m.role,
       }));
 
@@ -73,7 +73,7 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
         userPublicId,
         membership.value.knowledgeSpaceId,
         members,
-        userIdByPublicId,
+        userIdByEmails,
       );
 
       return ok(undefined);
@@ -89,7 +89,7 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
     inviterPublicId: string,
     knowledgeSpaceId: number,
     members: AddMemberRequestDto[],
-    userIdByPublicId: Map<string, number>,
+    userIdByEmail: Map<string, number>,
   ): Promise<void> {
     try {
       const [inviterResult, spaceNameResult, contactsResult] =
@@ -99,7 +99,7 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
             knowledgeSpaceId,
           ),
           this.userRepository.GetUsersContactDataByIds([
-            ...userIdByPublicId.values(),
+            ...userIdByEmail.values(),
           ]),
         ]);
       if (
@@ -111,7 +111,7 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
       }
 
       const roleByUserId = new Map(
-        members.map((m) => [userIdByPublicId.get(m.userPublicId), m.role]),
+        members.map((m) => [userIdByEmail.get(m.email), m.role]),
       );
       const loginUrl = this.configService.get<string>('FRONTEND_URL');
       const knowledgeSpaceName = spaceNameResult.value ?? 'a knowledge space';
@@ -358,6 +358,33 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
       );
     }
     return ok(userIdByPublicId);
+  }
+
+  private async resolveUserEmails(
+    userEmails: string[],
+  ): Promise<Result<Map<string, number>, AppError>> {
+    const userIdsResult =
+      await this.userRepository.getUserIdsByEmails(userEmails);
+    if (userIdsResult.isErr()) {
+      return err(
+        new AppError(ErrorCode.InternalServerError, 'Failed to get user IDs'),
+      );
+    }
+    const userIdByEmail = new Map(
+      userIdsResult.value.map((user) => [user.email, user.id]),
+    );
+    const missingEmails = userEmails.filter(
+      (email) => !userIdByEmail.has(email),
+    );
+    if (missingEmails.length > 0) {
+      return err(
+        new AppError(
+          ErrorCode.NotFound,
+          `User(s) not found: ${missingEmails.join(', ')}`,
+        ),
+      );
+    }
+    return ok(userIdByEmail);
   }
 
   /**
