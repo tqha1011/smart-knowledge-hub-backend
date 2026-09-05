@@ -463,7 +463,7 @@ export class AuthService implements IAuthService {
    */
   private async issueRefreshToken(
     userId: number,
-    rememberMe: boolean,
+    rememberMe: boolean | undefined,
   ): Promise<Result<string, AppError>> {
     const { rawToken, tokenHash } = this.refreshTokenProvider.generate();
     // Each branch has its own dedicated fallback so a missing/blank env var
