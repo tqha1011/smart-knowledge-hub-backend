@@ -127,6 +127,7 @@ export class DocumentController {
         publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
         title: 'handbook.pdf',
         fileType: 'PDF',
+        status: 'Processing',
         visibility: 'Public',
         lastUpdated: '2026-08-30T10:00:00.000Z',
         category: {
@@ -234,6 +235,7 @@ export class DocumentController {
             publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
             title: 'handbook.pdf',
             fileType: 'PDF',
+            status: 'Ready',
             visibility: 'Public',
             lastUpdated: '2026-08-30T10:00:00.000Z',
             category: {
@@ -376,6 +378,7 @@ export class DocumentController {
         publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
         title: 'handbook.pdf',
         fileType: 'PDF',
+        status: 'Ready',
         visibility: 'Restricted',
         lastUpdated: '2026-08-30T10:10:00.000Z',
         category: {

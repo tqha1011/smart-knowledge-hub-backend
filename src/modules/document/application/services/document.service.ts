@@ -344,6 +344,7 @@ export class DocumentService implements IDocumentService {
         publicId: newDocument.value.publicId,
         title: newDocument.value.title,
         fileType: newDocument.value.fileType,
+        status: newDocument.value.status,
         visibility: newDocument.value.visibility,
         lastUpdated: newDocument.value.updatedAt,
         category: {

@@ -16,6 +16,7 @@ export type DocumentListResponseDto = {
   publicId: string;
   title: string;
   fileType: CommonDocumentType;
+  status: CommonDocumentStatus;
   visibility: CommonDocumentVisibility;
   lastUpdated: Date;
   category: {
