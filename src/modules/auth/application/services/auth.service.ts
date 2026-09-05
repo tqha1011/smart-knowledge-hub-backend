@@ -10,6 +10,8 @@ import { SystemRole } from 'src/shared/domain/enum';
 import { NotificationService } from 'src/shared/infrastructure/notification/notification.service';
 import {
   IPasswordHasher,
+  IRefreshTokenProvider,
+  IRefreshTokenRepository,
   ITokenProvider,
 } from '../../domain/repositories/auth.interface';
 import {
@@ -19,6 +21,7 @@ import {
   SetPasswordRequestDto,
 } from '../dtos/auth.dto';
 import {
+  AuthTokens,
   IAuthService,
   OtpVerifiedResult,
 } from '../interfaces/auth.service.interface';
@@ -32,6 +35,7 @@ const TEMP_PASSWORD_DIGITS = '23456789';
 const TEMP_PASSWORD_SPECIAL = '@$!%*?&';
 const TEMP_PASSWORD_LENGTH = 12;
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
+const REFRESH_TOKEN_DEFAULT_DAYS = 30;
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -39,6 +43,8 @@ export class AuthService implements IAuthService {
   constructor(
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenProvider: ITokenProvider,
+    private readonly refreshTokenRepository: IRefreshTokenRepository,
+    private readonly refreshTokenProvider: IRefreshTokenProvider,
     private readonly userRepository: IUserRepository,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
@@ -259,7 +265,7 @@ export class AuthService implements IAuthService {
     return ok(undefined);
   }
 
-  async loginAsync(loginDto: LoginDto): Promise<Result<string, AppError>> {
+  async loginAsync(loginDto: LoginDto): Promise<Result<AuthTokens, AppError>> {
     const user = await this.userRepository.GetUserByEmail(loginDto.email);
     if (user.isErr()) {
       return err(
@@ -305,7 +311,181 @@ export class AuthService implements IAuthService {
         ),
       );
     }
-    return ok(tokenResult.value);
+
+    const refreshTokenResult = await this.issueRefreshToken(
+      user.value.id,
+      loginDto.rememberMe,
+    );
+    if (refreshTokenResult.isErr()) {
+      return err(refreshTokenResult.error);
+    }
+
+    return ok({
+      accessToken: tokenResult.value,
+      refreshToken: refreshTokenResult.value,
+    });
+  }
+
+  async refreshTokenAsync(
+    refreshToken: string,
+  ): Promise<Result<AuthTokens, AppError>> {
+    const tokenHash = this.refreshTokenProvider.hash(refreshToken);
+    const recordResult =
+      await this.refreshTokenRepository.GetRefreshTokenByHash(tokenHash);
+    if (recordResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    const record = recordResult.value;
+    if (record === null) {
+      return err(new AppError(ErrorCode.BadRequest, 'Invalid refresh token.'));
+    }
+    if (record.revokedAt !== null) {
+      // Reuse of an already-rotated-out or already-logged-out token is a
+      // theft signal: revoke every session for this user, not just this one.
+      const revokeAllResult =
+        await this.refreshTokenRepository.RevokeAllRefreshTokensForUser(
+          record.userId,
+        );
+      if (revokeAllResult.isErr()) {
+        this.logger.error(
+          'Failed to revoke all refresh tokens after reuse detection',
+          revokeAllResult.error,
+        );
+      }
+      return err(
+        new AppError(
+          ErrorCode.Unauthorized,
+          'Invalid refresh token. All sessions have been revoked for security.',
+        ),
+      );
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      return err(
+        new AppError(ErrorCode.BadRequest, 'Refresh token has expired.'),
+      );
+    }
+
+    const userAuthDataResult = await this.userRepository.GetUserAuthDataById(
+      record.userId,
+    );
+    if (userAuthDataResult.isErr() || userAuthDataResult.value === null) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    const userAuthData = userAuthDataResult.value;
+
+    const newAccessTokenResult = await this.tokenProvider.GenerateAccessToken(
+      userAuthData.publicId,
+      userAuthData.email,
+      userAuthData.role,
+    );
+    if (newAccessTokenResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+
+    const revokeResult = await this.refreshTokenRepository.RevokeRefreshToken(
+      record.publicId,
+    );
+    if (revokeResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+
+    const newRefreshTokenResult = await this.issueRefreshToken(
+      record.userId,
+      false,
+    );
+    if (newRefreshTokenResult.isErr()) {
+      return err(newRefreshTokenResult.error);
+    }
+
+    return ok({
+      accessToken: newAccessTokenResult.value,
+      refreshToken: newRefreshTokenResult.value,
+    });
+  }
+
+  async logoutAsync(
+    refreshToken: string,
+  ): Promise<Result<undefined, AppError>> {
+    const tokenHash = this.refreshTokenProvider.hash(refreshToken);
+    const recordResult =
+      await this.refreshTokenRepository.GetRefreshTokenByHash(tokenHash);
+    if (recordResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    const record = recordResult.value;
+    if (record === null || record.revokedAt !== null) {
+      // Idempotent: already logged out / unknown token is the desired end state.
+      return ok(undefined);
+    }
+    const revokeResult = await this.refreshTokenRepository.RevokeRefreshToken(
+      record.publicId,
+    );
+    if (revokeResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    return ok(undefined);
+  }
+
+  /**
+   * Generates a new opaque refresh token, persists its hash, and returns the
+   * raw value to send back to the client.
+   */
+  private async issueRefreshToken(
+    userId: number,
+    rememberMe: boolean,
+  ): Promise<Result<string, AppError>> {
+    const { rawToken, tokenHash } = this.refreshTokenProvider.generate();
+    const days = rememberMe
+      ? REFRESH_TOKEN_DEFAULT_DAYS
+      : Number(
+          this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS'),
+        ) || REFRESH_TOKEN_DEFAULT_DAYS;
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const addResult = await this.refreshTokenRepository.AddRefreshToken({
+      userId,
+      tokenHash,
+      expiresAt,
+    });
+    if (addResult.isErr()) {
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Server is currently unavailable. Please try again later.',
+        ),
+      );
+    }
+    return ok(rawToken);
   }
 
   async adminCreateUserAsync(

@@ -6,9 +6,13 @@ import { IAuthService } from './application/interfaces/auth.service.interface';
 import { AuthService } from './application/services/auth.service';
 import {
   IPasswordHasher,
+  IRefreshTokenProvider,
+  IRefreshTokenRepository,
   ITokenProvider,
 } from './domain/repositories/auth.interface';
 import { PasswordHasher } from './infrastructure/passwordHasher';
+import { RefreshTokenProvider } from './infrastructure/refreshTokenProvider';
+import { RefreshTokenRepository } from './infrastructure/refreshToken.repo';
 import { TokenProvider } from './infrastructure/tokenProvider';
 
 @Global()
@@ -40,6 +44,14 @@ import { TokenProvider } from './infrastructure/tokenProvider';
     {
       provide: IPasswordHasher,
       useClass: PasswordHasher,
+    },
+    {
+      provide: IRefreshTokenRepository,
+      useClass: RefreshTokenRepository,
+    },
+    {
+      provide: IRefreshTokenProvider,
+      useClass: RefreshTokenProvider,
     },
     {
       provide: IAuthService,

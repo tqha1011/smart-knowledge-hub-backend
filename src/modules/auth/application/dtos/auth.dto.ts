@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -31,6 +32,10 @@ export class LoginDto {
     },
   )
   password!: string;
+
+  @IsBoolean()
+  @IsOptional()
+  rememberMe!: boolean;
 }
 
 export class RegisterDto {
@@ -120,6 +125,16 @@ export class SetPasswordRequestDto {
     },
   )
   newPassword!: string;
+}
+
+export class RefreshTokenRequestDto {
+  /**
+   * The refresh token issued by `POST /api/auth/login` or a prior
+   * `POST /api/auth/refresh` call.
+   */
+  @IsNotEmpty({ message: 'Refresh token is required' })
+  @IsString({ message: 'Refresh token must be a string' })
+  refreshToken!: string;
 }
 
 export class SendOtpRequestDto {

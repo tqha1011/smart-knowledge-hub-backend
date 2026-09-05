@@ -1,10 +1,17 @@
 import { Result } from 'neverthrow';
+import { SystemRole } from 'src/shared/domain/enum';
 import { User } from '../entities/user.entity';
 
 export type UserData = {
   readonly id: number;
   readonly name: string;
   readonly avatarUrl: string | null;
+};
+
+export type UserAuthData = {
+  readonly publicId: string;
+  readonly email: string;
+  readonly role: SystemRole;
 };
 
 export type UserCredentials = {
@@ -33,6 +40,10 @@ export abstract class IUserRepository {
   abstract GetUserDataByPublicId(
     publicId: string,
   ): Promise<Result<UserData | null, Error>>;
+
+  abstract GetUserAuthDataById(
+    id: number,
+  ): Promise<Result<UserAuthData | null, Error>>;
 
   /** Order/length of the input is not preserved — a missing publicId is simply
    * absent from the result, so callers must match by `publicId`, not by index. */

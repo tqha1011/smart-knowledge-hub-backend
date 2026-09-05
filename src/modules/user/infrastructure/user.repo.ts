@@ -8,6 +8,7 @@ import { PrismaService } from 'src/shared/infrastructure/database/prisma.service
 import { User } from '../domain/entities/user.entity';
 import {
   IUserRepository,
+  UserAuthData,
   UserContactData,
   UserCredentials,
   UserData,
@@ -142,6 +143,27 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
       return err(new Error(`Failed to get user data by public ID. ${error}`));
     }
   }
+  async GetUserAuthDataById(
+    id: number,
+  ): Promise<Result<UserAuthData | null, Error>> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { id },
+        select: { publicId: true, email: true, role: true },
+      });
+      if (!user) {
+        return ok(null);
+      }
+      return ok({
+        publicId: user.publicId,
+        email: user.email,
+        role: user.role === Role.Admin ? SystemRole.Admin : SystemRole.Employee,
+      });
+    } catch (error) {
+      return err(new Error(`Failed to get user auth data by ID. ${error}`));
+    }
+  }
+
   async GetUserIdByPublicId(
     publicId: string,
   ): Promise<Result<number | null, Error>> {
