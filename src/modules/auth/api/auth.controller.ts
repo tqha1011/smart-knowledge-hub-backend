@@ -54,7 +54,8 @@ export class AuthController {
    * POST /api/auth/login
    * {
    *   "email": "user@example.com",
-   *   "password": "Password123!"
+   *   "password": "Password123!",
+   *   "rememberMe": true
    * }
    */
   @ApiOperation({ summary: 'Login with email and password' })

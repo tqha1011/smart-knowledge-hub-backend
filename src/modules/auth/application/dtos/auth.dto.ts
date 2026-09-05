@@ -33,9 +33,15 @@ export class LoginDto {
   )
   password!: string;
 
-  @IsBoolean()
+  /**
+   * When true, the issued refresh token lasts `REFRESH_TOKEN_EXPIRES_IN_DAYS`
+   * (default 30 days). When false/omitted, it lasts the much shorter
+   * `REFRESH_TOKEN_SHORT_EXPIRES_IN_DAYS` (default 1 day).
+   * @example true
+   */
   @IsOptional()
-  rememberMe!: boolean;
+  @IsBoolean()
+  rememberMe?: boolean;
 }
 
 export class RegisterDto {

@@ -36,6 +36,7 @@ const TEMP_PASSWORD_SPECIAL = '@$!%*?&';
 const TEMP_PASSWORD_LENGTH = 12;
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
 const REFRESH_TOKEN_DEFAULT_DAYS = 30;
+const REFRESH_TOKEN_SHORT_DEFAULT_DAYS = 1;
 
 @Injectable()
 export class AuthService implements IAuthService {
@@ -465,11 +466,15 @@ export class AuthService implements IAuthService {
     rememberMe: boolean,
   ): Promise<Result<string, AppError>> {
     const { rawToken, tokenHash } = this.refreshTokenProvider.generate();
+    // Each branch has its own dedicated fallback so a missing/blank env var
+    // for one case can't silently collapse it into the other's duration.
     const days = rememberMe
-      ? REFRESH_TOKEN_DEFAULT_DAYS
-      : Number(
+      ? Number(
           this.configService.get<string>('REFRESH_TOKEN_EXPIRES_IN_DAYS'),
-        ) || REFRESH_TOKEN_DEFAULT_DAYS;
+        ) || REFRESH_TOKEN_DEFAULT_DAYS
+      : Number(
+          this.configService.get<string>('REFRESH_TOKEN_SHORT_EXPIRES_IN_DAYS'),
+        ) || REFRESH_TOKEN_SHORT_DEFAULT_DAYS;
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
     const addResult = await this.refreshTokenRepository.AddRefreshToken({
