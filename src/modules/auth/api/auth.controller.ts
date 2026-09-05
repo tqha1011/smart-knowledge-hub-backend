@@ -24,6 +24,7 @@ import {
   CreateUserByAdminDto,
   LoginDto,
   RecoveryPasswordRequestDto,
+  RefreshTokenRequestDto,
   RegisterDto,
   SendOtpRequestDto,
   SetPasswordRequestDto,
@@ -38,13 +39,14 @@ export class AuthController {
   private readonly logger = new Logger(AuthController.name);
   constructor(private readonly authService: IAuthService) {}
   /**
-   * Handles user login by validating credentials and returning an access token upon successful authentication.
+   * Handles user login by validating credentials and returning an access
+   * token and refresh token upon successful authentication.
    * @remarks
-   * - Returns an access token if the login is successful.
+   * - Returns an access token and refresh token if the login is successful.
    * - Throws a BadRequestException if the provided credentials are invalid.
    * - Throws an InternalServerErrorException for any unexpected errors during the login process.
    * @param loginDto
-   * @returns string (access token) if successful, otherwise throws an appropriate HTTP exception with a descriptive message.
+   * @returns `{ accessToken, refreshToken }` if successful, otherwise throws an appropriate HTTP exception with a descriptive message.
    * @throws {400} when the provided credentials are invalid.
    * @throws {500} for any unexpected errors during the login process.
    * @example
@@ -52,7 +54,8 @@ export class AuthController {
    * POST /api/auth/login
    * {
    *   "email": "user@example.com",
-   *   "password": "Password123!"
+   *   "password": "Password123!",
+   *   "rememberMe": true
    * }
    */
   @ApiOperation({ summary: 'Login with email and password' })
@@ -61,8 +64,11 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto) {
     const result = await this.authService.loginAsync(loginDto);
     return result.match(
-      (token) => {
-        return { accessToken: token };
+      (tokens) => {
+        return {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        };
       },
       (error: AppError) => {
         switch (error.code) {
@@ -79,6 +85,80 @@ export class AuthController {
                 'An unexpected error occurred while processing your request.',
             });
         }
+      },
+    );
+  }
+
+  /**
+   * Exchanges a valid, unused refresh token for a new access/refresh token
+   * pair. The presented refresh token is revoked as part of rotation.
+   * @remarks
+   * - No Bearer token is required — this is meant to be called once the
+   *   access token has expired.
+   * - Replaying a refresh token that was already rotated-out or logged-out
+   *   is treated as a theft signal: all sessions for that user are revoked.
+   * @throws {401} when the refresh token is invalid, expired, or has already been used.
+   * @throws {500} for any unexpected error while refreshing the token.
+   * @example
+   * POST /api/auth/refresh
+   * { "refreshToken": "…" }
+   */
+  @ApiOperation({ summary: 'Exchange a refresh token for a new token pair' })
+  @Post('refresh')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async refresh(@Body() refreshTokenRequestDto: RefreshTokenRequestDto) {
+    const result = await this.authService.refreshTokenAsync(
+      refreshTokenRequestDto.refreshToken,
+    );
+    return result.match(
+      (tokens) => tokens,
+      (error: AppError) => {
+        switch (error.code) {
+          case ErrorCode.BadRequest:
+          case ErrorCode.Unauthorized:
+            throw new UnauthorizedException(error.message, { cause: error });
+          default:
+            this.logger.error(
+              'Unexpected error during token refresh:',
+              error.stack,
+            );
+            throw new InternalServerErrorException(error.message, {
+              cause: error,
+              description:
+                'An unexpected error occurred while processing your request.',
+            });
+        }
+      },
+    );
+  }
+
+  /**
+   * Revokes the session tied to the given refresh token.
+   * @remarks
+   * - No Bearer token is required — the refresh token itself is the
+   *   credential being revoked.
+   * - Idempotent: a missing or already-revoked refresh token still succeeds.
+   * @throws {500} for any unexpected error while logging out.
+   * @example
+   * POST /api/auth/logout
+   * { "refreshToken": "…" }
+   */
+  @ApiOperation({ summary: 'Revoke a refresh token (log out a session)' })
+  @Post('logout')
+  @Throttle({ 'limitPerMinute-auth': { ttl: 60000, limit: 10 } })
+  async logout(@Body() refreshTokenRequestDto: RefreshTokenRequestDto) {
+    const result = await this.authService.logoutAsync(
+      refreshTokenRequestDto.refreshToken,
+    );
+    return result.match(
+      () => ({ message: 'Logged out successfully' }),
+      (error: AppError) => {
+        this.logger.error('Unexpected error during logout:', error.stack);
+        throw new InternalServerErrorException(error.message, {
+          cause: error,
+          description:
+            'An unexpected error occurred while processing your request.',
+        });
       },
     );
   }

@@ -11,12 +11,37 @@ export type OtpVerifiedResult = {
   resetToken: string;
 };
 
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
 export abstract class IAuthService {
   abstract registerAsync(
     registerDto: RegisterDto,
   ): Promise<Result<undefined, AppError>>;
 
-  abstract loginAsync(loginDto: LoginDto): Promise<Result<string, AppError>>;
+  abstract loginAsync(
+    loginDto: LoginDto,
+  ): Promise<Result<AuthTokens, AppError>>;
+
+  /**
+   * Exchanges a valid, unused refresh token for a new access/refresh token
+   * pair, revoking the presented token (rotation). If the presented token
+   * was already revoked (rotated-out or logged-out) and is being replayed,
+   * all of the owning user's refresh tokens are revoked as a theft signal.
+   */
+  abstract refreshTokenAsync(
+    refreshToken: string,
+  ): Promise<Result<AuthTokens, AppError>>;
+
+  /**
+   * Revokes the session tied to the given refresh token. Idempotent: a
+   * missing or already-revoked token still returns success.
+   */
+  abstract logoutAsync(
+    refreshToken: string,
+  ): Promise<Result<undefined, AppError>>;
 
   /**
    * Creates a user with a generated temporary password, emailed to them.

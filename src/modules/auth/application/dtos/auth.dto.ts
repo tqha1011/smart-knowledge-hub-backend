@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -31,6 +32,16 @@ export class LoginDto {
     },
   )
   password!: string;
+
+  /**
+   * When true, the issued refresh token lasts `REFRESH_TOKEN_EXPIRES_IN_DAYS`
+   * (default 30 days). When false/omitted, it lasts the much shorter
+   * `REFRESH_TOKEN_SHORT_EXPIRES_IN_DAYS` (default 1 day).
+   * @example true
+   */
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }
 
 export class RegisterDto {
@@ -120,6 +131,16 @@ export class SetPasswordRequestDto {
     },
   )
   newPassword!: string;
+}
+
+export class RefreshTokenRequestDto {
+  /**
+   * The refresh token issued by `POST /api/auth/login` or a prior
+   * `POST /api/auth/refresh` call.
+   */
+  @IsNotEmpty({ message: 'Refresh token is required' })
+  @IsString({ message: 'Refresh token must be a string' })
+  refreshToken!: string;
 }
 
 export class SendOtpRequestDto {

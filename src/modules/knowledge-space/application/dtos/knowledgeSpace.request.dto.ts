@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
+  IsEmail,
   IsEnum,
   IsOptional,
   IsString,
@@ -31,6 +33,7 @@ export class CreateKnowledgeSpaceDto {
   /**
    * @example 'Everything a new engineer needs'
    */
+  @IsOptional()
   @IsString({ message: 'Description must be a string' })
   @MaxLength(500, {
     message: 'Description should not exceed 500 characters long',
@@ -78,10 +81,11 @@ export class UpdateKnowledgeSpaceDto {
 
 export class AddMemberRequestDto {
   /**
-   * @example '6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b'
+   * @example 'editor@company.com'
    */
-  @IsUUID()
-  userPublicId!: string;
+  @IsString({ message: 'email must be a string' })
+  @IsEmail()
+  email!: string;
 
   /**
    * @example 'Editor'
@@ -92,6 +96,7 @@ export class AddMemberRequestDto {
 
 export class AddMembersRequestDto {
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => AddMemberRequestDto)
   members!: AddMemberRequestDto[];
@@ -102,6 +107,7 @@ export class KickMembersRequestDto {
    * @example ['6b1f2e3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b']
    */
   @IsArray()
+  @ArrayMinSize(1)
   @IsUUID(undefined, { each: true })
   userPublicIds!: string[];
 }
