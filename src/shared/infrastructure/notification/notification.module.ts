@@ -5,6 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { CachingModule } from '../cache/caching.module';
 import { NotificationService, SendEmailService } from './notification.service';
+import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
+import { UserModule } from 'src/modules/user/user.module';
 
 @Global()
 @Module({
@@ -35,6 +37,8 @@ import { NotificationService, SendEmailService } from './notification.service';
       }),
     }),
     CachingModule,
+    KnowledgeSpaceModule,
+    UserModule,
   ],
   providers: [NotificationService, SendEmailService],
   exports: [MailerModule, NotificationService],
