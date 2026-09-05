@@ -24,6 +24,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
     "@aws-sdk/s3-request-presigner": "^3.1112.0",
+    "@bull-board/api": "^9.8.0",
+    "@bull-board/express": "^9.8.0",
+    "@bull-board/nestjs": "^9.8.0",
     "@google/genai": "^2.18.0",
     "@keyv/redis": "^5.1.6",
     "@nestjs-modules/mailer": "^2.3.7",
