@@ -1,6 +1,7 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
+import { CommonContentDisposition } from 'src/shared/domain/enum';
 import {
   DocumentCreateRequestDto,
   DocumentUpdateRequestDto,
@@ -29,6 +30,7 @@ export abstract class IDocumentService {
     knowledgeSpacePublicId: string,
     userPublicId: string,
     documentPublicId: string,
+    disposition: CommonContentDisposition,
   ): Promise<Result<string, AppError>>;
 
   abstract createDocumentAsync(

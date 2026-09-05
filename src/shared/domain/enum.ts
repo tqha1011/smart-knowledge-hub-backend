@@ -43,6 +43,11 @@ export enum CommonPermissionType {
   Manage = 'Manage',
 }
 
+export enum CommonContentDisposition {
+  Inline = 'inline',
+  Attachment = 'attachment',
+}
+
 export enum CommonChatRole {
   User = 'User',
   Assistant = 'Assistant',

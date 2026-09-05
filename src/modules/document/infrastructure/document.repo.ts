@@ -232,6 +232,7 @@ export class DocumentRepository
               publicId: true,
               title: true,
               fileType: true,
+              status: true,
               visibility: true,
               updatedAt: true,
               category: {
@@ -270,6 +271,7 @@ export class DocumentRepository
           publicId: document.publicId,
           title: document.title,
           fileType: toDomainType(document.fileType),
+          status: toDomainStatus(document.status),
           visibility: toDomainVisibility(document.visibility),
           lastUpdated: document.updatedAt,
           category: {
@@ -367,6 +369,7 @@ export class DocumentRepository
           publicId: true,
           title: true,
           fileType: true,
+          status: true,
           visibility: true,
           updatedAt: true,
           category: {
@@ -398,6 +401,7 @@ export class DocumentRepository
         publicId: document.publicId,
         title: document.title,
         fileType: toDomainType(document.fileType),
+        status: toDomainStatus(document.status),
         visibility: toDomainVisibility(document.visibility),
         lastUpdated: document.updatedAt,
         category: {

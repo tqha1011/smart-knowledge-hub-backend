@@ -27,11 +27,12 @@ import { PaginationQueryDto } from 'src/shared/common/pagination';
 import { Roles } from 'src/shared/common/roles.decorator';
 import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
-import { SystemRole } from 'src/shared/domain/enum';
+import { CommonContentDisposition, SystemRole } from 'src/shared/domain/enum';
 import {
   DocumentCreateRequestDto,
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
+  GetDownloadUrlQueryDto,
 } from '../application/dtos/document.request.dto';
 import { IDocumentService } from '../application/interfaces/document.service.interface';
 
@@ -126,6 +127,7 @@ export class DocumentController {
         publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
         title: 'handbook.pdf',
         fileType: 'PDF',
+        status: 'Processing',
         visibility: 'Public',
         lastUpdated: '2026-08-30T10:00:00.000Z',
         category: {
@@ -168,14 +170,15 @@ export class DocumentController {
    * Returns a short-lived URL the browser can open to read the stored file.
    * @remarks The URL expires in 15 minutes and is not stored anywhere, so it has to
    * be requested again for each view. A `Restricted` document additionally requires
-   * a `DocumentPermission` row for the caller.
+   * a `DocumentPermission` row for the caller. `disposition=inline` lets the browser
+   * render the file in place (preview) instead of forcing a save-as download.
    * @throws {401} when no valid bearer token is provided.
    * @throws {403} when the caller is not a member of the knowledge space, or lacks
    * permission on a restricted document.
    * @throws {404} when the document does not exist in this knowledge space.
    * @throws {500} for any unexpected error while signing the URL.
    * @example
-   * GET /api/knowledge-spaces/6b1f.../documents/8d4c.../download-url
+   * GET /api/knowledge-spaces/6b1f.../documents/8d4c.../download-url?disposition=inline
    * // { "downloadUrl": "https://....r2.cloudflarestorage.com/...?X-Amz-Signature=..." }
    */
   @ApiOperation({ summary: 'Get a presigned URL to read a document file' })
@@ -195,11 +198,14 @@ export class DocumentController {
     @Param('knowledgeSpacePublicId', ParseUUIDPipe)
     knowledgeSpacePublicId: string,
     @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+    @Query(new ValidationPipe({ transform: true }))
+    query: GetDownloadUrlQueryDto,
   ) {
     const result = await this.documentService.getDownloadUrlAsync(
       knowledgeSpacePublicId,
       user.sub,
       documentPublicId,
+      query.disposition ?? CommonContentDisposition.Attachment,
     );
     return result.match(
       (downloadUrl) => {
@@ -229,6 +235,7 @@ export class DocumentController {
             publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
             title: 'handbook.pdf',
             fileType: 'PDF',
+            status: 'Ready',
             visibility: 'Public',
             lastUpdated: '2026-08-30T10:00:00.000Z',
             category: {
@@ -371,6 +378,7 @@ export class DocumentController {
         publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
         title: 'handbook.pdf',
         fileType: 'PDF',
+        status: 'Ready',
         visibility: 'Restricted',
         lastUpdated: '2026-08-30T10:10:00.000Z',
         category: {

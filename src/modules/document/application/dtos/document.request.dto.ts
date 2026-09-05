@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  CommonContentDisposition,
   CommonDocumentVisibility,
   CommonPermissionType,
 } from 'src/shared/domain/enum';
@@ -78,6 +79,18 @@ export class DocumentCreateRequestDto {
   @IsEnum(CommonDocumentVisibility)
   @IsOptional()
   visibility?: CommonDocumentVisibility;
+}
+
+/** `disposition` picks the response header for the presigned download URL:
+ * `inline` lets the browser render the file (preview/"watch"), `attachment`
+ * forces a save-as download. Defaults to `attachment` when omitted. */
+export class GetDownloadUrlQueryDto {
+  /**
+   * @example 'inline'
+   */
+  @IsEnum(CommonContentDisposition)
+  @IsOptional()
+  disposition?: CommonContentDisposition;
 }
 
 export class DocumentPermissionRequestDto {

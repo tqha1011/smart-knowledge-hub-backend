@@ -10,6 +10,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { err, ok, Result } from 'neverthrow';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import { CommonContentDisposition } from 'src/shared/domain/enum';
 import {
   IFileStorage,
   ObjectMetadata,
@@ -83,13 +84,17 @@ export class S3FileStorage implements IFileStorage, OnModuleDestroy {
   async GetDownloadUrl(
     key: string,
     fileName: string,
+    disposition: CommonContentDisposition,
     expiresInSeconds?: number,
   ): Promise<Result<string, AppError>> {
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        ResponseContentDisposition: this.contentDisposition(fileName),
+        ResponseContentDisposition: this.contentDisposition(
+          fileName,
+          disposition,
+        ),
       });
       const url = await getSignedUrl(this.s3, command, {
         expiresIn: expiresInSeconds ?? DEFAULT_DOWNLOAD_EXPIRY_SECONDS,
@@ -197,14 +202,17 @@ export class S3FileStorage implements IFileStorage, OnModuleDestroy {
    * the browser saves "Báo cáo.pdf" as "B%C3%A1o%20c%C3%A1o.pdf". Dropping
    * quotes and backslashes also keeps the name inside its header parameter.
    */
-  private contentDisposition(fileName: string): string {
+  private contentDisposition(
+    fileName: string,
+    disposition: CommonContentDisposition,
+  ): string {
     const ascii = fileName
       .replace(/[^\x20-\x7E]/g, '_')
       .replace(/["\\]/g, '')
       .trim();
     const fallback = ascii.length > 0 ? ascii : 'download';
 
-    return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+    return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
   }
 
   private isNotFound(error: unknown): boolean {
