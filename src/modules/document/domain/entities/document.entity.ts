@@ -47,6 +47,9 @@ export type DocumentUpdateParams = {
   readonly content?: string | null;
   readonly categoryId?: number;
   readonly visibility?: CommonDocumentVisibility;
+  readonly storagePath?: string;
+  readonly fileSize?: number;
+  readonly fileType?: CommonDocumentType;
 };
 export class Document {
   private constructor(private params: DocumentGetParams) {}
