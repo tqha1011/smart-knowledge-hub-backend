@@ -4,7 +4,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { CachingModule } from '../cache/caching.module';
-import { NotificationService } from './notification.service';
+import { NotificationService, SendEmailService } from './notification.service';
 
 @Global()
 @Module({
@@ -36,7 +36,7 @@ import { NotificationService } from './notification.service';
     }),
     CachingModule,
   ],
-  providers: [NotificationService],
+  providers: [NotificationService, SendEmailService],
   exports: [MailerModule, NotificationService],
 })
 export class NotificationModule {}

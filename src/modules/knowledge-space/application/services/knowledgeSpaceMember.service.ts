@@ -11,6 +11,11 @@ import { IKnowledgeSpaceMemberRepository } from '../../domain/repositories/knowl
 import { AddMemberRequestDto } from '../dtos/knowledgeSpace.request.dto';
 import { IKnowledgeSpaceMemberService } from '../interfaces/knowledgeSpaceMember.service.interface';
 import { authorizeMembership } from './authorizeMembership';
+import { InjectQueue } from '@nestjs/bullmq';
+import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
+import { Queue } from 'bullmq';
+import { SendEmailJobRequestDto } from 'src/shared/infrastructure/queue/types/job.request.dto';
+import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
 
 @Injectable()
 export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService {
@@ -21,6 +26,8 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
     private readonly userRepository: IUserRepository,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    @InjectQueue(QueueName.SendEmailQueue)
+    private readonly sendEmailQueue: Queue<SendEmailJobRequestDto>,
   ) {}
 
   async addMembersAsync(
@@ -69,12 +76,16 @@ export class KnowledgeSpaceMemberService implements IKnowledgeSpaceMemberService
 
       // Best-effort: members are already added successfully, so a failure to
       // notify them by email must not fail the request.
-      await this.notifyMembersAdded(
-        userPublicId,
-        membership.value.knowledgeSpaceId,
-        members,
-        userIdByEmails,
-      );
+      try {
+        await this.sendEmailQueue.add(EventName.SendEmail, {
+          inviterPublicId: userPublicId,
+          knowledgeSpaceId: membership.value.knowledgeSpaceId,
+          members: members,
+          userIdByEmail: userIdByEmails,
+        });
+      } catch (error) {
+        this.logger.error('Failed to notify members', error);
+      }
 
       return ok(undefined);
     } catch (error) {
