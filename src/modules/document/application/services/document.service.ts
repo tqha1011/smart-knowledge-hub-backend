@@ -10,6 +10,7 @@ import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import {
+  CommonContentDisposition,
   CommonDocumentStatus,
   CommonDocumentType,
   CommonDocumentVisibility,
@@ -124,6 +125,7 @@ export class DocumentService implements IDocumentService {
     knowledgeSpacePublicId: string,
     userPublicId: string,
     documentPublicId: string,
+    disposition: CommonContentDisposition,
   ): Promise<Result<string, AppError>> {
     try {
       const membership = authorizeMembership(
@@ -176,6 +178,7 @@ export class DocumentService implements IDocumentService {
       const downloadUrl = await this.fileStorage.GetDownloadUrl(
         documentData.value.storagePath,
         documentData.value.fileName,
+        disposition,
       );
       if (downloadUrl.isErr()) {
         return err(downloadUrl.error);

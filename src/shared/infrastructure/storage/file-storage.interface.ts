@@ -1,5 +1,6 @@
 import { Result } from 'neverthrow';
 import { AppError } from 'src/shared/common/errorCode';
+import { CommonContentDisposition } from 'src/shared/domain/enum';
 
 export type PresignUploadInput = {
   key: string;
@@ -35,6 +36,7 @@ export abstract class IFileStorage {
   abstract GetDownloadUrl(
     key: string,
     fileName: string,
+    disposition: CommonContentDisposition,
     expiresInSeconds?: number,
   ): Promise<Result<string, AppError>>;
 
