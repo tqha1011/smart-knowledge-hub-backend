@@ -552,12 +552,76 @@ export class DocumentService implements IDocumentService {
         categoryId = categoryResult.value.id;
       }
 
+      // Replacing the file works like providing `content`, but the new bytes live in
+      // R2 rather than inline text; the new key must already have been uploaded via
+      // getUploadUrlAsync, and `name` must carry its extension to resolve the type.
+      let fileReplacement:
+        | {
+            storagePath: string;
+            fileSize: number;
+            fileType: CommonDocumentType;
+          }
+        | undefined;
+      if (documentUpdateRequestDto.storageKey) {
+        if (!documentUpdateRequestDto.name) {
+          return err(
+            new AppError(
+              ErrorCode.BadRequest,
+              'name (with the new file extension) is required when replacing the file',
+            ),
+          );
+        }
+        if (
+          !documentUpdateRequestDto.storageKey.startsWith(
+            this.storageKeyPrefix(knowledgeSpacePublicId),
+          )
+        ) {
+          return err(
+            new AppError(
+              ErrorCode.BadRequest,
+              'Storage key does not belong to this knowledge space',
+            ),
+          );
+        }
+        const fileType = this.resolveFileType(documentUpdateRequestDto.name);
+        if (fileType === null) {
+          return err(
+            new AppError(
+              ErrorCode.BadRequest,
+              'Unsupported file type. Only PDF, DOCX, TXT and MD are accepted',
+            ),
+          );
+        }
+        const objectMetadata = await this.fileStorage.GetObjectMetadata(
+          documentUpdateRequestDto.storageKey,
+        );
+        if (objectMetadata.isErr()) {
+          return err(objectMetadata.error);
+        }
+        if (objectMetadata.value === null) {
+          return err(
+            new AppError(
+              ErrorCode.BadRequest,
+              'No uploaded file was found for the given storage key',
+            ),
+          );
+        }
+        fileReplacement = {
+          storagePath: documentUpdateRequestDto.storageKey,
+          fileSize: objectMetadata.value.contentLength,
+          fileType,
+        };
+      }
+
       const updateParams: DocumentUpdateParams = {
         title: documentUpdateRequestDto.name ?? undefined,
         description: documentUpdateRequestDto.description,
         content: documentUpdateRequestDto.content,
         categoryId,
         visibility: documentUpdateRequestDto.visibility ?? undefined,
+        storagePath: fileReplacement?.storagePath,
+        fileSize: fileReplacement?.fileSize,
+        fileType: fileReplacement?.fileType,
       };
       const validationResult = Document.validateUpdate(updateParams);
       if (validationResult.isErr()) {
@@ -569,14 +633,19 @@ export class DocumentService implements IDocumentService {
         );
       }
 
-      // Providing content re-triggers ingestion; addChunks deletes the document's old
-      // chunks before inserting the new ones, so there is no separate cleanup step here.
-      const contentProvided = documentUpdateRequestDto.content !== undefined;
+      // Providing content or a new file re-triggers ingestion; addChunks deletes the
+      // document's old chunks before inserting the new ones, so there is no separate
+      // cleanup step here.
+      const needsReingestion =
+        documentUpdateRequestDto.content !== undefined ||
+        fileReplacement !== undefined;
       const updateResult = await this.documentRepository.updateDocument(
         documentData.value.id,
         {
           ...updateParams,
-          status: contentProvided ? CommonDocumentStatus.Processing : undefined,
+          status: needsReingestion
+            ? CommonDocumentStatus.Processing
+            : undefined,
         },
       );
       if (updateResult.isErr()) {
@@ -588,7 +657,7 @@ export class DocumentService implements IDocumentService {
         );
       }
 
-      if (contentProvided) {
+      if (needsReingestion) {
         try {
           await this.ingestionQueue.add(
             EventName.IngestionDocument,
@@ -601,6 +670,20 @@ export class DocumentService implements IDocumentService {
           this.logger.error(
             `Failed to enqueue document ingestion for document ${documentPublicId}`,
             error,
+          );
+        }
+      }
+
+      // Best-effort: the DB already points at the new file, so a failed cleanup of
+      // the old object only wastes storage, it doesn't affect the document's data.
+      if (fileReplacement) {
+        const deleteResult = await this.fileStorage.DeleteObject(
+          documentData.value.storagePath,
+        );
+        if (deleteResult.isErr()) {
+          this.logger.error(
+            `Failed to delete replaced file ${documentData.value.storagePath} for document ${documentPublicId}`,
+            deleteResult.error,
           );
         }
       }

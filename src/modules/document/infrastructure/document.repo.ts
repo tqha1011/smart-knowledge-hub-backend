@@ -350,6 +350,13 @@ export class DocumentRepository
           ...(data.status !== undefined && {
             status: toPrismaStatus(data.status),
           }),
+          ...(data.storagePath !== undefined && {
+            storagePath: data.storagePath,
+          }),
+          ...(data.fileSize !== undefined && { fileSize: data.fileSize }),
+          ...(data.fileType !== undefined && {
+            fileType: toPrismaType(data.fileType),
+          }),
         },
       });
       return ok(undefined);

@@ -357,11 +357,15 @@ export class DocumentController {
   /**
    * Partially updates a document's metadata.
    * @remarks Only the provided fields are changed. Providing `content` marks the
-   * document `Processing` again and re-enqueues it for ingestion. Permission grants
-   * are handled separately by `POST .../documents/:documentPublicId/permissions`,
-   * not by this endpoint.
-   * @throws {400} when a provided field fails validation, or the category does not
-   * belong to this knowledge space.
+   * document `Processing` again and re-enqueues it for ingestion. Providing
+   * `storageKey` (with `name` carrying its extension) replaces the underlying file
+   * the same way: upload the new file via the upload-url step first, then pass its
+   * key here — the old file is deleted from storage once the swap is saved.
+   * Permission grants are handled separately by
+   * `POST .../documents/:documentPublicId/permissions`, not by this endpoint.
+   * @throws {400} when a provided field fails validation, the category does not
+   * belong to this knowledge space, `storageKey` is given without `name`, or no
+   * uploaded file is found for `storageKey`.
    * @throws {401} when no valid bearer token is provided.
    * @throws {403} when the caller is not at least an Editor of the knowledge space.
    * @throws {404} when the document, or the given category, does not exist.

@@ -123,6 +123,16 @@ export class DocumentUpdateRequestDto {
   name?: string | null;
 
   /**
+   * The key of a newly uploaded file (from the upload-url step) that should replace
+   * this document's current file. Requires `name` (with the new file's extension) in
+   * the same request, and re-triggers ingestion just like providing `content` does.
+   * @example 'documents/8d4c1a2b-3e5f-4a6b-9c7d-1e2f3a4b5c6d/employee-handbook-v2.pdf'
+   */
+  @IsString()
+  @IsOptional()
+  storageKey?: string;
+
+  /**
    * @example 'Welcome to the team! This document covers...'
    */
   @IsString()
