@@ -47,6 +47,7 @@ export class DocumentRepository
           content: true,
           knowledgeSpaceId: true,
           fileType: true,
+          workspace: { select: { publicId: true } },
         },
       });
       if (!document) {
@@ -55,6 +56,7 @@ export class DocumentRepository
       return ok({
         id: document.id,
         knowledgeSpaceId: document.knowledgeSpaceId,
+        knowledgeSpacePublicId: document.workspace.publicId,
         storagePath: document.storagePath,
         fileName: document.title,
         content: document.content,

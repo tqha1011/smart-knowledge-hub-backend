@@ -7,6 +7,8 @@ import { CachingModule } from '../cache/caching.module';
 import { NotificationService, SendEmailService } from './notification.service';
 import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
 import { UserModule } from 'src/modules/user/user.module';
+import { IRealtimeNotifier } from './realtime-notifier.interface';
+import { SocketNotificationGateway } from './socket-notification.gateway';
 
 @Global()
 @Module({
@@ -40,7 +42,14 @@ import { UserModule } from 'src/modules/user/user.module';
     KnowledgeSpaceModule,
     UserModule,
   ],
-  providers: [NotificationService, SendEmailService],
-  exports: [MailerModule, NotificationService],
+  providers: [
+    NotificationService,
+    SendEmailService,
+    {
+      provide: IRealtimeNotifier,
+      useClass: SocketNotificationGateway,
+    },
+  ],
+  exports: [MailerModule, NotificationService, IRealtimeNotifier],
 })
 export class NotificationModule {}

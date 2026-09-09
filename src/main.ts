@@ -3,13 +3,20 @@ import 'reflect-metadata';
  * This is the main entry point of the application. It sets up the NestJS application, applies global validation pipes, and configures Swagger for API documentation. Finally, it starts the server on the specified port.
  */
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './shared/common/exceptions.filter';
+import { ALLOWED_ORIGINS } from './shared/common/cors';
+import { RedisIoAdapter } from './shared/infrastructure/notification/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const redisIoAdapter = new RedisIoAdapter(app);
+  redisIoAdapter.connectToRedis(configService.getOrThrow<string>('REDIS_URL'));
+  app.useWebSocketAdapter(redisIoAdapter);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -31,11 +38,7 @@ async function bootstrap() {
     },
   });
   app.enableCors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:5174',
-    ], // default react dev server port
+    origin: ALLOWED_ORIGINS, // default react dev server port
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

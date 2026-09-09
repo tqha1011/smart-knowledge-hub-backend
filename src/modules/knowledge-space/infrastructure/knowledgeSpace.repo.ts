@@ -394,4 +394,22 @@ export class KnowledgeSpaceRepository
       return err(new Error('Failed to update knowledge space'));
     }
   }
+
+  async getKnowledgeSpaceIdsForUser(
+    userId: number,
+  ): Promise<Result<number[], Error>> {
+    try {
+      const memberships = await this.prismaService.userWorkspace.findMany({
+        where: { userId },
+        select: { knowledgeSpaceId: true },
+      });
+      return ok(memberships.map((membership) => membership.knowledgeSpaceId));
+    } catch (error) {
+      this.logger.error(
+        'Failed to get knowledge space ids for user in repository',
+        error,
+      );
+      return err(new Error('Failed to get knowledge space ids for user'));
+    }
+  }
 }
