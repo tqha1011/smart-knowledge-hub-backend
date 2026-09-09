@@ -7,6 +7,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './shared/common/exceptions.filter';
+import { ALLOWED_ORIGINS } from './shared/common/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -31,11 +32,7 @@ async function bootstrap() {
     },
   });
   app.enableCors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:5174',
-    ], // default react dev server port
+    origin: ALLOWED_ORIGINS, // default react dev server port
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
