@@ -26,6 +26,18 @@ import {
 } from '../document.mapper';
 import { toDomainPermission } from './document-permission.mapper';
 
+type DocumentIngestionDataSelection = {
+  id: number;
+  storagePath: string;
+  title: string;
+  status: string;
+  visibility: string;
+  content: string | null;
+  knowledgeSpaceId: number;
+  fileType: string;
+  workspace: { publicId: string };
+};
+
 @Injectable()
 export class DocumentRepository
   implements IDocumentRepository, IDocumentQueryRepository
@@ -36,7 +48,7 @@ export class DocumentRepository
     publicId: string,
   ): Promise<Result<DocumentIngestionData | null, Error>> {
     try {
-      const document = await this.prismaService.document.findUnique({
+      const document = (await this.prismaService.document.findUnique({
         where: { publicId },
         select: {
           id: true,
@@ -47,20 +59,24 @@ export class DocumentRepository
           content: true,
           knowledgeSpaceId: true,
           fileType: true,
+          workspace: { select: { publicId: true } },
         },
-      });
+      })) as DocumentIngestionDataSelection | null;
       if (!document) {
         return ok(null);
       }
       return ok({
         id: document.id,
         knowledgeSpaceId: document.knowledgeSpaceId,
+        knowledgeSpacePublicId: document.workspace.publicId,
         storagePath: document.storagePath,
         fileName: document.title,
         content: document.content,
-        status: toDomainStatus(document.status),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        status: toDomainStatus(document.status as any),
         visibility: toDomainVisibility(document.visibility),
-        fileType: toDomainType(document.fileType),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        fileType: toDomainType(document.fileType as any),
       });
     } catch (error) {
       this.logger.error(
