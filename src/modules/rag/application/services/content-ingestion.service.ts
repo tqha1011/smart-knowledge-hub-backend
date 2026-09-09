@@ -5,6 +5,7 @@ import { IDocumentRepository } from 'src/modules/document/domain/repositories/do
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IngestionJobRequestDto } from 'src/shared/infrastructure/queue/types/job.request.dto';
+import { IRealtimeNotifier } from 'src/shared/infrastructure/notification/realtime-notifier.interface';
 import {
   EmbeddingResult,
   IDocumentChunkRepository,
@@ -24,6 +25,7 @@ export class ContentIngestionService extends WorkerHost {
     private readonly documentChunkRepository: IDocumentChunkRepository,
     private readonly chunkService: ChunkingService,
     private readonly fileIngestionService: FileIngestionService,
+    private readonly realtimeNotifier: IRealtimeNotifier,
   ) {
     super();
   }
@@ -121,6 +123,14 @@ export class ContentIngestionService extends WorkerHost {
       );
       throw statusResult.error;
     }
+
+    this.realtimeNotifier.notifyDocumentStatus(document.knowledgeSpaceId, {
+      documentPublicId: job.data.documentPublicId,
+      knowledgeSpacePublicId: document.knowledgeSpacePublicId,
+      fileName: document.fileName,
+      status: 'Ready',
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   /**
@@ -149,9 +159,26 @@ export class ContentIngestionService extends WorkerHost {
       return;
     }
 
-    await this.documentRepository.updateDocumentStatus(
+    const statusResult = await this.documentRepository.updateDocumentStatus(
       documentResult.value.id,
       CommonDocumentStatus.Failed,
+    );
+    if (statusResult.isErr()) {
+      this.logger.error(
+        `Failed to mark document ${job.data.documentPublicId} as Failed: ${statusResult.error}`,
+      );
+      return;
+    }
+
+    this.realtimeNotifier.notifyDocumentStatus(
+      documentResult.value.knowledgeSpaceId,
+      {
+        documentPublicId: job.data.documentPublicId,
+        knowledgeSpacePublicId: documentResult.value.knowledgeSpacePublicId,
+        fileName: documentResult.value.fileName,
+        status: 'Failed',
+        updatedAt: new Date().toISOString(),
+      },
     );
   }
 }
