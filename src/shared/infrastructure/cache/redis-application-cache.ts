@@ -1,8 +1,9 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { IApplicationCache } from './cache-manager.interface';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 
+@Injectable()
 export class RedisApplicationCache implements IApplicationCache {
   constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
   get<T>(key: string): Promise<T | undefined> {

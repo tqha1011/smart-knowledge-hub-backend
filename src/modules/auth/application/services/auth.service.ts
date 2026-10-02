@@ -1,5 +1,5 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, randomInt } from 'crypto';
 import { Result, err, ok } from 'neverthrow';
@@ -25,9 +25,8 @@ import {
   IAuthService,
   OtpVerifiedResult,
 } from '../interfaces/auth.service.interface';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { CacheKey } from 'src/shared/domain/cacheKey';
-import type { Cache } from 'cache-manager';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 
 const TEMP_PASSWORD_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O to avoid look-alikes
 const TEMP_PASSWORD_LOWER = 'abcdefghijkmnpqrstuvwxyz';
@@ -50,7 +49,7 @@ export class AuthService implements IAuthService {
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
     private readonly notificationService: NotificationService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly applicationCache: IApplicationCache,
   ) {}
   async verifyOtpAsync(
     email: string,
@@ -69,16 +68,16 @@ export class AuthService implements IAuthService {
       return err(new AppError(ErrorCode.BadRequest, 'Invalid credentials'));
     }
     const otpKey = CacheKey.generateOtpKey(email);
-    const cachedOtp = await this.cacheManager.get<string>(otpKey);
+    const cachedOtp = await this.applicationCache.get<string>(otpKey);
     if (cachedOtp !== otp || cachedOtp === undefined) {
       return err(
         new AppError(ErrorCode.BadRequest, 'Invalid OTP or OTP is expired.'),
       );
     }
-    await this.cacheManager.del(otpKey);
+    await this.applicationCache.delete(otpKey);
 
     const resetToken = randomBytes(32).toString('hex');
-    await this.cacheManager.set(
+    await this.applicationCache.set(
       CacheKey.generateResetTokenKey(email),
       resetToken,
       RESET_TOKEN_TTL_MS,
@@ -105,13 +104,14 @@ export class AuthService implements IAuthService {
     }
 
     const resetTokenKey = CacheKey.generateResetTokenKey(email);
-    const cachedResetToken = await this.cacheManager.get<string>(resetTokenKey);
+    const cachedResetToken =
+      await this.applicationCache.get<string>(resetTokenKey);
     if (cachedResetToken !== resetToken || cachedResetToken === undefined) {
       return err(
         new AppError(ErrorCode.BadRequest, 'Invalid or expired reset token.'),
       );
     }
-    await this.cacheManager.del(resetTokenKey);
+    await this.applicationCache.delete(resetTokenKey);
 
     const newPasswordHashResult =
       await this.passwordHasher.GenerateHashPassword(newPassword);
