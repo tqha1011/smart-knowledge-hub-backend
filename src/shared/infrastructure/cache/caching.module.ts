@@ -10,10 +10,15 @@ import { RedisApplicationCache } from './redis-application-cache';
   imports: [
     CacheModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        stores: createKeyv(configService.getOrThrow<string>('REDIS_URL')),
-        ttl: Number(configService.get<string>('CACHE_TTL')),
-      }),
+      useFactory: (configService: ConfigService) => {
+        const ttl = Number(configService.get<string>('CACHE_TTL'));
+        return {
+          stores: createKeyv(configService.getOrThrow<string>('REDIS_URL'), {
+            throwOnErrors: true,
+          }),
+          ttl: Number.isFinite(ttl) && ttl > 0 ? ttl : 180000,
+        };
+      },
       inject: [ConfigService],
     }),
   ],

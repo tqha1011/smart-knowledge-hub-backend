@@ -18,6 +18,8 @@ import {
 } from 'src/shared/domain/enum';
 import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import {
   Document,
@@ -57,6 +59,7 @@ export class DocumentService implements IDocumentService {
     private readonly fileStorage: IFileStorage,
     private readonly documentPermissionRepository: IDocumentPermissionRepository,
     @InjectQueue(QueueName.IngestionQueue) private ingestionQueue: Queue,
+    private readonly cache: IApplicationCache,
   ) {}
 
   async getUploadUrlAsync(
@@ -323,6 +326,8 @@ export class DocumentService implements IDocumentService {
           ),
         );
       }
+      await this.invalidateDocumentList(knowledgeSpacePublicId);
+
       // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
       try {
         await this.ingestionQueue.add(
@@ -388,6 +393,41 @@ export class DocumentService implements IDocumentService {
         return err(membership.error);
       }
 
+      let cacheKey: string | undefined;
+      try {
+        const version =
+          (await this.cache.get<string>(
+            CacheKey.generateDocumentListVersionKey(knowledgeSpacePublicId),
+          )) ?? '0';
+        cacheKey = CacheKey.generateDocumentListKey(
+          knowledgeSpacePublicId,
+          version,
+          pagination.pageNumber,
+          pagination.pageSize,
+        );
+        const cached = await this.cache.get<string>(cacheKey);
+        if (cached !== undefined && cached !== null) {
+          const page = JSON.parse(
+            cached,
+          ) as PageResult<DocumentListResponseDto>;
+          if (!page || !Array.isArray(page.items)) {
+            throw new Error('Invalid cached document list');
+          }
+          for (const item of page.items) {
+            if (typeof item.lastUpdated !== 'string') {
+              throw new Error('Invalid cached document date');
+            }
+            item.lastUpdated = new Date(item.lastUpdated);
+            if (Number.isNaN(item.lastUpdated.getTime())) {
+              throw new Error('Invalid cached document date');
+            }
+          }
+          return ok(page);
+        }
+      } catch (error) {
+        this.logger.warn('Failed to read document list cache', error);
+      }
+
       const listResult =
         await this.documentQueryRepository.getDocumentListInKnowledgeSpace(
           membership.value.knowledgeSpaceId,
@@ -400,6 +440,14 @@ export class DocumentService implements IDocumentService {
             'Failed to get document list',
           ),
         );
+      }
+      if (cacheKey !== undefined) {
+        try {
+          // Keep the version read before the query: invalidation may happen in flight.
+          await this.cache.set(cacheKey, JSON.stringify(listResult.value));
+        } catch (error) {
+          this.logger.warn('Failed to write document list cache', error);
+        }
       }
       return ok(listResult.value);
     } catch (error) {
@@ -657,6 +705,8 @@ export class DocumentService implements IDocumentService {
         );
       }
 
+      await this.invalidateDocumentList(knowledgeSpacePublicId);
+
       if (needsReingestion) {
         try {
           await this.ingestionQueue.add(
@@ -727,6 +777,20 @@ export class DocumentService implements IDocumentService {
     }
 
     return EXTENSION_TO_FILE_TYPE[parts[parts.length - 1]] ?? null;
+  }
+
+  private async invalidateDocumentList(
+    knowledgeSpacePublicId: string,
+  ): Promise<void> {
+    try {
+      await this.cache.set(
+        CacheKey.generateDocumentListVersionKey(knowledgeSpacePublicId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate document list cache', error);
+    }
   }
 
   private storageKeyPrefix(knowledgeSpacePublicId: string): string {
