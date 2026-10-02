@@ -1,72 +1,86 @@
-# Smart Knowledge Hub — Backend
+# Smart Knowledge Hub Backend 🧠
 
-## Summary
+Smart Knowledge Hub is a **NestJS 11 and TypeScript backend** for a multi-workspace, AI-assisted knowledge base. Teams upload documents, control who can access them, and ask questions through a **retrieval-augmented generation (RAG)** chat flow that returns answers with document sources.
 
-Smart Knowledge Hub is a NestJS backend for an AI-assisted knowledge base. Teams organize documents in knowledge spaces and ask questions through a chat interface that retrieves relevant document content before generating answers.
+## Core features ✨
 
-## Core features
+- **Knowledge spaces and role-based access control (RBAC):** Manage spaces and members with Owner, Editor, and Viewer roles. JWT guards protect API routes, while document visibility and per-user permissions restrict access to individual files and retrieved content.
+- **Document management:** Organize files by category; request presigned upload and download URLs for S3-compatible object storage; create, update, and browse PDF, DOCX, TXT, and Markdown documents.
+- **Asynchronous document ingestion:** BullMQ workers extract text, split it into token-aware chunks, generate 1,536-dimensional Gemini embeddings, and store them in PostgreSQL with pgvector. Processing status moves to Ready or Failed, with real-time Socket.IO notifications.
+- **Permission-aware RAG chat:** Embed a question, search the caller's accessible Ready documents by cosine similarity, pass relevant chunks to Groq for answer generation, and attach source references to the answer. Users can manage chat sessions and message history.
+- **Unanswered-question workflow:** Record questions without relevant document content and resolve them into a workspace FAQ document that is queued for ingestion.
+- **Caching:** Redis caches paginated document lists with workspace version keys and caches exact-match question embeddings by model, task type, and question hash. A cache hit skips the embedding API call; retrieval still applies current workspace and document permissions.
+- **Accounts and notifications:** JWT login and refresh tokens, OTP-based password recovery, email jobs, and Redis-backed WebSocket notifications.
 
-- **Knowledge spaces:** Create spaces, manage members, and assign Owner, Editor, or Viewer roles.
-- **Documents:** Organize documents by category, manage document-level access, and upload or download files through signed URLs.
-- **Document ingestion:** Extract text from uploaded PDF and DOCX files, split it into chunks, generate embeddings, and track processing status.
-- **RAG chat:** Search accessible document chunks, generate answers with source references, and manage chat sessions and messages.
-- **Unanswered questions:** Track questions without relevant content and resolve them into a workspace FAQ document for re-ingestion.
-- **Accounts and notifications:** Support JWT authentication, refresh tokens, password recovery, email notifications, and real-time document status updates.
+## Core technologies 🛠️
 
-## Technical highlights
+- **Backend and API:** NestJS 11, TypeScript, REST APIs, OpenAPI/Swagger, class-validator, JWT authentication, guards, and centralized exception handling.
+- **Data and search:** PostgreSQL, Prisma ORM 7, pgvector, SQL vector similarity search, and a split Prisma schema under `prisma/models/`.
+- **AI and RAG:** Gemini embeddings, Groq LLM, token-aware chunking, retrieval with source attribution, and PDF/DOCX text extraction.
+- **Async and real time:** Redis, BullMQ workers, Socket.IO, Redis Socket.IO adapter, and Bull Board in non-production environments.
+- **Storage and delivery:** S3-compatible object storage (including Cloudflare R2), presigned URLs, Jest, ESLint, Prettier, and GitHub Actions CI.
 
-- **NestJS 11** with feature modules, global request validation, a normalized exception filter, and Swagger UI at `/docs`.
-- **Prisma 7 + PostgreSQL/pgvector** for relational data and vector similarity search. The Prisma schema is split across `prisma/models/*.prisma`; the generated client lives in `generated/prisma/`.
-- **BullMQ + Redis** for background ingestion, chat title generation, and email jobs. Socket.IO uses Redis for real-time notifications.
-- **Cloudflare R2 or S3-compatible storage** for document files; **Gemini** creates embeddings and **Groq** generates chat answers.
-- **Layered feature modules** (`api`, `application`, `domain`, `infrastructure`) with `neverthrow` results for application and domain error flow.
+## How the RAG flow works
 
-## Setup
+```text
+PDF / DOCX / TXT / MD upload
+  -> S3-compatible storage -> BullMQ ingestion worker
+  -> text extraction -> token-aware chunks -> Gemini embeddings
+  -> PostgreSQL + pgvector
 
-```bash
-npm install
-cp .env.example .env
-npx prisma generate
+Question
+  -> exact-question embedding cache (Gemini on a miss)
+  -> permission-aware pgvector search for relevant chunks
+  -> Groq answer generation -> answer with document sources
 ```
 
-Start PostgreSQL with the `pgvector` extension and Redis, then configure `.env` with the database URLs, JWT secret, Redis URL, storage credentials, and Gemini and Groq API keys. See `.env.example` for all available settings. `DIRECT_URL` is used by Prisma migrations and falls back to `DATABASE_URL` when unset.
+The vector search checks both document processing status and the requesting user's access. Chat answers are generated from retrieved content; the cache stores question embeddings, not full answers or permission-filtered search results.
 
-Run `npx prisma generate` after cloning or changing the Prisma schema because `generated/prisma/` is not committed.
+## Architecture
 
-## Run and verify
+Features are organized as NestJS modules under `src/modules/`. Each module separates `api/` controllers, `application/` services and DTOs, `domain/` entities and repository contracts, and `infrastructure/` persistence or external clients. Shared guards, caching, database access, queues, storage, and notifications live under `src/shared/`.
+
+```text
+src/modules/
+  auth/             JWT authentication, refresh tokens, OTP recovery
+  user/             user profiles
+  knowledge-space/  workspaces, membership, roles
+  category/         document categories
+  document/         files, permissions, document-list cache
+  rag/              ingestion, embeddings, vector retrieval
+  chat/             sessions, messages, answers, unanswered questions
+src/shared/
+  common/           guards, validation, errors, middleware
+  infrastructure/   Prisma, Redis cache, BullMQ, storage, notifications
+prisma/
+  schema.prisma     generator and datasource
+  models/           feature models merged by Prisma
+  migrations/       database migrations, including pgvector setup
+```
+
+Prisma models use an internal integer `id` for relations and a UUID `publicId` in external APIs. Application and domain operations use `neverthrow` results for explicit success and error handling.
+
+## Getting started 🚀
+
+Use Node.js 24, PostgreSQL with the `pgvector` extension, and Redis. Configure the database, S3-compatible storage, Gemini, Groq, JWT, and SMTP values in `.env` using `.env.example` as the reference.
 
 ```bash
-npm run start:dev   # API at http://localhost:3000; Swagger at /docs
+npm ci
+cp .env.example .env
+npx prisma generate
+npx prisma migrate deploy
+npm run start:dev
+```
+
+The API runs at `http://localhost:3000`; Swagger UI is at `http://localhost:3000/docs`. Bull Board is available at `/admin/queues` outside production. `DIRECT_URL` is used by the Prisma CLI and falls back to `DATABASE_URL` when unset. Re-run `npx prisma generate` after any schema change because `generated/prisma/` is not committed.
+
+## Verification and CI ✅
+
+```bash
 npm run build
 npm run lint
-npm run test
+npm test
 npm run test:e2e
 ```
 
-Run one unit test with `npm test -- path/to/file.spec.ts` or `npm test -- -t "test name"`.
-
-## Modules and project architecture
-
-Each feature under `src/modules/` follows the same layers: `api/` contains controllers, `application/` contains services and DTOs, `domain/` contains entities and repository contracts, and `infrastructure/` contains persistence and external-service implementations.
-
-```txt
-src/
-  main.ts, app.module.ts
-  modules/
-    auth/             authentication and account recovery
-    user/             user profiles
-    knowledge-space/  spaces, types, members, and roles
-    category/         document categories
-    document/         files, access permissions, and processing state
-    rag/              ingestion, embeddings, retrieval, and answer generation
-    chat/             sessions, messages, and unanswered questions
-  shared/
-    common/           guards, decorators, errors, and HTTP middleware
-    domain/           shared enums and types
-    infrastructure/   Prisma, queues, storage, parsers, cache, notifications
-prisma/
-  schema.prisma       generator and datasource
-  models/             feature models merged by Prisma
-```
-
-Feature-specific code belongs in its module; `src/shared/` holds cross-feature code. Prisma models use an internal integer `id` for relations and a UUID `publicId` for external APIs.
+Run a focused unit test with `npm test -- path/to/file.spec.ts`. GitHub Actions installs dependencies, generates the Prisma client, runs ESLint, and builds the application on pushes and pull requests to `develop` and `main`.
