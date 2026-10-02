@@ -15,7 +15,7 @@ export class GeminiEmbeddingClient implements IEmbeddingClient {
   private readonly client: GoogleGenAI;
   constructor(private readonly configService: ConfigService) {
     this.client = new GoogleGenAI({
-      apiKey: this.configService.getOrThrow('GEMINI_API_KEY'),
+      apiKey: this.configService.getOrThrow<string>('GEMINI_API_KEY'),
     });
   }
   async generateEmbeddings(
@@ -27,10 +27,10 @@ export class GeminiEmbeddingClient implements IEmbeddingClient {
       const vectorEmbeddings: number[][] = [];
       for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
         const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-        // Call the Gemini API to generate embeddings for the batch
-        // For demonstration, we'll simulate the API call with a placeholder
         const response = await this.client.models.embedContent({
-          model: 'gemini-embedding-001',
+          model: this.configService.getOrThrow<string>(
+            'GEMINI_EMBEDDING_MODEL',
+          ),
           contents: batch,
           config: {
             outputDimensionality: 1536,

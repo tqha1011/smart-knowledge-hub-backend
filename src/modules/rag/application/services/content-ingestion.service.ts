@@ -1,6 +1,9 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import { randomUUID } from 'crypto';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import { IDocumentRepository } from 'src/modules/document/domain/repositories/document.repo.interface';
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
@@ -26,6 +29,7 @@ export class ContentIngestionService extends WorkerHost {
     private readonly chunkService: ChunkingService,
     private readonly fileIngestionService: FileIngestionService,
     private readonly realtimeNotifier: IRealtimeNotifier,
+    private readonly cache: IApplicationCache,
   ) {
     super();
   }
@@ -124,6 +128,8 @@ export class ContentIngestionService extends WorkerHost {
       throw statusResult.error;
     }
 
+    await this.invalidateDocumentList(document.knowledgeSpacePublicId);
+
     this.realtimeNotifier.notifyDocumentStatus(document.knowledgeSpaceId, {
       documentPublicId: job.data.documentPublicId,
       knowledgeSpacePublicId: document.knowledgeSpacePublicId,
@@ -170,6 +176,10 @@ export class ContentIngestionService extends WorkerHost {
       return;
     }
 
+    await this.invalidateDocumentList(
+      documentResult.value.knowledgeSpacePublicId,
+    );
+
     this.realtimeNotifier.notifyDocumentStatus(
       documentResult.value.knowledgeSpaceId,
       {
@@ -180,5 +190,19 @@ export class ContentIngestionService extends WorkerHost {
         updatedAt: new Date().toISOString(),
       },
     );
+  }
+
+  private async invalidateDocumentList(
+    knowledgeSpacePublicId: string,
+  ): Promise<void> {
+    try {
+      await this.cache.set(
+        CacheKey.generateDocumentListVersionKey(knowledgeSpacePublicId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate document list cache', error);
+    }
   }
 }

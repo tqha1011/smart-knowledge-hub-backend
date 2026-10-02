@@ -1,0 +1,22 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { IApplicationCache } from './cache-manager.interface';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+
+@Injectable()
+export class RedisApplicationCache implements IApplicationCache {
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  get<T>(key: string): Promise<T | undefined> {
+    // cache-manager turns store read errors into misses; the caller must
+    // distinguish an unavailable version key from a genuinely absent one.
+    return this.cacheManager.stores[0].get<T>(key);
+  }
+
+  async set<T>(key: string, value: T, ttl?: number): Promise<void> {
+    await this.cacheManager.set<T>(key, value, ttl);
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.cacheManager.del(key);
+  }
+}
