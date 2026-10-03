@@ -101,7 +101,7 @@ export class KnowledgeSpaceRepository
                 },
               },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             skip: (pagination.pageNumber - 1) * pagination.pageSize,
             take: pagination.pageSize,
           }),
