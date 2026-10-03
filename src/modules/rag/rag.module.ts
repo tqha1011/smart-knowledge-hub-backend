@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentModule } from 'src/modules/document/document.module';
 import { DocxParserService } from 'src/shared/infrastructure/parser/docx-parser.service';
 import { PDFParserService } from 'src/shared/infrastructure/parser/pdf-parser.service';
@@ -12,6 +13,10 @@ import { IEmbeddingClient } from './domain/repositories/embedding-client.interfa
 import { DocumentChunkRepository } from './infrastructure/document-chunk.repo';
 import { GeminiEmbeddingClient } from './infrastructure/gemini-embedding.client';
 import { GroqChatClient } from './infrastructure/groq-chat.client';
+import {
+  MockAnswerGenerationClient,
+  MockEmbeddingClient,
+} from './infrastructure/mock-ai.clients';
 
 @Module({
   imports: [DocumentModule, StorageModule],
@@ -23,11 +28,19 @@ import { GroqChatClient } from './infrastructure/groq-chat.client';
     },
     {
       provide: IEmbeddingClient,
-      useClass: GeminiEmbeddingClient,
+      useFactory: (config: ConfigService): IEmbeddingClient =>
+        config.get<string>('LOAD_TEST_MOCK_AI') === 'true'
+          ? new MockEmbeddingClient()
+          : new GeminiEmbeddingClient(config),
+      inject: [ConfigService],
     },
     {
       provide: IAnswerGenerationClient,
-      useClass: GroqChatClient,
+      useFactory: (config: ConfigService): IAnswerGenerationClient =>
+        config.get<string>('LOAD_TEST_MOCK_AI') === 'true'
+          ? new MockAnswerGenerationClient()
+          : new GroqChatClient(config),
+      inject: [ConfigService],
     },
     ChunkingService,
     FileIngestionService,
