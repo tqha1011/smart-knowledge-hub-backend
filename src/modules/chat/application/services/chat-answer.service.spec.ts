@@ -19,6 +19,16 @@ const chunk = {
   documentTitle: 'Guide',
   content: 'The guide content',
   score: 0.9,
+  visibility: 'Public' as const,
+};
+const restrictedChunk = {
+  ...chunk,
+  chunkId: 32,
+  documentId: 22,
+  documentPublicId: 'restricted-document',
+  documentTitle: 'Private guide',
+  score: 0.95,
+  visibility: 'Restricted' as const,
 };
 
 describe('ChatAnswerService question embedding cache', () => {
@@ -85,6 +95,7 @@ describe('ChatAnswerService question embedding cache', () => {
       13,
       embedding,
       5,
+      { public: true, restricted: true },
     );
     const key = [...values.keys()][0];
     expect(key).toMatch(
@@ -127,6 +138,7 @@ describe('ChatAnswerService question embedding cache', () => {
         12,
         embedding,
         5,
+        { public: true, restricted: true },
       );
       expect(warning).toHaveBeenCalled();
     },
@@ -174,10 +186,10 @@ describe('ChatAnswerService question embedding cache', () => {
     expect(warning).toHaveBeenCalled();
   });
 
-  it('does not share cached chunks between users', async () => {
+  it('does not share Restricted chunks between users', async () => {
     chunks.searchSimilarChunks.mockImplementation(
       (_spaceId: number, userId: number) =>
-        Promise.resolve(ok(userId === 12 ? [chunk] : [])),
+        Promise.resolve(ok(userId === 12 ? [restrictedChunk] : [])),
     );
     answerClient.generateAnswer.mockResolvedValue(ok('Answer'));
 
@@ -219,7 +231,7 @@ describe('ChatAnswerService question embedding cache', () => {
     expect(chunks.searchSimilarChunks).toHaveBeenCalledTimes(1);
     expect(
       [...values.keys()].filter((key) =>
-        key.startsWith('rag:similar-chunks:v1:'),
+        key.startsWith('rag:similar-chunks:v2:'),
       ),
     ).toHaveLength(0);
     expect(warning).toHaveBeenCalled();
@@ -245,7 +257,7 @@ describe('ChatAnswerService question embedding cache', () => {
     cache.set.mockRejectedValueOnce(new Error('Redis unavailable'));
     expect((await service.generateAnswer(7, 12, 'Guide?')).isOk()).toBe(true);
     expect(cache.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^rag:similar-chunks:v1:7:12:/),
+      expect.stringMatching(/^rag:similar-chunks:v2:7:Restricted:12:/),
       JSON.stringify([]),
       60_000,
     );
@@ -254,6 +266,7 @@ describe('ChatAnswerService question embedding cache', () => {
       12,
       embedding,
       5,
+      { public: true, restricted: true },
     );
     expect(warning).toHaveBeenCalled();
   });
@@ -265,5 +278,70 @@ describe('ChatAnswerService question embedding cache', () => {
     expect((await service.generateAnswer(7, 12, 'Guide?')).isErr()).toBe(true);
     expect(cache.set).not.toHaveBeenCalled();
     expect(chunks.searchSimilarChunks).not.toHaveBeenCalled();
+  });
+
+  it('shares Public results across users while fetching each user’s Restricted results', async () => {
+    chunks.searchSimilarChunks.mockImplementation(
+      (
+        _spaceId: number,
+        userId: number,
+        _vector: number[],
+        _topK: number,
+        scopes: { public: boolean; restricted: boolean },
+      ) =>
+        Promise.resolve(
+          ok([
+            ...(scopes.public ? [chunk] : []),
+            ...(scopes.restricted && userId === 12 ? [restrictedChunk] : []),
+          ]),
+        ),
+    );
+    answerClient.generateAnswer.mockResolvedValue(ok('Answer'));
+
+    const first = await service.generateAnswer(7, 12, 'Guide?');
+    const second = await service.generateAnswer(7, 13, 'Guide?');
+
+    expect(first.isOk() && first.value.answered).toBe(true);
+    expect(second.isOk() && second.value.answered).toBe(true);
+    if (second.isOk() && second.value.answered) {
+      expect(
+        second.value.sources.map((source) => source.documentPublicId),
+      ).toEqual(['document-public-id']);
+    }
+    expect(chunks.searchSimilarChunks).toHaveBeenNthCalledWith(
+      2,
+      7,
+      13,
+      embedding,
+      5,
+      { public: false, restricted: true },
+    );
+    expect(
+      [...values.keys()].filter((key) => key.includes(':Public:')),
+    ).toHaveLength(1);
+    expect(
+      [...values.keys()].filter((key) => key.includes(':Restricted:')),
+    ).toHaveLength(2);
+  });
+
+  it('merges both top K lists by score before generating the answer', async () => {
+    chunks.searchSimilarChunks.mockResolvedValue(ok([chunk, restrictedChunk]));
+    answerClient.generateAnswer.mockResolvedValue(ok('Answer'));
+
+    const result = await service.generateAnswer(7, 12, 'Guide?');
+
+    expect(result.isOk() && result.value.answered).toBe(true);
+    if (result.isOk() && result.value.answered) {
+      expect(
+        result.value.sources.map((source) => source.documentPublicId),
+      ).toEqual(['restricted-document', 'document-public-id']);
+    }
+    expect(chunks.searchSimilarChunks).toHaveBeenCalledWith(
+      7,
+      12,
+      embedding,
+      5,
+      { public: true, restricted: true },
+    );
   });
 });
