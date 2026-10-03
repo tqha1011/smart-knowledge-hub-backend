@@ -326,7 +326,10 @@ export class DocumentService implements IDocumentService {
           ),
         );
       }
-      await this.invalidateDocumentList(knowledgeSpacePublicId);
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
 
       // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
       try {
@@ -705,7 +708,10 @@ export class DocumentService implements IDocumentService {
         );
       }
 
-      await this.invalidateDocumentList(knowledgeSpacePublicId);
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
 
       if (needsReingestion) {
         try {
@@ -781,6 +787,7 @@ export class DocumentService implements IDocumentService {
 
   private async invalidateDocumentList(
     knowledgeSpacePublicId: string,
+    knowledgeSpaceId: number,
   ): Promise<void> {
     try {
       await this.cache.set(
@@ -790,6 +797,15 @@ export class DocumentService implements IDocumentService {
       );
     } catch (error) {
       this.logger.warn('Failed to invalidate document list cache', error);
+    }
+    try {
+      await this.cache.set(
+        CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate similar chunks cache', error);
     }
   }
 

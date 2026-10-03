@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { DocumentRepository } from './document.repo';
 
 describe('DocumentRepository.getDocumentIngestionDataByPublicId', () => {
@@ -40,5 +41,22 @@ describe('DocumentRepository.getDocumentIngestionDataByPublicId', () => {
         }),
       }),
     );
+  });
+});
+
+describe('DocumentRepository.getDocumentIdByPublicId', () => {
+  it('includes the authorized knowledge space in the lookup', async () => {
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const repository = new DocumentRepository({
+      document: { findUnique },
+    } as unknown as PrismaService);
+
+    const result = await repository.getDocumentIdByPublicId('doc-public-id', 7);
+
+    expect(result.isOk() && result.value === null).toBe(true);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { publicId: 'doc-public-id', knowledgeSpaceId: 7 },
+      select: { id: true },
+    });
   });
 });

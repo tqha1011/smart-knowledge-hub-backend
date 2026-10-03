@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { authorizeMembership } from 'src/modules/knowledge-space/application/services/authorizeMembership';
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
 import { DocumentPermissionRequestDto } from '../dtos/document.request.dto';
@@ -18,6 +21,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
     private readonly userRepository: IUserRepository,
     private readonly documentRepository: IDocumentRepository,
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
+    private readonly cache: IApplicationCache,
   ) {}
   async updateDocumentPermissionAsync(
     knowledgeSpacePublicId: string,
@@ -39,7 +43,10 @@ export class DocumentPermissionService implements IDocumentPermissionService {
       }
 
       const documentIdResult =
-        await this.documentRepository.getDocumentIdByPublicId(documentPublicId);
+        await this.documentRepository.getDocumentIdByPublicId(
+          documentPublicId,
+          membership.value.knowledgeSpaceId,
+        );
       if (documentIdResult.isErr()) {
         this.logger.error(
           `Failed to get document ID for document ${documentPublicId}, error: ${documentIdResult.error}`,
@@ -108,6 +115,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           ),
         );
       }
+      await this.invalidateSimilarChunks(membership.value.knowledgeSpaceId);
       return ok(undefined);
     } catch (error) {
       this.logger.error(
@@ -142,7 +150,10 @@ export class DocumentPermissionService implements IDocumentPermissionService {
       }
 
       const documentIdResult =
-        await this.documentRepository.getDocumentIdByPublicId(documentPublicId);
+        await this.documentRepository.getDocumentIdByPublicId(
+          documentPublicId,
+          membership.value.knowledgeSpaceId,
+        );
       if (documentIdResult.isErr()) {
         this.logger.error(
           `Failed to get document ID for document ${documentPublicId}, error: ${documentIdResult.error}`,
@@ -210,6 +221,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           ),
         );
       }
+      await this.invalidateSimilarChunks(membership.value.knowledgeSpaceId);
       return ok(undefined);
     } catch (error) {
       this.logger.error(
@@ -221,6 +233,20 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           'Failed to add document permission',
         ),
       );
+    }
+  }
+
+  private async invalidateSimilarChunks(
+    knowledgeSpaceId: number,
+  ): Promise<void> {
+    try {
+      await this.cache.set(
+        CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate similar chunks cache', error);
     }
   }
 }

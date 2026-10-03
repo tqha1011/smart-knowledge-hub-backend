@@ -1,4 +1,8 @@
 export class CacheKey {
+  static generateSimilarChunksVersionKey(knowledgeSpaceId: number): string {
+    return `rag:similar-chunks:version:${knowledgeSpaceId}`;
+  }
+
   static generateDocumentListVersionKey(
     knowledgeSpacePublicId: string,
   ): string {

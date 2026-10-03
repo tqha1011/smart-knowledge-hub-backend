@@ -229,6 +229,11 @@ describe('DocumentService list cache', () => {
         expect.stringMatching(/^[0-9a-f-]{36}$/),
         0,
       );
+      expect(cache.set).toHaveBeenCalledWith(
+        'rag:similar-chunks:version:7',
+        expect.stringMatching(/^[0-9a-f-]{36}$/),
+        0,
+      );
       const firstVersion = values.get(versionKey);
       await read();
       expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(2);

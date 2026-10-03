@@ -219,6 +219,7 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
       const newDocumentIdResult =
         await this.documentRepository.getDocumentIdByPublicId(
           newDocument.publicId,
+          knowledgeSpaceId,
         );
       if (newDocumentIdResult.isErr() || newDocumentIdResult.value === null) {
         return err(

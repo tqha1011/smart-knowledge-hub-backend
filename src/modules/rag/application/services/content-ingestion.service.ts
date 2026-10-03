@@ -128,7 +128,10 @@ export class ContentIngestionService extends WorkerHost {
       throw statusResult.error;
     }
 
-    await this.invalidateDocumentList(document.knowledgeSpacePublicId);
+    await this.invalidateDocumentList(
+      document.knowledgeSpacePublicId,
+      document.knowledgeSpaceId,
+    );
 
     this.realtimeNotifier.notifyDocumentStatus(document.knowledgeSpaceId, {
       documentPublicId: job.data.documentPublicId,
@@ -178,6 +181,7 @@ export class ContentIngestionService extends WorkerHost {
 
     await this.invalidateDocumentList(
       documentResult.value.knowledgeSpacePublicId,
+      documentResult.value.knowledgeSpaceId,
     );
 
     this.realtimeNotifier.notifyDocumentStatus(
@@ -194,6 +198,7 @@ export class ContentIngestionService extends WorkerHost {
 
   private async invalidateDocumentList(
     knowledgeSpacePublicId: string,
+    knowledgeSpaceId: number,
   ): Promise<void> {
     try {
       await this.cache.set(
@@ -203,6 +208,15 @@ export class ContentIngestionService extends WorkerHost {
       );
     } catch (error) {
       this.logger.warn('Failed to invalidate document list cache', error);
+    }
+    try {
+      await this.cache.set(
+        CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate similar chunks cache', error);
     }
   }
 }

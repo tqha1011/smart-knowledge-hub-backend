@@ -85,7 +85,7 @@ describe('ContentIngestionService', () => {
       const invalidating = new Promise<void>((resolve) => {
         started = resolve;
       });
-      deps.cache.set.mockImplementation(() => {
+      deps.cache.set.mockImplementationOnce(() => {
         started();
         return new Promise<void>((resolve) => {
           release = resolve;
@@ -109,6 +109,11 @@ describe('ContentIngestionService', () => {
       expect(deps.realtimeNotifier.notifyDocumentStatus).not.toHaveBeenCalled();
       release();
       await pending;
+      expect(deps.cache.set).toHaveBeenCalledWith(
+        'rag:similar-chunks:version:7',
+        expect.stringMatching(/^[0-9a-f-]{36}$/),
+        0,
+      );
       expect(deps.realtimeNotifier.notifyDocumentStatus).toHaveBeenCalledWith(
         7,
         expect.objectContaining({ status }),

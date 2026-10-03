@@ -433,10 +433,11 @@ export class DocumentRepository
   }
   async getDocumentIdByPublicId(
     publicId: string,
+    knowledgeSpaceId: number,
   ): Promise<Result<number | null, Error>> {
     try {
       const documentId = await this.prismaService.document.findUnique({
-        where: { publicId },
+        where: { publicId, knowledgeSpaceId },
         select: { id: true },
       });
       return ok(documentId?.id ?? null);

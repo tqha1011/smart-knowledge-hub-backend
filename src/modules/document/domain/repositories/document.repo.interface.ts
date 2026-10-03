@@ -37,6 +37,7 @@ export type DocumentContentData = {
 export abstract class IDocumentRepository {
   abstract getDocumentIdByPublicId(
     publicId: string,
+    knowledgeSpaceId: number,
   ): Promise<Result<number | null, Error>>;
 
   abstract addDocument(
