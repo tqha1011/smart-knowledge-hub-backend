@@ -18,6 +18,7 @@ import { ChatMessageRequestDto } from '../dtos/chat-message.request.dto';
 import { ChatMessageResponseDto } from '../dtos/chat-message.response.dto';
 import {
   ChatAnswer,
+  ChatCacheDiagnostics,
   IChatAnswerService,
 } from '../interfaces/chat-answer.service.interface';
 import { IChatMessageService } from '../interfaces/chat-message.service.interface';
@@ -62,6 +63,7 @@ export class ChatMessageService implements IChatMessageService {
   async chatAsync(
     userPublicId: string,
     request: ChatMessageRequestDto,
+    diagnostics?: ChatCacheDiagnostics,
   ): Promise<Result<ChatMessageResponseDto, AppError>> {
     try {
       const membership = authorizeMembership(
@@ -127,6 +129,7 @@ export class ChatMessageService implements IChatMessageService {
           membership.value.knowledgeSpaceId,
           membership.value.userId,
           request.content,
+          diagnostics,
         );
         if (answerResult.isErr()) {
           return err(

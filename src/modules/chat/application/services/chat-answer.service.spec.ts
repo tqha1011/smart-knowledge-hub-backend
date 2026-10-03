@@ -344,4 +344,40 @@ describe('ChatAnswerService question embedding cache', () => {
       { public: true, restricted: true },
     );
   });
+
+  it('reports actual cache outcomes for a miss followed by a hit', async () => {
+    const first: Record<string, string> = {};
+    const second: Record<string, string> = {};
+
+    await service.generateAnswer(7, 12, 'Guide?', first);
+    await service.generateAnswer(7, 12, 'Guide?', second);
+
+    expect(first).toEqual({
+      embedding: 'miss',
+      publicChunks: 'miss',
+      restrictedChunks: 'miss',
+    });
+    expect(second).toEqual({
+      embedding: 'hit',
+      publicChunks: 'hit',
+      restrictedChunks: 'hit',
+    });
+  });
+
+  it('reports bypass rather than miss when the cache version cannot be read', async () => {
+    const diagnostics: Record<string, string> = {};
+    cache.get.mockImplementation((key: string) =>
+      key === 'rag:similar-chunks:version:7'
+        ? Promise.reject(new Error('Redis unavailable'))
+        : Promise.resolve(values.get(key)),
+    );
+
+    await service.generateAnswer(7, 12, 'Guide?', diagnostics);
+
+    expect(diagnostics).toEqual({
+      embedding: 'miss',
+      publicChunks: 'bypass',
+      restrictedChunks: 'bypass',
+    });
+  });
 });

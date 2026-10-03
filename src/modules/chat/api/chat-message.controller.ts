@@ -4,9 +4,12 @@ import {
   HttpException,
   Logger,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { JwtAuthGuard } from 'src/shared/common/jwt.guard';
@@ -16,6 +19,7 @@ import { RolesGuard } from 'src/shared/common/roles.guard';
 import { User } from 'src/shared/common/user.decorator';
 import { SystemRole } from 'src/shared/domain/enum';
 import { ChatMessageRequestDto } from '../application/dtos/chat-message.request.dto';
+import { ChatCacheDiagnostics } from '../application/interfaces/chat-answer.service.interface';
 import { IChatMessageService } from '../application/interfaces/chat-message.service.interface';
 
 @ApiTags('chat-messages')
@@ -24,7 +28,10 @@ import { IChatMessageService } from '../application/interfaces/chat-message.serv
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ChatMessageController {
   private readonly logger = new Logger(ChatMessageController.name);
-  constructor(private readonly chatMessageService: IChatMessageService) {}
+  constructor(
+    private readonly chatMessageService: IChatMessageService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Sends a user question to a chat session and returns the assistant's
@@ -48,11 +55,29 @@ export class ChatMessageController {
   async chat(
     @User() user: JwtPayload,
     @Body() chatMessageRequestDto: ChatMessageRequestDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
+    const diagnostics: ChatCacheDiagnostics | undefined =
+      this.configService.get<string>('LOAD_TEST_CACHE_HEADERS') === 'true'
+        ? {}
+        : undefined;
     const result = await this.chatMessageService.chatAsync(
       user.sub,
       chatMessageRequestDto,
+      diagnostics,
     );
+    if (diagnostics?.embedding) {
+      response.setHeader('X-Chat-Cache-Embedding', diagnostics.embedding);
+    }
+    if (diagnostics?.publicChunks) {
+      response.setHeader('X-Chat-Cache-Public', diagnostics.publicChunks);
+    }
+    if (diagnostics?.restrictedChunks) {
+      response.setHeader(
+        'X-Chat-Cache-Restricted',
+        diagnostics.restrictedChunks,
+      );
+    }
     return result.match(
       (message) => message,
       (error: AppError) => {

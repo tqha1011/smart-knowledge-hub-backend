@@ -8,6 +8,8 @@ import {
 import { IEmbeddingClient } from 'src/modules/rag/domain/repositories/embedding-client.interface';
 import {
   ChatAnswer,
+  ChatCacheDiagnostics,
+  ChatCacheOutcome,
   IChatAnswerService,
 } from '../interfaces/chat-answer.service.interface';
 import { ConfigService } from '@nestjs/config';
@@ -109,16 +111,19 @@ export class ChatAnswerService implements IChatAnswerService {
     knowledgeSpaceId: number,
     userId: number,
     question: string,
+    diagnostics?: ChatCacheDiagnostics,
   ): Promise<Result<ChatAnswer, Error>> {
     const model = this.configService.getOrThrow<string>(
       'GEMINI_EMBEDDING_MODEL',
     );
     const cacheKey = buildQuestionEmbeddingCacheKey(question, model);
     let queryEmbedding: number[] | undefined;
+    let embeddingCacheOutcome: ChatCacheOutcome = 'miss';
     // cached question embedding for case asking exactly question
     try {
       const cached = await this.cache.get<string>(cacheKey);
       if (cached !== undefined && cached !== null) {
+        embeddingCacheOutcome = 'invalid';
         if (typeof cached !== 'string') {
           throw new Error('Invalid cached query embedding');
         }
@@ -127,10 +132,13 @@ export class ChatAnswerService implements IChatAnswerService {
           throw new Error('Invalid cached query embedding');
         }
         queryEmbedding = parsed;
+        embeddingCacheOutcome = 'hit';
       }
     } catch (error) {
+      if (embeddingCacheOutcome !== 'invalid') embeddingCacheOutcome = 'error';
       this.logger.warn('Failed to read query embedding cache', error);
     }
+    if (diagnostics) diagnostics.embedding = embeddingCacheOutcome;
 
     if (queryEmbedding === undefined) {
       const embeddingResult = await this.embeddingClient.generateEmbeddings(
@@ -180,10 +188,14 @@ export class ChatAnswerService implements IChatAnswerService {
         userId,
       });
       [publicChunks, restrictedChunks] = await Promise.all([
-        this.readChunks(publicCacheKey, 'Public'),
-        this.readChunks(restrictedCacheKey, 'Restricted'),
+        this.readChunks(publicCacheKey, 'Public', diagnostics),
+        this.readChunks(restrictedCacheKey, 'Restricted', diagnostics),
       ]);
     } catch (error) {
+      if (diagnostics) {
+        diagnostics.publicChunks = 'bypass';
+        diagnostics.restrictedChunks = 'bypass';
+      }
       this.logger.warn(`Failed to get similar chunks cached: ${error}`);
     }
 
@@ -262,10 +274,17 @@ export class ChatAnswerService implements IChatAnswerService {
   private async readChunks(
     key: string,
     visibility: SimilarChunk['visibility'],
+    diagnostics?: ChatCacheDiagnostics,
   ): Promise<SimilarChunk[] | undefined> {
+    const layer = visibility === 'Public' ? 'publicChunks' : 'restrictedChunks';
+    let outcome: ChatCacheOutcome = 'miss';
     try {
       const cached = await this.cache.get<string>(key);
-      if (cached === undefined || cached === null) return undefined;
+      if (cached === undefined || cached === null) {
+        if (diagnostics) diagnostics[layer] = outcome;
+        return undefined;
+      }
+      outcome = 'invalid';
       if (typeof cached !== 'string') {
         throw new Error('Invalid cached similar chunks');
       }
@@ -273,8 +292,11 @@ export class ChatAnswerService implements IChatAnswerService {
       if (!isValidSimilarChunks(parsed, visibility)) {
         throw new Error('Invalid cached similar chunks');
       }
+      if (diagnostics) diagnostics[layer] = 'hit';
       return parsed;
     } catch (error) {
+      if (outcome !== 'invalid') outcome = 'error';
+      if (diagnostics) diagnostics[layer] = outcome;
       this.logger.warn(`Failed to get ${visibility} chunks cached: ${error}`);
       return undefined;
     }
