@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { DocumentVisibility, Prisma } from 'generated/prisma/client';
 import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
@@ -223,13 +224,17 @@ export class DocumentRepository
   }
   async getDocumentListInKnowledgeSpace(
     knowledgeSpaceId: number,
+    userId: number,
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<DocumentListResponseDto>, Error>> {
     try {
       const [documents, totalDocuments] = await this.prismaService.$transaction(
         [
           this.prismaService.document.findMany({
-            where: { knowledgeSpaceId: knowledgeSpaceId },
+            where: {
+              knowledgeSpaceId: knowledgeSpaceId,
+              documentPermissions: { some: { userId: userId } },
+            },
             select: {
               publicId: true,
               title: true,
@@ -302,6 +307,106 @@ export class DocumentRepository
         `Failed to get document list in knowledge space: ${error}`,
       );
       return err(new Error(`Failed to get document list in knowledge space`));
+    }
+  }
+  async searchDocumentsInKnowledgeSpace(
+    knowledgeSpaceId: number,
+    userId: number,
+    documentName: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, Error>> {
+    try {
+      const where: Prisma.DocumentWhereInput = {
+        knowledgeSpaceId,
+        title: { contains: documentName, mode: 'insensitive' },
+        OR: [
+          { visibility: DocumentVisibility.Public },
+          {
+            visibility: DocumentVisibility.Restricted,
+            documentPermissions: { some: { userId } },
+          },
+        ],
+      };
+      const [documents, totalDocuments] = await this.prismaService.$transaction(
+        [
+          this.prismaService.document.findMany({
+            where,
+            select: {
+              publicId: true,
+              title: true,
+              fileType: true,
+              status: true,
+              visibility: true,
+              updatedAt: true,
+              category: {
+                select: {
+                  publicId: true,
+                  name: true,
+                },
+              },
+              author: {
+                select: {
+                  publicId: true,
+                  username: true,
+                  avatarUrl: true,
+                },
+              },
+              _count: {
+                select: {
+                  answerSources: {
+                    where: { knowledgeSpaceId },
+                  },
+                },
+              },
+            },
+            orderBy: [
+              { updatedAt: 'desc' },
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ],
+            skip: (pagination.pageNumber - 1) * pagination.pageSize,
+            take: pagination.pageSize,
+          }),
+
+          this.prismaService.document.count({
+            where,
+          }),
+        ],
+      );
+      const documentListResponse: DocumentListResponseDto[] = documents.map(
+        (document) => ({
+          publicId: document.publicId,
+          title: document.title,
+          fileType: toDomainType(document.fileType),
+          status: toDomainStatus(document.status),
+          visibility: toDomainVisibility(document.visibility),
+          lastUpdated: document.updatedAt,
+          category: {
+            publicId: document.category.publicId,
+            name: document.category.name,
+          },
+          updatedBy: {
+            publicId: document.author.publicId,
+            name: document.author.username,
+            avatarUrl: document.author.avatarUrl,
+          },
+          cited: document._count.answerSources,
+        }),
+      );
+      return ok(
+        new PageResult<DocumentListResponseDto>(
+          documentListResponse,
+          totalDocuments,
+          pagination.pageNumber,
+          pagination.pageNumber,
+          pagination.pageSize,
+        ),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to search documents in knowledge space: ${error}`,
+      );
+      return err(new Error(`Failed to search documents in knowledge space`));
     }
   }
   async addDocument(newDocument: Document): Promise<Result<undefined, Error>> {

@@ -32,6 +32,7 @@ import {
   DocumentCreateRequestDto,
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
+  SearchDocumentQueryDto,
 } from '../dtos/document.request.dto';
 import {
   DocumentDetailResponseDto,
@@ -434,6 +435,7 @@ export class DocumentService implements IDocumentService {
       const listResult =
         await this.documentQueryRepository.getDocumentListInKnowledgeSpace(
           membership.value.knowledgeSpaceId,
+          membership.value.userId,
           pagination,
         );
       if (listResult.isErr()) {
@@ -459,6 +461,51 @@ export class DocumentService implements IDocumentService {
         new AppError(
           ErrorCode.InternalServerError,
           'Failed to get document list',
+        ),
+      );
+    }
+  }
+
+  async searchDocumentsAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    query: SearchDocumentQueryDto,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'search documents',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const searchResult =
+        await this.documentQueryRepository.searchDocumentsInKnowledgeSpace(
+          membership.value.knowledgeSpaceId,
+          membership.value.userId,
+          query.documentName,
+          { pageNumber: query.pageNumber, pageSize: query.pageSize },
+        );
+      if (searchResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to search documents',
+          ),
+        );
+      }
+      return ok(searchResult.value);
+    } catch (error) {
+      this.logger.error('Failed to search documents', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to search documents',
         ),
       );
     }

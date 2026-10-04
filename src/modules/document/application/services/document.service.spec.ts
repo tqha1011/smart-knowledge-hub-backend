@@ -6,6 +6,7 @@ import { ICategoryRepository } from 'src/modules/category/domain/repositories/ca
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { PageResult } from 'src/shared/common/pagination';
+import { ErrorCode } from 'src/shared/common/errorCode';
 import {
   CommonDocumentStatus,
   CommonDocumentType,
@@ -48,6 +49,7 @@ describe('DocumentService list cache', () => {
   };
   const membership = { getMembershipInKnowledgeSpace: jest.fn() };
   const query = {
+    searchDocumentsInKnowledgeSpace: jest.fn(),
     getDocumentListInKnowledgeSpace: jest.fn(),
     getDocumentListItemByPublicId: jest.fn(),
   };
@@ -79,6 +81,9 @@ describe('DocumentService list cache', () => {
       ok({ knowledgeSpaceId: 7, userId: 8, role: KnowledgeSpaceRole.Editor }),
     );
     query.getDocumentListInKnowledgeSpace.mockResolvedValue(ok(page));
+    query.searchDocumentsInKnowledgeSpace
+      .mockReset()
+      .mockResolvedValue(ok(page));
     query.getDocumentListItemByPublicId.mockResolvedValue(ok(item));
     repository.addDocument.mockResolvedValue(ok(undefined));
     repository.updateDocument.mockResolvedValue(ok(undefined));
@@ -128,6 +133,92 @@ describe('DocumentService list cache', () => {
   });
   afterEach(() => jest.restoreAllMocks());
   const read = () => service.getDocumentListAsync('space', 'user', pagination);
+
+  describe('searchDocumentsAsync', () => {
+    const search = () =>
+      service.searchDocumentsAsync('space', 'user', {
+        documentName: 'Guide',
+        ...pagination,
+      });
+
+    it('rejects non-members before querying documents', async () => {
+      membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(ok(null));
+      expect((await search())._unsafeUnwrapErr().code).toBe(
+        ErrorCode.Forbidden,
+      );
+      expect(query.searchDocumentsInKnowledgeSpace).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      KnowledgeSpaceRole.Viewer,
+      KnowledgeSpaceRole.Editor,
+      KnowledgeSpaceRole.Owner,
+    ])(
+      'searches using internal IDs for %s members without cache',
+      async (role) => {
+        membership.getMembershipInKnowledgeSpace.mockResolvedValue(
+          ok({ knowledgeSpaceId: 7, userId: 8, role }),
+        );
+        expect((await search())._unsafeUnwrap()).toEqual(page);
+        expect(membership.getMembershipInKnowledgeSpace).toHaveBeenCalledWith(
+          'user',
+          'space',
+        );
+        expect(query.searchDocumentsInKnowledgeSpace).toHaveBeenCalledWith(
+          7,
+          8,
+          'Guide',
+          pagination,
+        );
+        expect(cache.get).not.toHaveBeenCalled();
+        expect(cache.set).not.toHaveBeenCalled();
+        expect(query.getDocumentListInKnowledgeSpace).not.toHaveBeenCalled();
+      },
+    );
+
+    it('maps membership repository errors to internal server errors', async () => {
+      membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(
+        err(new Error('DB unavailable')),
+      );
+      expect((await search())._unsafeUnwrapErr().code).toBe(
+        ErrorCode.InternalServerError,
+      );
+      expect(query.searchDocumentsInKnowledgeSpace).not.toHaveBeenCalled();
+    });
+
+    it('maps search repository errors to internal server errors', async () => {
+      query.searchDocumentsInKnowledgeSpace.mockResolvedValueOnce(
+        err(new Error('DB unavailable')),
+      );
+      expect((await search())._unsafeUnwrapErr().code).toBe(
+        ErrorCode.InternalServerError,
+      );
+    });
+
+    it('maps unexpected repository rejections to internal server errors', async () => {
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      query.searchDocumentsInKnowledgeSpace.mockRejectedValueOnce(
+        new Error('DB unavailable'),
+      );
+      expect((await search())._unsafeUnwrapErr().code).toBe(
+        ErrorCode.InternalServerError,
+      );
+    });
+
+    it('returns an empty page successfully', async () => {
+      const emptyPage = new PageResult<DocumentListResponseDto>(
+        [],
+        0,
+        1,
+        1,
+        20,
+      );
+      query.searchDocumentsInKnowledgeSpace.mockResolvedValueOnce(
+        ok(emptyPage),
+      );
+      expect((await search())._unsafeUnwrap()).toEqual(emptyPage);
+    });
+  });
 
   it('caches a miss as JSON and restores dates on a hit', async () => {
     expect((await read())._unsafeUnwrap()).toEqual(page);

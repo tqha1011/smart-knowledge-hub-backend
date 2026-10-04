@@ -6,6 +6,7 @@ import {
   DocumentCreateRequestDto,
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
+  SearchDocumentQueryDto,
 } from '../dtos/document.request.dto';
 import {
   DocumentDetailResponseDto,
@@ -43,6 +44,12 @@ export abstract class IDocumentService {
     knowledgeSpacePublicId: string,
     userPublicId: string,
     pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>>;
+
+  abstract searchDocumentsAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    query: SearchDocumentQueryDto,
   ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>>;
 
   /** A `Restricted` document additionally requires a `DocumentPermission` row for the caller. */

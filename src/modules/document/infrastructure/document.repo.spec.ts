@@ -1,6 +1,133 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
+import { Logger } from '@nestjs/common';
 import { DocumentRepository } from './document.repo';
+
+describe('DocumentRepository.searchDocumentsInKnowledgeSpace', () => {
+  const row = {
+    publicId: 'doc',
+    title: 'Employee Handbook.pdf',
+    fileType: 'PDF',
+    status: 'Ready',
+    visibility: 'Restricted',
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
+    category: { publicId: 'cat', name: 'Guides' },
+    author: { publicId: 'user', username: 'Author', avatarUrl: null },
+    _count: { answerSources: 3 },
+  };
+  const findMany = jest.fn();
+  const count = jest.fn();
+  const transaction = jest.fn();
+  const repository = new DocumentRepository({
+    document: { findMany, count },
+    $transaction: transaction,
+  } as unknown as PrismaService);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMany.mockReturnValue(Promise.resolve([row]));
+    count.mockReturnValue(Promise.resolve(3));
+    transaction.mockImplementation((queries: Promise<unknown>[]) =>
+      Promise.all(queries),
+    );
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('filters both rows and count by space, case-insensitive partial title and caller permission', async () => {
+    const page = (
+      await repository.searchDocumentsInKnowledgeSpace(7, 8, 'hand', {
+        pageNumber: 2,
+        pageSize: 2,
+      })
+    )._unsafeUnwrap();
+    const where = {
+      knowledgeSpaceId: 7,
+      title: { contains: 'hand', mode: 'insensitive' },
+      OR: [
+        { visibility: 'Public' },
+        {
+          visibility: 'Restricted',
+          documentPermissions: { some: { userId: 8 } },
+        },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where,
+        skip: 2,
+        take: 2,
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+        select: expect.objectContaining({
+          _count: {
+            select: { answerSources: { where: { knowledgeSpaceId: 7 } } },
+          },
+        }),
+      }),
+    );
+    expect(count).toHaveBeenCalledWith({ where });
+    expect(transaction).toHaveBeenCalledWith([
+      findMany.mock.results[0].value,
+      count.mock.results[0].value,
+    ]);
+    expect(page).toEqual({
+      items: [
+        {
+          publicId: 'doc',
+          title: 'Employee Handbook.pdf',
+          fileType: 'PDF',
+          status: 'Ready',
+          visibility: 'Restricted',
+          lastUpdated: new Date('2026-10-01T12:00:00Z'),
+          category: { publicId: 'cat', name: 'Guides' },
+          updatedBy: { publicId: 'user', name: 'Author', avatarUrl: null },
+          cited: 3,
+        },
+      ],
+      totalPages: 2,
+      currentPage: 2,
+      pageNumber: 2,
+      pageSize: 2,
+      hasPrevious: true,
+      hasNext: false,
+    });
+  });
+
+  it.each([
+    [0, 1, 0],
+    [3, 5, 2],
+  ])(
+    'returns an empty page with total=%i and page=%i',
+    async (total, pageNumber, totalPages) => {
+      findMany.mockReturnValueOnce(Promise.resolve([]));
+      count.mockReturnValueOnce(Promise.resolve(total));
+      const page = (
+        await repository.searchDocumentsInKnowledgeSpace(7, 8, 'missing', {
+          pageNumber,
+          pageSize: 2,
+        })
+      )._unsafeUnwrap();
+      expect(page.items).toEqual([]);
+      expect(page.totalPages).toBe(totalPages);
+      expect(page.pageNumber).toBe(pageNumber);
+      expect(page.hasNext).toBe(false);
+    },
+  );
+
+  it('returns a repository error when the transaction fails', async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    transaction.mockRejectedValueOnce(new Error('DB unavailable'));
+    const result = await repository.searchDocumentsInKnowledgeSpace(
+      7,
+      8,
+      'hand',
+      {
+        pageNumber: 1,
+        pageSize: 20,
+      },
+    );
+    expect(result.isErr()).toBe(true);
+  });
+});
 
 describe('DocumentRepository.getDocumentIngestionDataByPublicId', () => {
   it('includes the knowledge space public id alongside the document data', async () => {

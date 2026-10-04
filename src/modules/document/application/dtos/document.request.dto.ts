@@ -1,19 +1,36 @@
-import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsPositive,
   IsString,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
+import { PaginationQueryDto } from 'src/shared/common/pagination';
 import {
   CommonContentDisposition,
   CommonDocumentVisibility,
   CommonPermissionType,
 } from 'src/shared/domain/enum';
+
+export class SearchDocumentQueryDto extends PaginationQueryDto {
+  @ApiProperty({
+    description:
+      'Case-insensitive partial document title; trimmed and non-empty',
+    example: 'handbook',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty()
+  documentName!: string;
+}
 
 /** Step 1 of the upload flow: the client asks for a URL to PUT the file straight to R2. */
 export class DocumentUploadUrlRequestDto {

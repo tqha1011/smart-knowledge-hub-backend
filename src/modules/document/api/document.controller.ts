@@ -14,10 +14,16 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
@@ -33,6 +39,7 @@ import {
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
   GetDownloadUrlQueryDto,
+  SearchDocumentQueryDto,
 } from '../application/dtos/document.request.dto';
 import { IDocumentService } from '../application/interfaces/document.service.interface';
 
@@ -277,6 +284,75 @@ export class DocumentController {
       (page) => page,
       (error: AppError) => {
         throw this.toHttpError(error, 'listing documents');
+      },
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Search readable documents by title in a knowledge space',
+  })
+  @ApiParam({ name: 'knowledgeSpacePublicId', type: String, format: 'uuid' })
+  @ApiQuery({ type: SearchDocumentQueryDto })
+  @ApiOkResponse({
+    description:
+      'Paginated readable documents matching a case-insensitive partial title',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+            title: 'handbook.pdf',
+            fileType: 'PDF',
+            status: 'Ready',
+            visibility: 'Public',
+            lastUpdated: '2026-08-30T10:00:00.000Z',
+            category: {
+              publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+              name: 'Onboarding',
+            },
+            updatedBy: {
+              publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+              name: 'jane.doe',
+              avatarUrl: null,
+            },
+            cited: 3,
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid knowledge space UUID, document name or pagination',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
+  @ApiForbiddenResponse({
+    description: 'User is not a member of the knowledge space',
+  })
+  @ApiInternalServerErrorResponse({ description: 'Failed to search documents' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get('search')
+  async searchDocuments(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Query(new ValidationPipe({ transform: true }))
+    query: SearchDocumentQueryDto,
+  ) {
+    const result = await this.documentService.searchDocumentsAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      query,
+    );
+    return result.match(
+      (page) => page,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'searching documents');
       },
     );
   }

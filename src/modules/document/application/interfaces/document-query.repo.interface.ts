@@ -9,8 +9,16 @@ import {
 } from './../../../../shared/common/pagination';
 
 export abstract class IDocumentQueryRepository {
+  abstract searchDocumentsInKnowledgeSpace(
+    knowledgeSpaceId: number,
+    userId: number,
+    documentName: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, Error>>;
+
   abstract getDocumentListInKnowledgeSpace(
     knowledgeSpaceId: number,
+    userId: number,
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<DocumentListResponseDto>, Error>>;
 
