@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { err, ok, Result } from 'neverthrow';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import {
   CategoryData,
   CreatedCategoryData,
@@ -11,7 +14,10 @@ import {
 @Injectable()
 export class CategoryRepository implements ICategoryRepository {
   private readonly logger = new Logger(CategoryRepository.name);
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly cache: IApplicationCache,
+  ) {}
   async getCategoryList(
     knowledgeSpaceId: number,
   ): Promise<Result<GetCategoryData[], Error>> {
@@ -72,6 +78,34 @@ export class CategoryRepository implements ICategoryRepository {
         data: { publicId, name, knowledgeSpaceId },
         select: { id: true, name: true, publicId: true },
       });
+      // The FAQ flow also creates categories directly through this repository.
+      const versionKey =
+        CacheKey.generateCategoryListVersionKey(knowledgeSpaceId);
+      let previousVersion: string | undefined;
+      try {
+        previousVersion = (await this.cache.get<string>(versionKey)) ?? '0';
+      } catch (error) {
+        this.logger.warn(
+          'Failed to read category list cache version for invalidation',
+          error,
+        );
+      }
+      try {
+        try {
+          await this.cache.set(versionKey, randomUUID(), 0);
+        } finally {
+          if (previousVersion !== undefined) {
+            await this.cache.delete(
+              CacheKey.generateCategoryListKey(
+                knowledgeSpaceId,
+                previousVersion,
+              ),
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn('Failed to invalidate category list cache', error);
+      }
       return ok({
         id: category.id,
         name: category.name,

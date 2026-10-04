@@ -8,6 +8,8 @@ export type GetKnowledgeSpaceType = {
 export type GetUserKnowledgeSpace = {
   publicId: string;
   name: string;
+  description: string | null;
+  typePublicId: string;
   totalDocuments: number;
   typeName: string;
   role: KnowledgeSpaceRole;

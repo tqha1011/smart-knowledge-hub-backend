@@ -5,6 +5,8 @@ import { authorizeMembership } from 'src/modules/knowledge-space/application/ser
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { KnowledgeSpaceRole } from 'src/shared/domain/enum';
+import { CacheKey } from 'src/shared/domain/cacheKey';
+import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import {
   GetCategoryData,
   ICategoryRepository,
@@ -12,12 +14,15 @@ import {
 import { CreateCategoryDto } from '../dtos/category.request.dto';
 import { ICategoryService } from '../interfaces/category.service.interface';
 
+const CATEGORY_LIST_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class CategoryService implements ICategoryService {
   private readonly logger = new Logger(CategoryService.name);
   constructor(
     private readonly categoryRepository: ICategoryRepository,
     private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
+    private readonly cache: IApplicationCache,
   ) {}
   async getCategoryList(
     userPublicId: string,
@@ -35,6 +40,29 @@ export class CategoryService implements ICategoryService {
       if (membership.isErr()) {
         return err(membership.error);
       }
+      let cacheKey: string | undefined;
+      try {
+        const version =
+          (await this.cache.get<string>(
+            CacheKey.generateCategoryListVersionKey(
+              membership.value.knowledgeSpaceId,
+            ),
+          )) ?? '0';
+        cacheKey = CacheKey.generateCategoryListKey(
+          membership.value.knowledgeSpaceId,
+          version,
+        );
+        const cached = await this.cache.get<string>(cacheKey);
+        if (cached !== undefined && cached !== null) {
+          const categories = JSON.parse(cached) as GetCategoryData[];
+          if (!Array.isArray(categories)) {
+            throw new Error('Invalid cached category list');
+          }
+          return ok(categories);
+        }
+      } catch (error) {
+        this.logger.warn('Failed to read category list cache', error);
+      }
       const categories = await this.categoryRepository.getCategoryList(
         membership.value.knowledgeSpaceId,
       );
@@ -45,6 +73,18 @@ export class CategoryService implements ICategoryService {
             `Failed to get category list. ${categories.error.message}`,
           ),
         );
+      }
+      if (cacheKey !== undefined) {
+        try {
+          // Retain the version read before the query, including during invalidation.
+          await this.cache.set(
+            cacheKey,
+            JSON.stringify(categories.value),
+            CATEGORY_LIST_CACHE_TTL_MS,
+          );
+        } catch (error) {
+          this.logger.warn('Failed to write category list cache', error);
+        }
       }
       return ok(categories.value);
     } catch (error) {

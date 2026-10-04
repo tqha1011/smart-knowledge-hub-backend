@@ -1,4 +1,23 @@
 export class CacheKey {
+  static generateKnowledgeSpaceTypesKey(version: string): string {
+    return `knowledge-space-types:${version}`;
+  }
+
+  static generateKnowledgeSpaceTypesVersionKey(): string {
+    return 'knowledge-space-types:version';
+  }
+
+  static generateCategoryListKey(
+    knowledgeSpaceId: number,
+    version: string,
+  ): string {
+    return `category-list:${knowledgeSpaceId}:${version}`;
+  }
+
+  static generateCategoryListVersionKey(knowledgeSpaceId: number): string {
+    return `category-list:${knowledgeSpaceId}:version`;
+  }
+
   static generateSimilarChunksVersionKey(knowledgeSpaceId: number): string {
     return `rag:similar-chunks:version:${knowledgeSpaceId}`;
   }
