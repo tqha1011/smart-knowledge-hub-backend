@@ -59,6 +59,15 @@ export abstract class IDocumentRepository {
     status: CommonDocumentStatus,
   ): Promise<Result<undefined, Error>>;
 
+  /** Returns null if the document no longer matches the expected snapshot. */
+  abstract transitionDocumentStatus(
+    documentPublicId: string,
+    knowledgeSpaceId: number,
+    expectedStatus: CommonDocumentStatus,
+    expectedUpdatedAt: Date,
+    nextStatus: CommonDocumentStatus,
+  ): Promise<Result<Date | null, Error>>;
+
   abstract updateDocument(
     documentId: number,
     data: DocumentUpdateData,

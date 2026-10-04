@@ -70,4 +70,10 @@ export abstract class IDocumentService {
     documentPublicId: string,
     documentUpdateRequestDto: DocumentUpdateRequestDto,
   ): Promise<Result<DocumentListResponseDto, AppError>>;
+
+  abstract retryIngestDocumentAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<DocumentListResponseDto, AppError>>;
 }

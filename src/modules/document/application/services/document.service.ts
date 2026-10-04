@@ -63,6 +63,140 @@ export class DocumentService implements IDocumentService {
     private readonly cache: IApplicationCache,
   ) {}
 
+  async retryIngestDocumentAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<DocumentListResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'retry document ingestion',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const knowledgeSpaceId = membership.value.knowledgeSpaceId;
+      const snapshot =
+        await this.documentQueryRepository.getDocumentListItemByPublicId(
+          knowledgeSpaceId,
+          documentPublicId,
+        );
+      if (snapshot.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get document for retry',
+          ),
+        );
+      }
+      if (snapshot.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      if (snapshot.value.status !== CommonDocumentStatus.Failed) {
+        return err(
+          new AppError(
+            ErrorCode.Conflict,
+            'Only failed documents can be retried',
+          ),
+        );
+      }
+
+      const transition = await this.documentRepository.transitionDocumentStatus(
+        documentPublicId,
+        knowledgeSpaceId,
+        CommonDocumentStatus.Failed,
+        snapshot.value.lastUpdated,
+        CommonDocumentStatus.Processing,
+      );
+      if (transition.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to transition document for retry',
+          ),
+        );
+      }
+      if (transition.value === null) {
+        return err(
+          new AppError(
+            ErrorCode.Conflict,
+            'Document changed before retry could start',
+          ),
+        );
+      }
+
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        knowledgeSpaceId,
+      );
+      try {
+        await this.ingestionQueue.add(
+          EventName.IngestionDocument,
+          { documentPublicId },
+          { attempts: 3 },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue document ingestion for document ${documentPublicId}`,
+          error,
+        );
+        try {
+          // Restore only this retry; a worker or a newer edit may have changed it.
+          const rollback =
+            await this.documentRepository.transitionDocumentStatus(
+              documentPublicId,
+              knowledgeSpaceId,
+              CommonDocumentStatus.Processing,
+              transition.value,
+              CommonDocumentStatus.Failed,
+            );
+          if (rollback.isErr()) {
+            this.logger.error(
+              'Failed to restore failed document status',
+              rollback.error,
+            );
+          }
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to restore failed document status',
+            rollbackError,
+          );
+        }
+        await this.invalidateDocumentList(
+          knowledgeSpacePublicId,
+          knowledgeSpaceId,
+        );
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to enqueue document ingestion',
+          ),
+        );
+      }
+
+      // Use the claimed snapshot even if the worker already completed ingestion.
+      return ok({
+        ...snapshot.value,
+        status: CommonDocumentStatus.Processing,
+        lastUpdated: transition.value,
+      });
+    } catch (error) {
+      this.logger.error('Failed to retry document ingestion', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to retry document ingestion',
+        ),
+      );
+    }
+  }
+
   async getUploadUrlAsync(
     knowledgeSpacePublicId: string,
     userPublicId: string,

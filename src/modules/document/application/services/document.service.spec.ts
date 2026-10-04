@@ -15,6 +15,7 @@ import {
 } from 'src/shared/domain/enum';
 import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
+import { EventName } from 'src/shared/infrastructure/queue/constant/event-name';
 import { IFileStorage } from 'src/shared/infrastructure/storage/file-storage.interface';
 import { IDocumentRepository } from '../../domain/repositories/document.repo.interface';
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
@@ -54,11 +55,13 @@ describe('DocumentService list cache', () => {
     getDocumentListItemByPublicId: jest.fn(),
   };
   const repository = {
+    transitionDocumentStatus: jest.fn(),
     addDocument: jest.fn(),
     updateDocument: jest.fn(),
     getDocumentStorageDataByPublicId: jest.fn(),
   };
   const queue = { add: jest.fn() };
+  const permissions = { checkDocumentPermission: jest.fn() };
   let warning: jest.SpyInstance;
   let service: DocumentService;
   let page: PageResult<DocumentListResponseDto>;
@@ -77,14 +80,16 @@ describe('DocumentService list cache', () => {
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
     page = new PageResult([item], 1, 1, 1, 20);
-    membership.getMembershipInKnowledgeSpace.mockResolvedValue(
-      ok({ knowledgeSpaceId: 7, userId: 8, role: KnowledgeSpaceRole.Editor }),
-    );
+    membership.getMembershipInKnowledgeSpace
+      .mockReset()
+      .mockResolvedValue(
+        ok({ knowledgeSpaceId: 7, userId: 8, role: KnowledgeSpaceRole.Editor }),
+      );
     query.getDocumentListInKnowledgeSpace.mockResolvedValue(ok(page));
     query.searchDocumentsInKnowledgeSpace
       .mockReset()
       .mockResolvedValue(ok(page));
-    query.getDocumentListItemByPublicId.mockResolvedValue(ok(item));
+    query.getDocumentListItemByPublicId.mockReset().mockResolvedValue(ok(item));
     repository.addDocument.mockResolvedValue(ok(undefined));
     repository.updateDocument.mockResolvedValue(ok(undefined));
     repository.getDocumentStorageDataByPublicId.mockResolvedValue(
@@ -125,7 +130,7 @@ describe('DocumentService list cache', () => {
               .mockResolvedValue(ok({ contentLength: 10 })),
           },
         },
-        { provide: IDocumentPermissionRepository, useValue: {} },
+        { provide: IDocumentPermissionRepository, useValue: permissions },
         { provide: getQueueToken(QueueName.IngestionQueue), useValue: queue },
       ],
     }).compile();
@@ -133,6 +138,221 @@ describe('DocumentService list cache', () => {
   });
   afterEach(() => jest.restoreAllMocks());
   const read = () => service.getDocumentListAsync('space', 'user', pagination);
+
+  describe('retryIngestDocumentAsync', () => {
+    let errorLog: jest.SpyInstance;
+    const retryTime = new Date('2026-10-04T12:00:00Z');
+    const failedItem = { ...item, status: CommonDocumentStatus.Failed };
+    const retry = () =>
+      service.retryIngestDocumentAsync('space', 'user', 'doc');
+
+    beforeEach(() => {
+      errorLog = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      query.getDocumentListItemByPublicId.mockResolvedValue(ok(failedItem));
+      repository.transitionDocumentStatus
+        .mockReset()
+        .mockResolvedValue(ok(retryTime));
+      queue.add.mockReset().mockResolvedValue(undefined);
+    });
+
+    it.each([null, KnowledgeSpaceRole.Viewer])(
+      'rejects %s before reading the document',
+      async (role) => {
+        membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(
+          ok(role === null ? null : { knowledgeSpaceId: 7, userId: 8, role }),
+        );
+        expect((await retry())._unsafeUnwrapErr().code).toBe(
+          ErrorCode.Forbidden,
+        );
+        expect(query.getDocumentListItemByPublicId).not.toHaveBeenCalled();
+        expect(repository.transitionDocumentStatus).not.toHaveBeenCalled();
+        expect(queue.add).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([KnowledgeSpaceRole.Editor, KnowledgeSpaceRole.Owner])(
+      'allows %s to retry restricted documents without a document permission',
+      async (role) => {
+        membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(
+          ok({ knowledgeSpaceId: 7, userId: 8, role }),
+        );
+        query.getDocumentListItemByPublicId.mockResolvedValueOnce(
+          ok({
+            ...failedItem,
+            visibility: CommonDocumentVisibility.Restricted,
+          }),
+        );
+        expect((await retry())._unsafeUnwrap()).toMatchObject({
+          status: CommonDocumentStatus.Processing,
+          visibility: CommonDocumentVisibility.Restricted,
+        });
+        expect(permissions.checkDocumentPermission).not.toHaveBeenCalled();
+      },
+    );
+
+    it('returns 404 for a document outside the space', async () => {
+      query.getDocumentListItemByPublicId.mockResolvedValueOnce(ok(null));
+      expect((await retry())._unsafeUnwrapErr().code).toBe(ErrorCode.NotFound);
+      expect(query.getDocumentListItemByPublicId).toHaveBeenCalledWith(
+        7,
+        'doc',
+      );
+      expect(repository.transitionDocumentStatus).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it.each([CommonDocumentStatus.Ready, CommonDocumentStatus.Processing])(
+      'rejects status %s without enqueueing',
+      async (status) => {
+        query.getDocumentListItemByPublicId.mockResolvedValueOnce(
+          ok({ ...item, status }),
+        );
+        expect((await retry())._unsafeUnwrapErr().code).toBe(
+          ErrorCode.Conflict,
+        );
+        expect(repository.transitionDocumentStatus).not.toHaveBeenCalled();
+        expect(queue.add).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['membership', 'snapshot', 'transition'])(
+      'maps %s repository errors to 500',
+      async (operation) => {
+        const failure = err(new Error('DB unavailable'));
+        if (operation === 'membership')
+          membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(
+            failure,
+          );
+        if (operation === 'snapshot')
+          query.getDocumentListItemByPublicId.mockResolvedValueOnce(failure);
+        if (operation === 'transition')
+          repository.transitionDocumentStatus.mockResolvedValueOnce(failure);
+        expect((await retry())._unsafeUnwrapErr().code).toBe(
+          ErrorCode.InternalServerError,
+        );
+        expect(queue.add).not.toHaveBeenCalled();
+        expect(cache.set).not.toHaveBeenCalled();
+      },
+    );
+
+    it('conditionally claims the failed snapshot, invalidates both caches and returns Processing even if the worker finishes', async () => {
+      queue.add.mockImplementationOnce(() => {
+        expect(values.get(versionKey)).toEqual(expect.any(String));
+        expect(values.get('rag:similar-chunks:version:7')).toEqual(
+          expect.any(String),
+        );
+        query.getDocumentListItemByPublicId.mockResolvedValue(
+          ok({ ...item, status: CommonDocumentStatus.Ready }),
+        );
+        return Promise.resolve();
+      });
+      expect((await retry())._unsafeUnwrap()).toEqual({
+        ...failedItem,
+        status: CommonDocumentStatus.Processing,
+        lastUpdated: retryTime,
+      });
+      expect(membership.getMembershipInKnowledgeSpace).toHaveBeenCalledWith(
+        'user',
+        'space',
+      );
+      expect(repository.transitionDocumentStatus).toHaveBeenCalledWith(
+        'doc',
+        7,
+        CommonDocumentStatus.Failed,
+        item.lastUpdated,
+        CommonDocumentStatus.Processing,
+      );
+      expect(query.getDocumentListItemByPublicId).toHaveBeenCalledTimes(1);
+      expect(queue.add).toHaveBeenCalledWith(
+        EventName.IngestionDocument,
+        { documentPublicId: 'doc' },
+        { attempts: 3 },
+      );
+      expect(failedItem.status).toBe(CommonDocumentStatus.Failed);
+    });
+
+    it('does not enqueue or invalidate when another request wins the transition', async () => {
+      repository.transitionDocumentStatus.mockResolvedValueOnce(ok(null));
+      expect((await retry())._unsafeUnwrapErr().code).toBe(ErrorCode.Conflict);
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(cache.set).not.toHaveBeenCalled();
+    });
+
+    it('enqueues only one of two concurrent retries of the same snapshot', async () => {
+      repository.transitionDocumentStatus
+        .mockResolvedValueOnce(ok(retryTime))
+        .mockResolvedValueOnce(ok(null));
+      const results = await Promise.all([retry(), retry()]);
+      expect(results.filter((result) => result.isOk())).toHaveLength(1);
+      expect(
+        results.filter((result) => result.isErr())[0]._unsafeUnwrapErr().code,
+      ).toBe(ErrorCode.Conflict);
+      expect(queue.add).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['restored', 'changed', 'error', 'rejected'])(
+      'conditionally rolls back on queue failure (%s) and invalidates again',
+      async (rollback) => {
+        queue.add.mockRejectedValueOnce(new Error('Queue unavailable'));
+        if (rollback === 'changed')
+          repository.transitionDocumentStatus
+            .mockResolvedValueOnce(ok(retryTime))
+            .mockResolvedValueOnce(ok(null));
+        if (rollback === 'error')
+          repository.transitionDocumentStatus
+            .mockResolvedValueOnce(ok(retryTime))
+            .mockResolvedValueOnce(err(new Error('DB unavailable')));
+        if (rollback === 'rejected')
+          repository.transitionDocumentStatus
+            .mockResolvedValueOnce(ok(retryTime))
+            .mockRejectedValueOnce(new Error('DB unavailable'));
+        expect((await retry())._unsafeUnwrapErr().code).toBe(
+          ErrorCode.InternalServerError,
+        );
+        expect(repository.transitionDocumentStatus).toHaveBeenNthCalledWith(
+          2,
+          'doc',
+          7,
+          CommonDocumentStatus.Processing,
+          retryTime,
+          CommonDocumentStatus.Failed,
+        );
+        expect(repository.transitionDocumentStatus).toHaveBeenCalledTimes(2);
+        expect(cache.set.mock.calls.map((call) => call[0])).toEqual([
+          versionKey,
+          'rag:similar-chunks:version:7',
+          versionKey,
+          'rag:similar-chunks:version:7',
+        ]);
+        if (rollback === 'error' || rollback === 'rejected')
+          expect(errorLog).toHaveBeenCalledWith(
+            expect.stringContaining('restore'),
+            expect.any(Error),
+          );
+      },
+    );
+
+    it('continues to enqueue when cache invalidation fails', async () => {
+      cache.set.mockRejectedValue(new Error('Cache unavailable'));
+      expect((await retry())._unsafeUnwrap().status).toBe(
+        CommonDocumentStatus.Processing,
+      );
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(warning).toHaveBeenCalledTimes(2);
+    });
+
+    it('maps unexpected repository rejections to 500', async () => {
+      query.getDocumentListItemByPublicId.mockRejectedValueOnce(
+        new Error('DB unavailable'),
+      );
+      expect((await retry())._unsafeUnwrapErr().code).toBe(
+        ErrorCode.InternalServerError,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+  });
 
   describe('searchDocumentsAsync', () => {
     const search = () =>

@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   HttpException,
+  HttpCode,
+  HttpStatus,
   Logger,
   Param,
   ParseUUIDPipe,
@@ -14,7 +16,9 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiAcceptedResponse,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
@@ -22,6 +26,7 @@ import {
   ApiQuery,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -493,6 +498,75 @@ export class DocumentController {
       (document) => document,
       (error: AppError) => {
         throw this.toHttpError(error, 'updating a document');
+      },
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Retry ingestion of a failed document',
+    description:
+      'No request body is required. Only an Editor or Owner of the knowledge space can retry a Failed document, including Restricted documents.',
+  })
+  @ApiParam({ name: 'knowledgeSpacePublicId', type: String, format: 'uuid' })
+  @ApiParam({ name: 'documentPublicId', type: String, format: 'uuid' })
+  @ApiAcceptedResponse({
+    description:
+      'DocumentListResponseDto snapshot with status Processing and the retry timestamp',
+    schema: {
+      example: {
+        publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+        title: 'handbook.pdf',
+        fileType: 'PDF',
+        status: 'Processing',
+        visibility: 'Restricted',
+        lastUpdated: '2026-10-04T10:00:00.000Z',
+        category: {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'Onboarding',
+        },
+        updatedBy: {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'jane.doe',
+          avatarUrl: null,
+        },
+        cited: 3,
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid knowledge space or document UUID',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
+  @ApiForbiddenResponse({
+    description: 'User is not an Editor or Owner of the knowledge space',
+  })
+  @ApiNotFoundResponse({
+    description: 'Document does not exist in this knowledge space',
+  })
+  @ApiConflictResponse({
+    description: 'Document is not Failed or changed during a concurrent retry',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Database or ingestion queue failure',
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Post(':documentPublicId/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async retryIngestDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+  ) {
+    const result = await this.documentService.retryIngestDocumentAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      documentPublicId,
+    );
+    return result.match(
+      (document) => document,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'retrying document ingestion');
       },
     );
   }

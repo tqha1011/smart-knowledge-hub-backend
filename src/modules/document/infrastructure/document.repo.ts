@@ -89,6 +89,31 @@ export class DocumentRepository
       return err(new Error(`Failed to update document status`));
     }
   }
+  async transitionDocumentStatus(
+    documentPublicId: string,
+    knowledgeSpaceId: number,
+    expectedStatus: CommonDocumentStatus,
+    expectedUpdatedAt: Date,
+    nextStatus: CommonDocumentStatus,
+  ): Promise<Result<Date | null, Error>> {
+    try {
+      const updatedAt = new Date();
+      const result = await this.prismaService.document.updateMany({
+        where: {
+          publicId: documentPublicId,
+          knowledgeSpaceId,
+          status: toPrismaStatus(expectedStatus),
+          updatedAt: expectedUpdatedAt,
+        },
+        data: { status: toPrismaStatus(nextStatus), updatedAt },
+      });
+      return ok(result.count > 0 ? updatedAt : null);
+    } catch (error) {
+      this.logger.error('Failed to transition document status', error);
+      return err(new Error('Failed to transition document status'));
+    }
+  }
+
   async getDocumentStorageDataByPublicId(
     publicId: string,
     knowledgeSpaceId: number,

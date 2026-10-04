@@ -2,6 +2,57 @@
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { Logger } from '@nestjs/common';
 import { DocumentRepository } from './document.repo';
+import { CommonDocumentStatus } from 'src/shared/domain/enum';
+
+describe('DocumentRepository.transitionDocumentStatus', () => {
+  const updatedAt = new Date('2026-10-04T12:00:00Z');
+  const expectedUpdatedAt = new Date('2026-10-01T12:00:00Z');
+  const updateMany = jest.fn();
+  const repository = new DocumentRepository({
+    document: { updateMany },
+  } as unknown as PrismaService);
+  const transition = () =>
+    repository.transitionDocumentStatus(
+      'doc',
+      7,
+      CommonDocumentStatus.Failed,
+      expectedUpdatedAt,
+      CommonDocumentStatus.Processing,
+    );
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(updatedAt);
+    updateMany.mockReset().mockResolvedValue({ count: 1 });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('updates only the document in the expected space, status and timestamp and returns the written timestamp', async () => {
+    expect((await transition())._unsafeUnwrap()).toEqual(updatedAt);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        publicId: 'doc',
+        knowledgeSpaceId: 7,
+        status: 'Failed',
+        updatedAt: expectedUpdatedAt,
+      },
+      data: { status: 'Processing', updatedAt },
+    });
+  });
+
+  it('returns null when the conditional update no longer matches', async () => {
+    updateMany.mockResolvedValueOnce({ count: 0 });
+    expect((await transition())._unsafeUnwrap()).toBeNull();
+  });
+
+  it('returns an error when the database rejects the update', async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    updateMany.mockRejectedValueOnce(new Error('DB unavailable'));
+    expect((await transition()).isErr()).toBe(true);
+  });
+});
 
 describe('DocumentRepository.getDocumentListInKnowledgeSpace', () => {
   it('includes Public documents and authorized Restricted documents using the same filter for rows and count', async () => {
