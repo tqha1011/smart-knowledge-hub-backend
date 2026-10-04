@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { Prisma } from 'generated/prisma/client';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import { Logger } from '@nestjs/common';
 import { DocumentRepository } from './document.repo';
@@ -36,6 +37,7 @@ describe('DocumentRepository.transitionDocumentStatus', () => {
         publicId: 'doc',
         knowledgeSpaceId: 7,
         status: 'Failed',
+        isDeleted: false,
         updatedAt: expectedUpdatedAt,
       },
       data: { status: 'Processing', updatedAt },
@@ -70,6 +72,7 @@ describe('DocumentRepository.getDocumentListInKnowledgeSpace', () => {
     )._unsafeUnwrap();
     const where = {
       knowledgeSpaceId: 7,
+      isDeleted: false,
       OR: [
         { visibility: 'Public' },
         {
@@ -127,6 +130,7 @@ describe('DocumentRepository.searchDocumentsInKnowledgeSpace', () => {
     const where = {
       knowledgeSpaceId: 7,
       title: { contains: 'hand', mode: 'insensitive' },
+      isDeleted: false,
       OR: [
         { visibility: 'Public' },
         {
@@ -149,10 +153,10 @@ describe('DocumentRepository.searchDocumentsInKnowledgeSpace', () => {
       }),
     );
     expect(count).toHaveBeenCalledWith({ where });
-    expect(transaction).toHaveBeenCalledWith([
-      findMany.mock.results[0].value,
-      count.mock.results[0].value,
-    ]);
+    expect(transaction).toHaveBeenCalledWith(
+      [findMany.mock.results[0].value, count.mock.results[0].value],
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
     expect(page).toEqual({
       items: [
         {
@@ -246,7 +250,7 @@ describe('DocumentRepository.getDocumentIngestionDataByPublicId', () => {
     }
     expect(findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { publicId: 'doc-public-id' },
+        where: { publicId: 'doc-public-id', isDeleted: false },
         select: expect.objectContaining({
           workspace: { select: { publicId: true } },
         }),
@@ -266,7 +270,11 @@ describe('DocumentRepository.getDocumentIdByPublicId', () => {
 
     expect(result.isOk() && result.value === null).toBe(true);
     expect(findUnique).toHaveBeenCalledWith({
-      where: { publicId: 'doc-public-id', knowledgeSpaceId: 7 },
+      where: {
+        publicId: 'doc-public-id',
+        knowledgeSpaceId: 7,
+        isDeleted: false,
+      },
       select: { id: true },
     });
   });

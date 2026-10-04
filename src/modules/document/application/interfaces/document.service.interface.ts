@@ -9,12 +9,29 @@ import {
   SearchDocumentQueryDto,
 } from '../dtos/document.request.dto';
 import {
+  DocumentTrashResponseDto,
   DocumentDetailResponseDto,
   DocumentListResponseDto,
   DocumentUploadUrlResponseDto,
 } from '../dtos/document.response.dto';
 
 export abstract class IDocumentService {
+  abstract deleteDocumentAsync(
+    space: string,
+    user: string,
+    document: string,
+  ): Promise<Result<undefined, AppError>>;
+  abstract restoreDocumentAsync(
+    space: string,
+    user: string,
+    document: string,
+  ): Promise<Result<DocumentListResponseDto, AppError>>;
+  abstract getDocumentTrashAsync(
+    space: string,
+    user: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentTrashResponseDto>, AppError>>;
+
   /**
    * Hands the client a short-lived URL to PUT the file straight to storage, so the
    * bytes never travel through this API. The returned key must come back with

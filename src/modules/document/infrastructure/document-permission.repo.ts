@@ -1,3 +1,4 @@
+import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { Injectable, Logger } from '@nestjs/common';
 import { err, ok, Result } from 'neverthrow';
 import { CommonPermissionType } from 'src/shared/domain/enum';
@@ -18,6 +19,11 @@ export class DocumentPermissionRepository implements IDocumentPermissionReposito
   ): Promise<Result<undefined, Error>> {
     try {
       await this.prismaService.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<
+          { id: number }[]
+        >`SELECT id FROM document WHERE id = ${documentId} AND is_deleted = false FOR UPDATE`;
+        if (!rows.length)
+          throw new AppError(ErrorCode.NotFound, 'Document not found');
         await tx.documentPermission.deleteMany({
           where: { documentId },
         });
@@ -35,7 +41,11 @@ export class DocumentPermissionRepository implements IDocumentPermissionReposito
       return ok(undefined);
     } catch (error) {
       this.logger.error('Failed to update document permission', error);
-      return err(new Error('Failed to update document permission'));
+      return err(
+        error instanceof AppError
+          ? error
+          : new Error('Failed to update document permission'),
+      );
     }
   }
 
@@ -43,20 +53,36 @@ export class DocumentPermissionRepository implements IDocumentPermissionReposito
     permissionRequest: DocumentPermissionRequest[],
   ): Promise<Result<undefined, Error>> {
     try {
-      await this.prismaService.documentPermission.createMany({
-        data: permissionRequest.map((req) => ({
-          userId: req.userId,
-          documentId: req.documentId,
-          permission: req.permission,
-        })),
-        skipDuplicates: true, // Skip if the permission already exists
+      await this.prismaService.$transaction(async (tx) => {
+        const ids = [
+          ...new Set(permissionRequest.map((p) => p.documentId)),
+        ].sort((a, b) => a - b);
+        for (const id of ids) {
+          const rows = await tx.$queryRaw<
+            { id: number }[]
+          >`SELECT id FROM document WHERE id = ${id} AND is_deleted = false FOR UPDATE`;
+          if (!rows.length)
+            throw new AppError(ErrorCode.NotFound, 'Document not found');
+        }
+        await tx.documentPermission.createMany({
+          data: permissionRequest.map((req) => ({
+            userId: req.userId,
+            documentId: req.documentId,
+            permission: req.permission,
+          })),
+          skipDuplicates: true, // Skip if the permission already exists
+        });
       });
       return ok(undefined);
     } catch (error) {
       this.logger.error(
         `Failed to add document permission for document ${error}`,
       );
-      return err(new Error('Failed to add document permission'));
+      return err(
+        error instanceof AppError
+          ? error
+          : new Error('Failed to add document permission'),
+      );
     }
   }
   async checkDocumentPermission(
@@ -67,6 +93,7 @@ export class DocumentPermissionRepository implements IDocumentPermissionReposito
       const permission = await this.prismaService.documentPermission.findUnique(
         {
           where: {
+            document: { isDeleted: false },
             unique_document_permission_per_user: {
               documentId: documentId,
               userId: userId,

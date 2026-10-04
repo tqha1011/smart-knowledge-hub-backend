@@ -1,4 +1,5 @@
 import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { err, ok } from 'neverthrow';
@@ -21,6 +22,11 @@ describe('DocumentController search HTTP', () => {
   const userId = '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e';
   const path = `/api/knowledge-spaces/${spaceId}/documents/search`;
   const service = {
+    deleteDocumentAsync: jest.fn().mockResolvedValue(ok(undefined)),
+    restoreDocumentAsync: jest.fn().mockResolvedValue(ok({ publicId: userId })),
+    getDocumentTrashAsync: jest
+      .fn()
+      .mockResolvedValue(ok(new PageResult([], 0, 1, 1, 20))),
     searchDocumentsAsync: jest.fn(),
     getDocumentDetailAsync: jest.fn(),
   };
@@ -56,6 +62,115 @@ describe('DocumentController search HTTP', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  it('documents trash, delete and restore responses, UUIDs and errors in Swagger', () => {
+    const document = SwaggerModule.createDocument(
+      app,
+      new DocumentBuilder().addBearerAuth().build(),
+    );
+    const base = '/api/knowledge-spaces/{knowledgeSpacePublicId}/documents';
+    const trash = document.paths[`${base}/trash`].get!;
+    const deletion = document.paths[`${base}/{documentPublicId}`].delete!;
+    const restore = document.paths[`${base}/{documentPublicId}/restore`].post!;
+    expect(Object.keys(trash.responses)).toEqual(
+      expect.arrayContaining(['200', '400', '401', '403', '404', '500']),
+    );
+    expect(Object.keys(deletion.responses)).toEqual(
+      expect.arrayContaining(['204', '409']),
+    );
+    expect(Object.keys(restore.responses)).toEqual(
+      expect.arrayContaining(['200', '409', '410']),
+    );
+    expect(restore.requestBody).toBeUndefined();
+    expect(deletion.requestBody).toBeUndefined();
+    expect(restore.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'documentPublicId',
+          schema: expect.objectContaining({ format: 'uuid' }) as object,
+        }),
+      ]),
+    );
+  });
+
+  it('routes trash before the dynamic document route and takes identity from JWT', async () => {
+    await request(server)
+      .get(path.replace('/search', '/trash'))
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(service.getDocumentTrashAsync).toHaveBeenCalledWith(
+      spaceId,
+      userId,
+      { pageNumber: 1, pageSize: 20 },
+    );
+    expect(service.getDocumentDetailAsync).not.toHaveBeenCalled();
+  });
+  it('deletes without a body and returns empty 204', async () => {
+    const response = await request(server)
+      .delete(path.replace('/search', `/${userId}`))
+      .auth(token, { type: 'bearer' })
+      .expect(204);
+    expect(response.text).toBe('');
+    expect(service.deleteDocumentAsync).toHaveBeenCalledWith(
+      spaceId,
+      userId,
+      userId,
+    );
+  });
+  it('restores without a body and returns 200', async () => {
+    await request(server)
+      .post(path.replace('/search', `/${userId}/restore`))
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(service.restoreDocumentAsync).toHaveBeenCalledWith(
+      spaceId,
+      userId,
+      userId,
+    );
+  });
+  it.each([
+    ['CONFLICT', 409],
+    ['GONE', 410],
+    ['NOT_FOUND', 404],
+    ['FORBIDDEN', 403],
+    ['INTERNAL_SERVER_ERROR', 500],
+  ])('maps restore %s to %i', async (code, status) => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    service.restoreDocumentAsync.mockResolvedValueOnce(
+      err(new AppError(code as ErrorCode, 'cannot restore')),
+    );
+    await request(server)
+      .post(path.replace('/search', `/${userId}/restore`))
+      .auth(token, { type: 'bearer' })
+      .expect(status);
+  });
+  it.each(['delete', 'restore', 'trash'])(
+    'validates UUID and guards for %s',
+    async (action) => {
+      const valid = path.replace(
+        '/search',
+        action === 'trash'
+          ? '/trash'
+          : `/${userId}${action === 'restore' ? '/restore' : ''}`,
+      );
+      const method =
+        action === 'trash' ? 'get' : action === 'restore' ? 'post' : 'delete';
+      await request(server)[method](valid).expect(401);
+      await request(server)
+        [method](valid)
+        .auth(jwt.sign({ sub: userId, role: 'unknown' }), { type: 'bearer' })
+        .expect(403);
+      await request(server)
+        [method](valid.replace(spaceId, 'invalid'))
+        .auth(token, { type: 'bearer' })
+        .expect(400);
+      if (action !== 'trash')
+        await request(server)
+          [method](valid.replace(userId, 'invalid'))
+          .auth(token, { type: 'bearer' })
+          .expect(400);
+    },
+  );
 
   it('routes /search correctly and uses JWT identity, trimmed name and default pagination', async () => {
     const response = await request(server)

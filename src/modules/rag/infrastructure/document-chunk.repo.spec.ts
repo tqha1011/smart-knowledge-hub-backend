@@ -21,6 +21,7 @@ describe('DocumentChunkRepository.searchSimilarChunks', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     const query = queryRaw.mock.calls[0][0];
     expect(query.sql).toContain('UNION ALL');
+    expect(query.sql.match(/d.is_deleted = false/g)).toHaveLength(2);
     expect(query.sql.match(/LIMIT/g)).toHaveLength(2);
     expect(query.sql).toContain("d.visibility = 'Public'");
     expect(query.sql).toContain("d.visibility = 'Restricted'");

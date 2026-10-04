@@ -50,11 +50,15 @@ describe('DocumentService list cache', () => {
   };
   const membership = { getMembershipInKnowledgeSpace: jest.fn() };
   const query = {
+    validateCachedDocumentList: jest.fn().mockResolvedValue(ok(true)),
+    getDocumentTrash: jest.fn(),
     searchDocumentsInKnowledgeSpace: jest.fn(),
     getDocumentListInKnowledgeSpace: jest.fn(),
     getDocumentListItemByPublicId: jest.fn(),
   };
   const repository = {
+    softDeleteDocument: jest.fn().mockResolvedValue(ok(undefined)),
+    restoreDocument: jest.fn().mockResolvedValue(ok(item)),
     transitionDocumentStatus: jest.fn(),
     addDocument: jest.fn(),
     updateDocument: jest.fn(),
@@ -91,7 +95,9 @@ describe('DocumentService list cache', () => {
       .mockResolvedValue(ok(page));
     query.getDocumentListItemByPublicId.mockReset().mockResolvedValue(ok(item));
     repository.addDocument.mockResolvedValue(ok(undefined));
-    repository.updateDocument.mockResolvedValue(ok(undefined));
+    repository.updateDocument.mockResolvedValue(
+      ok({ updatedAt: item.lastUpdated, status: CommonDocumentStatus.Ready }),
+    );
     repository.getDocumentStorageDataByPublicId.mockResolvedValue(
       ok({
         id: 9,
@@ -138,6 +144,63 @@ describe('DocumentService list cache', () => {
   });
   afterEach(() => jest.restoreAllMocks());
   const read = () => service.getDocumentListAsync('space', 'user', pagination);
+
+  describe('trash management', () => {
+    it.each([KnowledgeSpaceRole.Editor, KnowledgeSpaceRole.Owner])(
+      'allows %s to delete/restore Restricted documents without permissions or queue writes',
+      async (role) => {
+        membership.getMembershipInKnowledgeSpace.mockResolvedValue(
+          ok({ knowledgeSpaceId: 7, userId: 8, role }),
+        );
+        expect(
+          (await service.deleteDocumentAsync('space', 'user', 'doc')).isOk(),
+        ).toBe(true);
+        expect(
+          (
+            await service.restoreDocumentAsync('space', 'user', 'doc')
+          )._unsafeUnwrap(),
+        ).toEqual(item);
+        expect(repository.softDeleteDocument).toHaveBeenCalledWith('doc', 7);
+        expect(repository.restoreDocument).toHaveBeenCalledWith('doc', 7);
+        expect(permissions.checkDocumentPermission).not.toHaveBeenCalled();
+        expect(queue.add).not.toHaveBeenCalled();
+      },
+    );
+    it.each([null, KnowledgeSpaceRole.Viewer])(
+      'rejects %s before querying trash or documents',
+      async (role) => {
+        membership.getMembershipInKnowledgeSpace.mockResolvedValue(
+          ok(role === null ? null : { knowledgeSpaceId: 7, userId: 8, role }),
+        );
+        expect(
+          (
+            await service.deleteDocumentAsync('space', 'user', 'doc')
+          )._unsafeUnwrapErr().code,
+        ).toBe(ErrorCode.Forbidden);
+        expect(
+          (
+            await service.restoreDocumentAsync('space', 'user', 'doc')
+          )._unsafeUnwrapErr().code,
+        ).toBe(ErrorCode.Forbidden);
+        expect(
+          (
+            await service.getDocumentTrashAsync('space', 'user', pagination)
+          )._unsafeUnwrapErr().code,
+        ).toBe(ErrorCode.Forbidden);
+        expect(repository.softDeleteDocument).not.toHaveBeenCalled();
+        expect(repository.restoreDocument).not.toHaveBeenCalled();
+        expect(query.getDocumentTrash).not.toHaveBeenCalled();
+      },
+    );
+    it('discards an invalid cached page even if Redis invalidation failed', async () => {
+      values.set(pageKey, JSON.stringify(page));
+      query.validateCachedDocumentList.mockResolvedValueOnce(ok(false));
+      query.getDocumentListInKnowledgeSpace.mockResolvedValueOnce(
+        ok(new PageResult([], 0, 1, 1, 20)),
+      );
+      expect((await read())._unsafeUnwrap().items).toEqual([]);
+    });
+  });
 
   describe('retryIngestDocumentAsync', () => {
     let errorLog: jest.SpyInstance;
@@ -267,7 +330,7 @@ describe('DocumentService list cache', () => {
       expect(query.getDocumentListItemByPublicId).toHaveBeenCalledTimes(1);
       expect(queue.add).toHaveBeenCalledWith(
         EventName.IngestionDocument,
-        { documentPublicId: 'doc' },
+        { documentPublicId: 'doc', expectedUpdatedAt: retryTime.toISOString() },
         { attempts: 3 },
       );
       expect(failedItem.status).toBe(CommonDocumentStatus.Failed);
@@ -567,6 +630,73 @@ describe('DocumentService list cache', () => {
     expect(cache.set).not.toHaveBeenCalled();
   });
 
+  it('re-enqueues a Processing metadata edit with the written version', async () => {
+    repository.updateDocument.mockResolvedValueOnce(
+      ok({
+        updatedAt: item.lastUpdated,
+        status: CommonDocumentStatus.Processing,
+      }),
+    );
+    repository.getDocumentStorageDataByPublicId.mockResolvedValueOnce(
+      ok({
+        id: 9,
+        storagePath: 'old',
+        visibility: CommonDocumentVisibility.Public,
+        status: CommonDocumentStatus.Processing,
+      }),
+    );
+    expect(
+      (
+        await service.updateDocumentAsync('space', 'user', 'doc', {
+          name: 'Guide.txt',
+        })
+      ).isOk(),
+    ).toBe(true);
+    expect(queue.add).toHaveBeenCalledWith(
+      EventName.IngestionDocument,
+      {
+        documentPublicId: 'doc',
+        expectedUpdatedAt: item.lastUpdated.toISOString(),
+      },
+      { attempts: 3 },
+    );
+  });
+
+  it.each([CommonDocumentStatus.Ready, CommonDocumentStatus.Failed])(
+    'enqueues the locked Processing version after a concurrent ingestion starts from %s',
+    async (status) => {
+      repository.getDocumentStorageDataByPublicId.mockResolvedValueOnce(
+        ok({
+          id: 9,
+          storagePath: 'old',
+          visibility: CommonDocumentVisibility.Public,
+          status,
+        }),
+      );
+      repository.updateDocument.mockResolvedValueOnce(
+        ok({
+          updatedAt: item.lastUpdated,
+          status: CommonDocumentStatus.Processing,
+        }),
+      );
+      expect(
+        (
+          await service.updateDocumentAsync('space', 'user', 'doc', {
+            name: 'Guide.txt',
+          })
+        ).isOk(),
+      ).toBe(true);
+      expect(queue.add).toHaveBeenCalledWith(
+        EventName.IngestionDocument,
+        {
+          documentPublicId: 'doc',
+          expectedUpdatedAt: item.lastUpdated.toISOString(),
+        },
+        { attempts: 3 },
+      );
+    },
+  );
+
   const mutate = (operation: string) =>
     operation === 'create'
       ? service.createDocumentAsync('space', 'user', {
@@ -587,7 +717,14 @@ describe('DocumentService list cache', () => {
           : repository.updateDocument;
       save.mockImplementationOnce(() => {
         expect(values.has(versionKey)).toBe(false);
-        return Promise.resolve(ok(undefined));
+        return Promise.resolve(
+          operation === 'create'
+            ? ok(undefined)
+            : ok({
+                updatedAt: item.lastUpdated,
+                status: CommonDocumentStatus.Ready,
+              }),
+        );
       });
       expect((await mutate(operation)).isOk()).toBe(true);
       expect(cache.set).toHaveBeenCalledWith(

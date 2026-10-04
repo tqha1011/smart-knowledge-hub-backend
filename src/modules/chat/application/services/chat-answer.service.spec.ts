@@ -42,12 +42,27 @@ describe('ChatAnswerService question embedding cache', () => {
     delete: jest.fn(),
   };
   const embeddingClient = { generateEmbeddings: jest.fn() };
-  const chunks = { searchSimilarChunks: jest.fn() };
+  const chunks = {
+    searchSimilarChunks: jest.fn(),
+    validateSimilarChunks: jest.fn(),
+  };
   const answerClient = { generateAnswer: jest.fn() };
   const config = { getOrThrow: jest.fn() };
   let model: string;
   let service: ChatAnswerService;
   let warning: jest.SpyInstance;
+
+  it('does not send cached deleted or unauthorized chunks to the LLM', async () => {
+    chunks.searchSimilarChunks.mockResolvedValue(ok([chunk, restrictedChunk]));
+    answerClient.generateAnswer.mockResolvedValue(ok('answer'));
+    await service.generateAnswer(7, 8, 'question');
+    answerClient.generateAnswer.mockClear();
+    chunks.validateSimilarChunks.mockResolvedValueOnce(ok([]));
+    expect(
+      (await service.generateAnswer(7, 8, 'question'))._unsafeUnwrap(),
+    ).toMatchObject({ answered: false });
+    expect(answerClient.generateAnswer).not.toHaveBeenCalled();
+  });
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -63,6 +78,9 @@ describe('ChatAnswerService question embedding cache', () => {
     config.getOrThrow.mockImplementation(() => model);
     embeddingClient.generateEmbeddings.mockResolvedValue(ok([embedding]));
     chunks.searchSimilarChunks.mockResolvedValue(ok([]));
+    chunks.validateSimilarChunks.mockImplementation(
+      (_s, _u, entries: unknown[]) => Promise.resolve(ok(entries)),
+    );
     warning = jest
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);

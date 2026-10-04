@@ -61,3 +61,8 @@ export type DocumentDetailResponseDto = {
     permission: CommonPermissionType;
   }[];
 };
+
+export type DocumentTrashResponseDto = DocumentListResponseDto & {
+  deletedAt: Date;
+  purgeAfter: Date;
+};

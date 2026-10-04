@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { AppError, ErrorCode } from 'src/shared/common/errorCode';
 import { err, ok } from 'neverthrow';
 import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
@@ -138,6 +139,20 @@ describe('DocumentPermissionService retrieval cache invalidation', () => {
         'rag:similar-chunks:version:7',
         expect.any(String),
         0,
+      );
+    },
+  );
+
+  it.each(['add', 'update'] as const)(
+    '%s returns NotFound if deletion wins between lookup and permission mutation',
+    async (action) => {
+      repository[
+        action === 'add' ? 'addDocumentPermission' : 'updateDocumentPermission'
+      ].mockResolvedValueOnce(
+        err(new AppError(ErrorCode.NotFound, 'Document not found')),
+      );
+      expect((await mutate(action))._unsafeUnwrapErr().code).toBe(
+        ErrorCode.NotFound,
       );
     },
   );

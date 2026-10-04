@@ -4,6 +4,7 @@ export type DocumentChunkAddData = {
   documentId: number;
   knowledgeSpaceId: number;
   embeddingResult: EmbeddingResult[];
+  expectedUpdatedAt: Date;
 };
 
 export type EmbeddingResult = {
@@ -26,9 +27,15 @@ export type SimilarChunk = {
 export type SimilarChunkScopes = { public: boolean; restricted: boolean };
 
 export abstract class IDocumentChunkRepository {
+  abstract validateSimilarChunks(
+    spaceId: number,
+    userId: number,
+    chunks: SimilarChunk[],
+  ): Promise<Result<SimilarChunk[], Error>>;
+
   abstract addChunks(
     data: DocumentChunkAddData,
-  ): Promise<Result<undefined, Error>>;
+  ): Promise<Result<Date | null, Error>>;
 
   /** Returns up to topK Ready chunks per requested visibility. */
   abstract searchSimilarChunks(

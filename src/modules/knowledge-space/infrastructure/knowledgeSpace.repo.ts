@@ -68,9 +68,18 @@ export class KnowledgeSpaceRepository
     documentId: number,
   ): Promise<Result<undefined, Error>> {
     try {
-      await this.prismaService.knowledgeSpace.update({
-        where: { id: knowledgeSpaceId },
-        data: { faqDocumentId: documentId },
+      await this.prismaService.$transaction(async (tx) => {
+        const documents = await tx.$queryRaw<
+          { id: number }[]
+        >`SELECT id FROM document WHERE id = ${documentId} AND knowledge_space_id = ${knowledgeSpaceId} AND is_deleted = false FOR UPDATE`;
+        if (!documents.length)
+          throw new Error(
+            'Active FAQ document not found in this knowledge space',
+          );
+        await tx.knowledgeSpace.update({
+          where: { id: knowledgeSpaceId },
+          data: { faqDocumentId: documentId },
+        });
       });
       return ok(undefined);
     } catch (error) {
@@ -210,6 +219,7 @@ export class KnowledgeSpaceRepository
                 select: {
                   documents: {
                     where: {
+                      isDeleted: false,
                       OR: [
                         { visibility: DocumentVisibility.Public },
                         {

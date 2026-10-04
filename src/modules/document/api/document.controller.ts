@@ -1,6 +1,12 @@
 import {
+  DocumentTrashErrors,
+  documentListSchema,
+  trashPageSchema,
+} from './document-trash.swagger';
+import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpCode,
@@ -21,6 +27,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -55,6 +62,96 @@ import { IDocumentService } from '../application/interfaces/document.service.int
 export class DocumentController {
   private readonly logger = new Logger(DocumentController.name);
   constructor(private readonly documentService: IDocumentService) {}
+
+  @Get('trash')
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'List recoverable document trash',
+    description:
+      'Editor/Owner only. Includes Restricted documents; ordered by deletion time descending. Expired or claimed documents are excluded.',
+  })
+  @ApiQuery({ type: PaginationQueryDto })
+  @ApiOkResponse({ schema: trashPageSchema })
+  @DocumentTrashErrors(false)
+  async getDocumentTrash(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Query(new ValidationPipe({ transform: true }))
+    pagination: PaginationQueryDto,
+  ) {
+    const result = await this.documentService.getDocumentTrashAsync(
+      space,
+      user.sub,
+      pagination,
+    );
+    return result.match(
+      (value) => value,
+      (error) => {
+        throw this.toHttpError(error, 'listing document trash');
+      },
+    );
+  }
+
+  @Delete(':documentPublicId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'Soft delete a document',
+    description:
+      'No request body. Editor/Owner can delete Ready, Failed or Processing, including Restricted. Repeat deletion is idempotent and does not extend the stored retention deadline.',
+  })
+  @ApiNoContentResponse({
+    description: 'Deleted or already deleted; empty response',
+  })
+  @DocumentTrashErrors()
+  async deleteDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Param('documentPublicId', ParseUUIDPipe) document: string,
+  ) {
+    const result = await this.documentService.deleteDocumentAsync(
+      space,
+      user.sub,
+      document,
+    );
+    return result.match(
+      () => undefined,
+      (error) => {
+        throw this.toHttpError(error, 'deleting document');
+      },
+    );
+  }
+
+  @Post(':documentPublicId/restore')
+  @HttpCode(HttpStatus.OK)
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'Restore a document before its retention deadline',
+    description:
+      'No request body. Preserves content, chunks and permissions. Processing becomes Failed and can be retried. Restore is unavailable at or after the stored deadline, even if cleanup has not run.',
+  })
+  @ApiOkResponse({
+    schema: documentListSchema,
+    description: 'DocumentListResponseDto snapshot written by restore',
+  })
+  @DocumentTrashErrors(true, true)
+  async restoreDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Param('documentPublicId', ParseUUIDPipe) document: string,
+  ) {
+    const result = await this.documentService.restoreDocumentAsync(
+      space,
+      user.sub,
+      document,
+    );
+    return result.match(
+      (value) => value,
+      (error) => {
+        throw this.toHttpError(error, 'restoring document');
+      },
+    );
+  }
 
   /**
    * Issues a short-lived URL the client uses to PUT the file straight to storage,

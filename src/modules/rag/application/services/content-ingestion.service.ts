@@ -52,12 +52,21 @@ export class ContentIngestionService extends WorkerHost {
       );
       throw documentResult.error;
     }
-    if (!documentResult.value) {
-      throw new Error(
-        `Document with public ID ${job.data.documentPublicId} not found`,
-      );
-    }
+    if (!documentResult.value) return;
     const document = documentResult.value;
+    if (document.status !== CommonDocumentStatus.Processing) return;
+    if (job.data.expectedUpdatedAt === undefined) {
+      const snapshot = {
+        ...job.data,
+        expectedUpdatedAt: document.updatedAt.toISOString(),
+      };
+      await job.updateData(snapshot);
+      job.data = snapshot;
+    }
+    if (!job.data.expectedUpdatedAt)
+      throw new Error('Ingestion snapshot was not persisted');
+    const expectedUpdatedAt = new Date(job.data.expectedUpdatedAt);
+    if (document.updatedAt.getTime() !== expectedUpdatedAt.getTime()) return;
 
     let text: string;
     if (document.content !== null) {
@@ -109,6 +118,7 @@ export class ContentIngestionService extends WorkerHost {
       documentId: document.id,
       knowledgeSpaceId: document.knowledgeSpaceId,
       embeddingResult: embeddingResults,
+      expectedUpdatedAt,
     });
     if (addChunksResult.isErr()) {
       this.logger.error(
@@ -117,16 +127,7 @@ export class ContentIngestionService extends WorkerHost {
       throw addChunksResult.error;
     }
 
-    const statusResult = await this.documentRepository.updateDocumentStatus(
-      document.id,
-      CommonDocumentStatus.Ready,
-    );
-    if (statusResult.isErr()) {
-      this.logger.error(
-        `Error updating status to Ready for document ${job.data.documentPublicId}: ${statusResult.error}`,
-      );
-      throw statusResult.error;
-    }
+    if (addChunksResult.value === null) return;
 
     await this.invalidateDocumentList(
       document.knowledgeSpacePublicId,
@@ -138,7 +139,7 @@ export class ContentIngestionService extends WorkerHost {
       knowledgeSpacePublicId: document.knowledgeSpacePublicId,
       fileName: document.fileName,
       status: 'Ready',
-      updatedAt: new Date().toISOString(),
+      updatedAt: addChunksResult.value.toISOString(),
     });
   }
 
@@ -168,8 +169,12 @@ export class ContentIngestionService extends WorkerHost {
       return;
     }
 
-    const statusResult = await this.documentRepository.updateDocumentStatus(
-      documentResult.value.id,
+    if (!job.data.expectedUpdatedAt) return;
+    const statusResult = await this.documentRepository.transitionDocumentStatus(
+      job.data.documentPublicId,
+      documentResult.value.knowledgeSpaceId,
+      CommonDocumentStatus.Processing,
+      new Date(job.data.expectedUpdatedAt),
       CommonDocumentStatus.Failed,
     );
     if (statusResult.isErr()) {
@@ -178,6 +183,8 @@ export class ContentIngestionService extends WorkerHost {
       );
       return;
     }
+
+    if (statusResult.value === null) return;
 
     await this.invalidateDocumentList(
       documentResult.value.knowledgeSpacePublicId,
@@ -191,7 +198,7 @@ export class ContentIngestionService extends WorkerHost {
         knowledgeSpacePublicId: documentResult.value.knowledgeSpacePublicId,
         fileName: documentResult.value.fileName,
         status: 'Failed',
-        updatedAt: new Date().toISOString(),
+        updatedAt: statusResult.value.toISOString(),
       },
     );
   }

@@ -2,6 +2,12 @@ model Document {
   id                  Int                  @id @default(autoincrement())
   publicId            String               @unique @default(uuid()) @map("public_id")
   title               String
+  isDeleted           Boolean              @default(false) @map("is_deleted")
+  deletedAt           DateTime?            @map("deleted_at")
+  purgeAfter          DateTime?            @map("purge_after")
+  purgeStartedAt      DateTime?            @map("purge_started_at")
+  purgedAt            DateTime?            @map("purged_at")
+  storageKeys         DocumentStorageKey[]
   content             String?
   description         String?
   status              DocumentStatus       @default(Processing)
@@ -23,6 +29,7 @@ model Document {
   faqForKnowledgeSpace KnowledgeSpace?     @relation("KnowledgeSpaceFaqDocument")
 
   @@unique([id, storagePath], name: "unique_document_storage_path_per_workspace")
+  @@index([isDeleted, purgedAt, purgeAfter])
   @@index([knowledgeSpaceId])
   @@index([authorId])
   @@index([categoryId])
@@ -63,4 +70,14 @@ model DocumentChunk {
   @@index([documentId])
   @@index([knowledgeSpaceId])
   @@map("document_chunk")
+}
+
+// Keys remain reserved after replacement and purge. Legacy shared keys have one owner.
+model DocumentStorageKey {
+  key        String   @id
+  documentId Int      @map("document_id")
+  document   Document @relation(fields: [documentId], references: [id])
+
+  @@index([documentId])
+  @@map("document_storage_key")
 }

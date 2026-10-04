@@ -105,6 +105,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           permissionRequests,
         );
       if (addResult.isErr()) {
+        if (addResult.error instanceof AppError) return err(addResult.error);
         this.logger.error(
           `Failed to add document permission for document ${documentPublicId}, error: ${addResult.error}`,
         );
@@ -214,6 +215,7 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           permissionRequests,
         );
       if (addResult.isErr()) {
+        if (addResult.error instanceof AppError) return err(addResult.error);
         this.logger.error(
           `Failed to add document permission for document ${documentPublicId}, error: ${addResult.error}`,
         );

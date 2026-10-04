@@ -37,13 +37,13 @@ model AnswerSource {
   messageId        Int            @map("message_id")
   documentId       Int            @map("document_id")
   knowledgeSpaceId Int            @map("knowledge_space_id")
-  chunkId          Int            @map("chunk_id")
+  chunkId          Int?           @map("chunk_id")
   score            Float
   createdAt        DateTime       @default(now()) @map("created_at")
   message          ChatMessage    @relation(fields: [messageId], references: [id])
   document         Document       @relation(fields: [documentId], references: [id])
   knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
-  documentChunk    DocumentChunk  @relation(fields: [chunkId], references: [id])
+  documentChunk    DocumentChunk? @relation(fields: [chunkId], references: [id], onDelete: SetNull)
 
   @@map("answer_source")
 }

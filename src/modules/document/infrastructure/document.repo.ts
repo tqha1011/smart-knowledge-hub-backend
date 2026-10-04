@@ -1,10 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { AppError, ErrorCode } from 'src/shared/common/errorCode';
+import {
+  databaseNow,
+  documentListInclude,
+  documentListSnapshot,
+  nextDocumentVersion,
+  lockStorageKey,
+} from './document-persistence';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { DocumentVisibility, Prisma } from 'generated/prisma/client';
 import { err, ok, Result } from 'neverthrow';
 import { PageResult, PaginationRequest } from 'src/shared/common/pagination';
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { PrismaService } from 'src/shared/infrastructure/database/prisma.service';
 import {
+  DocumentTrashResponseDto,
   DocumentDetailResponseDto,
   DocumentListResponseDto,
 } from '../application/dtos/document.response.dto';
@@ -12,6 +22,7 @@ import { IDocumentQueryRepository } from '../application/interfaces/document-que
 import { Document } from '../domain/entities/document.entity';
 import {
   DocumentContentData,
+  DocumentMutationSnapshot,
   DocumentIngestionData,
   DocumentStorageData,
   DocumentUpdateData,
@@ -32,13 +43,205 @@ export class DocumentRepository
   implements IDocumentRepository, IDocumentQueryRepository
 {
   private readonly logger = new Logger(DocumentRepository.name);
-  constructor(private readonly prismaService: PrismaService) {}
+  private readonly retentionDays: number;
+  constructor(
+    private readonly prismaService: PrismaService,
+    @Optional() config?: ConfigService,
+  ) {
+    this.retentionDays = Number(
+      config?.get('DOCUMENT_TRASH_RETENTION_DAYS') ?? 30,
+    );
+    if (!Number.isSafeInteger(this.retentionDays) || this.retentionDays <= 0) {
+      throw new Error(
+        'DOCUMENT_TRASH_RETENTION_DAYS must be a positive integer',
+      );
+    }
+  }
+
+  async softDeleteDocument(
+    publicId: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<
+          { id: number }[]
+        >`SELECT id FROM document WHERE public_id = ${publicId} AND knowledge_space_id = ${knowledgeSpaceId} FOR UPDATE`;
+        if (!rows.length)
+          return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+        const document = await tx.document.findUniqueOrThrow({
+          where: { id: rows[0].id },
+        });
+        const faq = await tx.knowledgeSpace.findFirst({
+          where: { faqDocumentId: document.id },
+          select: { id: true },
+        });
+        if (faq)
+          return err(
+            new AppError(
+              ErrorCode.Conflict,
+              'The system FAQ document cannot be deleted',
+            ),
+          );
+        if (document.isDeleted) return ok(undefined);
+        const now = await databaseNow(tx);
+        await tx.document.update({
+          where: { id: document.id },
+          data: {
+            isDeleted: true,
+            deletedAt: now,
+            purgeAfter: new Date(now.getTime() + this.retentionDays * 86400000),
+            updatedAt: nextDocumentVersion(document.updatedAt, now),
+          },
+        });
+        return ok(undefined);
+      });
+    } catch (error) {
+      this.logger.error('Failed to soft delete document', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to delete document',
+        ),
+      );
+    }
+  }
+
+  async restoreDocument(
+    publicId: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<DocumentListResponseDto, AppError>> {
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<
+          { id: number }[]
+        >`SELECT id FROM document WHERE public_id = ${publicId} AND knowledge_space_id = ${knowledgeSpaceId} FOR UPDATE`;
+        if (!rows.length)
+          return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+        const document = await tx.document.findUniqueOrThrow({
+          where: { id: rows[0].id },
+          include: documentListInclude,
+        });
+        if (!document.isDeleted)
+          return err(
+            new AppError(ErrorCode.Conflict, 'Document is already active'),
+          );
+        const now = await databaseNow(tx);
+        if (
+          !document.purgeAfter ||
+          document.purgeAfter <= now ||
+          document.purgeStartedAt ||
+          document.purgedAt
+        ) {
+          return err(
+            new AppError(ErrorCode.Gone, 'Document can no longer be restored'),
+          );
+        }
+        const restored = await tx.document.update({
+          where: { id: document.id },
+          data: {
+            isDeleted: false,
+            deletedAt: null,
+            purgeAfter: null,
+            purgeStartedAt: null,
+            purgedAt: null,
+            status:
+              document.status === 'Processing' ? 'Failed' : document.status,
+            updatedAt: nextDocumentVersion(document.updatedAt, now),
+          },
+          include: documentListInclude,
+        });
+        return ok(documentListSnapshot(restored));
+      });
+    } catch (error) {
+      this.logger.error('Failed to restore document', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to restore document',
+        ),
+      );
+    }
+  }
+
+  async getDocumentTrash(
+    knowledgeSpaceId: number,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentTrashResponseDto>, Error>> {
+    try {
+      return ok(
+        await this.prismaService.$transaction(
+          async (tx) => {
+            const now = await databaseNow(tx);
+            const where: Prisma.DocumentWhereInput = {
+              knowledgeSpaceId,
+              isDeleted: true,
+              purgeAfter: { gt: now },
+              purgeStartedAt: null,
+              purgedAt: null,
+            };
+            const documents = await tx.document.findMany({
+              where,
+              include: documentListInclude,
+              orderBy: [{ deletedAt: 'desc' }, { id: 'desc' }],
+              skip: (pagination.pageNumber - 1) * pagination.pageSize,
+              take: pagination.pageSize,
+            });
+            const count = await tx.document.count({ where });
+            return new PageResult(
+              documents.map((d) => ({
+                ...documentListSnapshot(d),
+                deletedAt: d.deletedAt!,
+                purgeAfter: d.purgeAfter!,
+              })),
+              count,
+              pagination.pageNumber,
+              pagination.pageNumber,
+              pagination.pageSize,
+            );
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+        ),
+      );
+    } catch (error) {
+      this.logger.error('Failed to get document trash', error);
+      return err(new Error('Failed to get document trash'));
+    }
+  }
+
+  async validateCachedDocumentList(
+    knowledgeSpaceId: number,
+    userId: number,
+    pagination: PaginationRequest,
+    page: PageResult<DocumentListResponseDto>,
+  ): Promise<Result<boolean, Error>> {
+    // Re-query the page and count together: same count alone misses reordering and permission changes.
+    const current = await this.getDocumentListInKnowledgeSpace(
+      knowledgeSpaceId,
+      userId,
+      pagination,
+    );
+    if (current.isErr()) return err(current.error);
+    return ok(JSON.stringify(current.value) === JSON.stringify(page));
+  }
+
+  async canDeleteStorageObject(key: string): Promise<Result<boolean, Error>> {
+    try {
+      const rows = await this.prismaService.$queryRaw<
+        { count: bigint }[]
+      >`SELECT count(*) AS count FROM document WHERE storage_path = ${key} AND (is_deleted = false OR (purged_at IS NULL AND purge_after > clock_timestamp()))`;
+      return ok(Number(rows[0].count) === 0);
+    } catch {
+      return err(new Error('Failed to check storage references'));
+    }
+  }
+
   async getDocumentIngestionDataByPublicId(
     publicId: string,
   ): Promise<Result<DocumentIngestionData | null, Error>> {
     try {
       const document = await this.prismaService.document.findUnique({
-        where: { publicId },
+        where: { publicId, isDeleted: false },
         select: {
           id: true,
           storagePath: true,
@@ -46,6 +249,7 @@ export class DocumentRepository
           status: true,
           visibility: true,
           content: true,
+          updatedAt: true,
           knowledgeSpaceId: true,
           fileType: true,
           workspace: { select: { publicId: true } },
@@ -62,6 +266,7 @@ export class DocumentRepository
         fileName: document.title,
         content: document.content,
         status: toDomainStatus(document.status),
+        updatedAt: document.updatedAt,
         visibility: toDomainVisibility(document.visibility),
         fileType: toDomainType(document.fileType),
       });
@@ -74,21 +279,6 @@ export class DocumentRepository
       );
     }
   }
-  async updateDocumentStatus(
-    documentId: number,
-    status: CommonDocumentStatus,
-  ): Promise<Result<undefined, Error>> {
-    try {
-      await this.prismaService.document.update({
-        where: { id: documentId },
-        data: { status: toPrismaStatus(status) },
-      });
-      return ok(undefined);
-    } catch (error) {
-      this.logger.error(`Failed to update document status: ${error}`);
-      return err(new Error(`Failed to update document status`));
-    }
-  }
   async transitionDocumentStatus(
     documentPublicId: string,
     knowledgeSpaceId: number,
@@ -97,11 +287,12 @@ export class DocumentRepository
     nextStatus: CommonDocumentStatus,
   ): Promise<Result<Date | null, Error>> {
     try {
-      const updatedAt = new Date();
+      const updatedAt = nextDocumentVersion(expectedUpdatedAt, new Date());
       const result = await this.prismaService.document.updateMany({
         where: {
           publicId: documentPublicId,
           knowledgeSpaceId,
+          isDeleted: false,
           status: toPrismaStatus(expectedStatus),
           updatedAt: expectedUpdatedAt,
         },
@@ -120,8 +311,13 @@ export class DocumentRepository
   ): Promise<Result<DocumentStorageData | null, Error>> {
     try {
       const document = await this.prismaService.document.findUnique({
-        where: { publicId, knowledgeSpaceId },
-        select: { id: true, storagePath: true, title: true, visibility: true },
+        where: { publicId, knowledgeSpaceId, isDeleted: false },
+        select: {
+          id: true,
+          storagePath: true,
+          title: true,
+          visibility: true,
+        },
       });
       if (!document) {
         return ok(null);
@@ -148,6 +344,7 @@ export class DocumentRepository
         where: {
           publicId: documentPublicId,
           knowledgeSpaceId: knowledgeSpaceId,
+          isDeleted: false,
         },
         select: {
           publicId: true,
@@ -255,6 +452,7 @@ export class DocumentRepository
     try {
       const where: Prisma.DocumentWhereInput = {
         knowledgeSpaceId,
+        isDeleted: false,
         OR: [
           { visibility: DocumentVisibility.Public },
           {
@@ -295,7 +493,11 @@ export class DocumentRepository
                 },
               },
             },
-            orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [
+              { updatedAt: 'desc' },
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ],
             skip: (pagination.pageNumber - 1) * pagination.pageSize,
             take: pagination.pageSize,
           }),
@@ -304,6 +506,7 @@ export class DocumentRepository
             where,
           }),
         ],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
       );
       const documentListResponse: DocumentListResponseDto[] = documents.map(
         (document) => ({
@@ -350,6 +553,7 @@ export class DocumentRepository
     try {
       const where: Prisma.DocumentWhereInput = {
         knowledgeSpaceId,
+        isDeleted: false,
         title: { contains: documentName, mode: 'insensitive' },
         OR: [
           { visibility: DocumentVisibility.Public },
@@ -404,6 +608,7 @@ export class DocumentRepository
             where,
           }),
         ],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
       );
       const documentListResponse: DocumentListResponseDto[] = documents.map(
         (document) => ({
@@ -443,65 +648,131 @@ export class DocumentRepository
   }
   async addDocument(newDocument: Document): Promise<Result<undefined, Error>> {
     try {
-      await this.prismaService.document.create({
-        data: {
-          publicId: newDocument.publicId,
-          title: newDocument.title,
-          description: newDocument.description,
-          content: newDocument.content,
-          authorId: newDocument.authorId,
-          knowledgeSpaceId: newDocument.knowledgeSpaceId,
-          categoryId: newDocument.categoryId,
-          status: toPrismaStatus(newDocument.status),
-          visibility: toPrismaVisibility(newDocument.visibility),
-          storagePath: newDocument.storagePath,
-          fileSize: newDocument.fileSize,
-          fileType: toPrismaType(newDocument.fileType),
-          createdAt: newDocument.createdAt,
-          updatedAt: newDocument.updatedAt,
-        },
+      await this.prismaService.$transaction(async (tx) => {
+        await lockStorageKey(tx, newDocument.storagePath);
+        const owner = await tx.documentStorageKey.findUnique({
+          where: { key: newDocument.storagePath },
+        });
+        const existing = await tx.document.findFirst({
+          where: { storagePath: newDocument.storagePath },
+          select: { id: true },
+        });
+        if (owner || existing)
+          throw new AppError(
+            ErrorCode.Conflict,
+            'Storage key has already been used by a document',
+          );
+        const created = await tx.document.create({
+          data: {
+            publicId: newDocument.publicId,
+            title: newDocument.title,
+            description: newDocument.description,
+            content: newDocument.content,
+            authorId: newDocument.authorId,
+            knowledgeSpaceId: newDocument.knowledgeSpaceId,
+            categoryId: newDocument.categoryId,
+            status: toPrismaStatus(newDocument.status),
+            visibility: toPrismaVisibility(newDocument.visibility),
+            storagePath: newDocument.storagePath,
+            fileSize: newDocument.fileSize,
+            fileType: toPrismaType(newDocument.fileType),
+            createdAt: newDocument.createdAt,
+            updatedAt: newDocument.updatedAt,
+          },
+        });
+        await tx.documentStorageKey.create({
+          data: { key: newDocument.storagePath, documentId: created.id },
+        });
       });
       return ok(undefined);
     } catch (error) {
       this.logger.error(`Failed to add document: ${error}`);
-      return err(new Error(`Failed to add document`));
+      return err(
+        error instanceof AppError ? error : new Error('Failed to add document'),
+      );
     }
   }
   async updateDocument(
     documentId: number,
     data: DocumentUpdateData,
-  ): Promise<Result<undefined, Error>> {
+  ): Promise<Result<DocumentMutationSnapshot, Error>> {
     try {
-      await this.prismaService.document.update({
-        where: { id: documentId },
-        data: {
-          ...(data.title !== undefined && { title: data.title }),
-          ...(data.description !== undefined && {
-            description: data.description,
-          }),
-          ...(data.content !== undefined && { content: data.content }),
-          ...(data.categoryId !== undefined && {
-            categoryId: data.categoryId,
-          }),
-          ...(data.visibility !== undefined && {
-            visibility: toPrismaVisibility(data.visibility),
-          }),
-          ...(data.status !== undefined && {
-            status: toPrismaStatus(data.status),
-          }),
-          ...(data.storagePath !== undefined && {
-            storagePath: data.storagePath,
-          }),
-          ...(data.fileSize !== undefined && { fileSize: data.fileSize }),
-          ...(data.fileType !== undefined && {
-            fileType: toPrismaType(data.fileType),
-          }),
-        },
+      const snapshot = await this.prismaService.$transaction(async (tx) => {
+        const locked = await tx.$queryRaw<
+          { updated_at: Date; storage_path: string }[]
+        >`SELECT updated_at, storage_path FROM document WHERE id = ${documentId} AND is_deleted = false FOR UPDATE`;
+        if (!locked.length)
+          throw new AppError(ErrorCode.NotFound, 'Document not found');
+        if (data.storagePath && data.storagePath !== locked[0].storage_path) {
+          for (const key of [locked[0].storage_path, data.storagePath].sort())
+            await lockStorageKey(tx, key);
+          // Seed/import paths may bypass repository registration. Reserve the old
+          // key before replacing it, and reject any currently referenced new key.
+          await tx.documentStorageKey.upsert({
+            where: { key: locked[0].storage_path },
+            create: { key: locked[0].storage_path, documentId },
+            update: {},
+          });
+          const owner = await tx.documentStorageKey.findUnique({
+            where: { key: data.storagePath },
+          });
+          const existing = await tx.document.findFirst({
+            where: { storagePath: data.storagePath },
+            select: { id: true },
+          });
+          if (owner || existing)
+            throw new AppError(
+              ErrorCode.Conflict,
+              'Storage key has already been used by a document',
+            );
+          await tx.documentStorageKey.create({
+            data: { key: data.storagePath, documentId },
+          });
+        }
+        const updatedAt = nextDocumentVersion(
+          locked[0].updated_at,
+          await databaseNow(tx),
+        );
+        const written = await tx.document.update({
+          where: { id: documentId, isDeleted: false },
+          data: {
+            updatedAt,
+            ...(data.title !== undefined && { title: data.title }),
+            ...(data.description !== undefined && {
+              description: data.description,
+            }),
+            ...(data.content !== undefined && { content: data.content }),
+            ...(data.categoryId !== undefined && {
+              categoryId: data.categoryId,
+            }),
+            ...(data.visibility !== undefined && {
+              visibility: toPrismaVisibility(data.visibility),
+            }),
+            ...(data.status !== undefined && {
+              status: toPrismaStatus(data.status),
+            }),
+            ...(data.storagePath !== undefined && {
+              storagePath: data.storagePath,
+            }),
+            ...(data.fileSize !== undefined && { fileSize: data.fileSize }),
+            ...(data.fileType !== undefined && {
+              fileType: toPrismaType(data.fileType),
+            }),
+          },
+        });
+        return {
+          updatedAt: written.updatedAt,
+          status: toDomainStatus(written.status),
+        };
       });
-      return ok(undefined);
+      return ok(snapshot);
     } catch (error) {
-      this.logger.error(`Failed to update document: ${error}`);
-      return err(new Error(`Failed to update document`));
+      this.logger.error('Failed to update document', error);
+      return err(
+        error instanceof AppError
+          ? error
+          : new Error('Failed to update document'),
+      );
     }
   }
   async getDocumentListItemByPublicId(
@@ -510,7 +781,11 @@ export class DocumentRepository
   ): Promise<Result<DocumentListResponseDto | null, Error>> {
     try {
       const document = await this.prismaService.document.findUnique({
-        where: { publicId: documentPublicId, knowledgeSpaceId },
+        where: {
+          publicId: documentPublicId,
+          knowledgeSpaceId,
+          isDeleted: false,
+        },
         select: {
           publicId: true,
           title: true,
@@ -574,7 +849,7 @@ export class DocumentRepository
   ): Promise<Result<number | null, Error>> {
     try {
       const documentId = await this.prismaService.document.findUnique({
-        where: { publicId, knowledgeSpaceId },
+        where: { publicId, knowledgeSpaceId, isDeleted: false },
         select: { id: true },
       });
       return ok(documentId?.id ?? null);
@@ -588,7 +863,7 @@ export class DocumentRepository
   ): Promise<Result<DocumentContentData | null, Error>> {
     try {
       const document = await this.prismaService.document.findUnique({
-        where: { id: documentId },
+        where: { id: documentId, isDeleted: false },
         select: { publicId: true, content: true },
       });
       if (!document) {

@@ -229,7 +229,13 @@ export class ChatAnswerService implements IChatAnswerService {
       );
       await this.writeChunks(restrictedCacheKey, restrictedChunks);
     }
-    const similarChunks = [...publicChunks, ...restrictedChunks]
+    const validated = await this.documentChunkRepository.validateSimilarChunks(
+      knowledgeSpaceId,
+      userId,
+      [...publicChunks, ...restrictedChunks],
+    );
+    if (validated.isErr()) return err(validated.error);
+    const similarChunks = validated.value
       .sort(
         (left, right) =>
           right.score - left.score || left.chunkId - right.chunkId,

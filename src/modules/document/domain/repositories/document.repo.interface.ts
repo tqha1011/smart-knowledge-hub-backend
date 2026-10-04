@@ -1,3 +1,5 @@
+import { AppError } from 'src/shared/common/errorCode';
+import { DocumentListResponseDto } from '../../application/dtos/document.response.dto';
 import { Result } from 'neverthrow';
 import {
   CommonDocumentStatus,
@@ -21,6 +23,7 @@ export type DocumentIngestionData = {
   fileName: string;
   content: string | null;
   status: CommonDocumentStatus;
+  updatedAt: Date;
   visibility: CommonDocumentVisibility;
   fileType: CommonDocumentType;
 };
@@ -29,12 +32,27 @@ export type DocumentUpdateData = DocumentUpdateParams & {
   status?: CommonDocumentStatus;
 };
 
+export type DocumentMutationSnapshot = {
+  updatedAt: Date;
+  status: CommonDocumentStatus;
+};
+
 export type DocumentContentData = {
   publicId: string;
   content: string | null;
 };
 
 export abstract class IDocumentRepository {
+  abstract softDeleteDocument(
+    publicId: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<undefined, AppError>>;
+  abstract restoreDocument(
+    publicId: string,
+    knowledgeSpaceId: number,
+  ): Promise<Result<DocumentListResponseDto, AppError>>;
+  abstract canDeleteStorageObject(key: string): Promise<Result<boolean, Error>>;
+
   abstract getDocumentIdByPublicId(
     publicId: string,
     knowledgeSpaceId: number,
@@ -54,11 +72,6 @@ export abstract class IDocumentRepository {
     publicId: string,
   ): Promise<Result<DocumentIngestionData | null, Error>>;
 
-  abstract updateDocumentStatus(
-    documentId: number,
-    status: CommonDocumentStatus,
-  ): Promise<Result<undefined, Error>>;
-
   /** Returns null if the document no longer matches the expected snapshot. */
   abstract transitionDocumentStatus(
     documentPublicId: string,
@@ -71,7 +84,7 @@ export abstract class IDocumentRepository {
   abstract updateDocument(
     documentId: number,
     data: DocumentUpdateData,
-  ): Promise<Result<undefined, Error>>;
+  ): Promise<Result<DocumentMutationSnapshot, Error>>;
 
   abstract getDocumentContentById(
     documentId: number,
