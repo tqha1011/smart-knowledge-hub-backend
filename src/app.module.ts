@@ -8,6 +8,7 @@ import {
 import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { shouldSkipLoadTestLoginThrottle } from './modules/auth/api/load-test-auth-throttle';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoryModule } from './modules/category/category.module';
 import { ChatMessageModule } from './modules/chat/chat-message.module';
@@ -46,6 +47,7 @@ import { StorageModule } from './shared/infrastructure/storage/storage.module';
           name: 'limitPerMinute-auth',
           ttl: 60000,
           limit: 10,
+          skipIf: shouldSkipLoadTestLoginThrottle,
         },
       ],
     }),

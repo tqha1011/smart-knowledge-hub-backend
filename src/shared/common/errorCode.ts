@@ -1,4 +1,5 @@
 export enum ErrorCode {
+  Gone = 'GONE',
   Conflict = 'CONFLICT',
   NotFound = 'NOT_FOUND',
   BadRequest = 'BAD_REQUEST',

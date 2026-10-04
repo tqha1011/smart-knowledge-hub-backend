@@ -1,19 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Result, err, ok } from 'neverthrow';
 import { IAnswerGenerationClient } from 'src/modules/rag/domain/repositories/answer-generation-client.interface';
-import { IDocumentChunkRepository } from 'src/modules/rag/domain/repositories/document-chunk.repo.interface';
+import {
+  IDocumentChunkRepository,
+  SimilarChunk,
+} from 'src/modules/rag/domain/repositories/document-chunk.repo.interface';
 import { IEmbeddingClient } from 'src/modules/rag/domain/repositories/embedding-client.interface';
 import {
   ChatAnswer,
+  ChatCacheDiagnostics,
+  ChatCacheOutcome,
   IChatAnswerService,
 } from '../interfaces/chat-answer.service.interface';
 import { ConfigService } from '@nestjs/config';
 import { IApplicationCache } from 'src/shared/infrastructure/cache/cache-manager.interface';
+import { CacheKey } from 'src/shared/domain/cacheKey';
 import { createHash } from 'crypto';
 
-export type SimilarChunksCacheKeyInput = {
+type SimilarChunksCacheKeyBase = {
   knowledgeSpaceId: number;
-  userId: number;
   questionEmbedding: number[];
   model: string;
   taskType: string;
@@ -21,19 +26,24 @@ export type SimilarChunksCacheKeyInput = {
   corpusVersion: string;
 };
 
+export type SimilarChunksCacheKeyInput = SimilarChunksCacheKeyBase &
+  ({ visibility: 'Public' } | { visibility: 'Restricted'; userId: number });
+
 export function buildSimilarChunksCacheKey({
   knowledgeSpaceId,
-  userId,
   questionEmbedding,
   model,
   taskType,
   topK,
   corpusVersion,
+  ...scope
 }: SimilarChunksCacheKeyInput): string {
   const digest = createHash('sha256')
     .update(JSON.stringify([questionEmbedding, model, taskType, topK]))
     .digest('hex');
-  return `rag:similar-chunks:v1:${knowledgeSpaceId}:${userId}:${corpusVersion}:${digest}`;
+  const visibility = scope.visibility;
+  const userScope = visibility === 'Restricted' ? `${scope.userId}:` : '';
+  return `rag:similar-chunks:v2:${knowledgeSpaceId}:${visibility}:${userScope}${corpusVersion}:${digest}`;
 }
 
 const QUERY_EMBEDDING_TASK = 'RETRIEVAL_QUERY';
@@ -57,7 +67,31 @@ function isValidQueryEmbedding(value: unknown): value is number[] {
   );
 }
 
+function isValidSimilarChunks(
+  value: unknown,
+  visibility: SimilarChunk['visibility'],
+): value is SimilarChunk[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry: unknown) => {
+      if (typeof entry !== 'object' || entry === null) return false;
+      const chunk = entry as Record<string, unknown>;
+      return (
+        Number.isInteger(chunk.chunkId) &&
+        Number.isInteger(chunk.documentId) &&
+        typeof chunk.documentPublicId === 'string' &&
+        typeof chunk.documentTitle === 'string' &&
+        typeof chunk.content === 'string' &&
+        chunk.visibility === visibility &&
+        typeof chunk.score === 'number' &&
+        Number.isFinite(chunk.score)
+      );
+    })
+  );
+}
+
 const TOP_K = 5;
+const SIMILAR_CHUNKS_TTL_MS = 60_000;
 // Below this cosine similarity, retrieved chunks are treated as unrelated
 // to the question rather than as usable context.
 const MIN_SIMILARITY_SCORE = 0.5;
@@ -77,15 +111,19 @@ export class ChatAnswerService implements IChatAnswerService {
     knowledgeSpaceId: number,
     userId: number,
     question: string,
+    diagnostics?: ChatCacheDiagnostics,
   ): Promise<Result<ChatAnswer, Error>> {
-    const cacheKey = buildQuestionEmbeddingCacheKey(
-      question,
-      this.configService.getOrThrow<string>('GEMINI_EMBEDDING_MODEL'),
+    const model = this.configService.getOrThrow<string>(
+      'GEMINI_EMBEDDING_MODEL',
     );
+    const cacheKey = buildQuestionEmbeddingCacheKey(question, model);
     let queryEmbedding: number[] | undefined;
+    let embeddingCacheOutcome: ChatCacheOutcome = 'miss';
+    // cached question embedding for case asking exactly question
     try {
       const cached = await this.cache.get<string>(cacheKey);
       if (cached !== undefined && cached !== null) {
+        embeddingCacheOutcome = 'invalid';
         if (typeof cached !== 'string') {
           throw new Error('Invalid cached query embedding');
         }
@@ -94,10 +132,13 @@ export class ChatAnswerService implements IChatAnswerService {
           throw new Error('Invalid cached query embedding');
         }
         queryEmbedding = parsed;
+        embeddingCacheOutcome = 'hit';
       }
     } catch (error) {
+      if (embeddingCacheOutcome !== 'invalid') embeddingCacheOutcome = 'error';
       this.logger.warn('Failed to read query embedding cache', error);
     }
+    if (diagnostics) diagnostics.embedding = embeddingCacheOutcome;
 
     if (queryEmbedding === undefined) {
       const embeddingResult = await this.embeddingClient.generateEmbeddings(
@@ -117,17 +158,91 @@ export class ChatAnswerService implements IChatAnswerService {
       }
     }
 
-    const searchResult = await this.documentChunkRepository.searchSimilarChunks(
-      knowledgeSpaceId,
-      userId,
-      queryEmbedding,
-      TOP_K,
-    );
-    if (searchResult.isErr()) {
-      return err(searchResult.error);
+    let publicChunks: SimilarChunk[] | undefined;
+    let restrictedChunks: SimilarChunk[] | undefined;
+    let publicCacheKey: string | undefined;
+    let restrictedCacheKey: string | undefined;
+    try {
+      const version =
+        (await this.cache.get<string>(
+          CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),
+        )) ?? '0';
+      if (typeof version !== 'string') {
+        throw new Error('Invalid similar chunks cache version');
+      }
+      const keyInput = {
+        knowledgeSpaceId,
+        questionEmbedding: queryEmbedding,
+        model,
+        taskType: QUERY_EMBEDDING_TASK,
+        topK: TOP_K,
+        corpusVersion: version,
+      };
+      publicCacheKey = buildSimilarChunksCacheKey({
+        ...keyInput,
+        visibility: 'Public',
+      });
+      restrictedCacheKey = buildSimilarChunksCacheKey({
+        ...keyInput,
+        visibility: 'Restricted',
+        userId,
+      });
+      [publicChunks, restrictedChunks] = await Promise.all([
+        this.readChunks(publicCacheKey, 'Public', diagnostics),
+        this.readChunks(restrictedCacheKey, 'Restricted', diagnostics),
+      ]);
+    } catch (error) {
+      if (diagnostics) {
+        diagnostics.publicChunks = 'bypass';
+        diagnostics.restrictedChunks = 'bypass';
+      }
+      this.logger.warn(`Failed to get similar chunks cached: ${error}`);
     }
 
-    const relevantChunks = searchResult.value.filter(
+    let fetchedChunks: SimilarChunk[] = [];
+    if (publicChunks === undefined || restrictedChunks === undefined) {
+      const searchResult =
+        await this.documentChunkRepository.searchSimilarChunks(
+          knowledgeSpaceId,
+          userId,
+          queryEmbedding,
+          TOP_K,
+          {
+            public: publicChunks === undefined,
+            restricted: restrictedChunks === undefined,
+          },
+        );
+      if (searchResult.isErr()) {
+        return err(searchResult.error);
+      }
+      fetchedChunks = searchResult.value;
+    }
+    if (publicChunks === undefined) {
+      publicChunks = fetchedChunks.filter(
+        (chunk) => chunk.visibility === 'Public',
+      );
+      await this.writeChunks(publicCacheKey, publicChunks);
+    }
+    if (restrictedChunks === undefined) {
+      restrictedChunks = fetchedChunks.filter(
+        (chunk) => chunk.visibility === 'Restricted',
+      );
+      await this.writeChunks(restrictedCacheKey, restrictedChunks);
+    }
+    const validated = await this.documentChunkRepository.validateSimilarChunks(
+      knowledgeSpaceId,
+      userId,
+      [...publicChunks, ...restrictedChunks],
+    );
+    if (validated.isErr()) return err(validated.error);
+    const similarChunks = validated.value
+      .sort(
+        (left, right) =>
+          right.score - left.score || left.chunkId - right.chunkId,
+      )
+      .slice(0, TOP_K);
+
+    const relevantChunks = similarChunks.filter(
       (chunk) => chunk.score >= MIN_SIMILARITY_SCORE,
     );
     if (relevantChunks.length === 0) {
@@ -160,5 +275,48 @@ export class ChatAnswerService implements IChatAnswerService {
         score: chunk.score,
       })),
     });
+  }
+
+  private async readChunks(
+    key: string,
+    visibility: SimilarChunk['visibility'],
+    diagnostics?: ChatCacheDiagnostics,
+  ): Promise<SimilarChunk[] | undefined> {
+    const layer = visibility === 'Public' ? 'publicChunks' : 'restrictedChunks';
+    let outcome: ChatCacheOutcome = 'miss';
+    try {
+      const cached = await this.cache.get<string>(key);
+      if (cached === undefined || cached === null) {
+        if (diagnostics) diagnostics[layer] = outcome;
+        return undefined;
+      }
+      outcome = 'invalid';
+      if (typeof cached !== 'string') {
+        throw new Error('Invalid cached similar chunks');
+      }
+      const parsed: unknown = JSON.parse(cached);
+      if (!isValidSimilarChunks(parsed, visibility)) {
+        throw new Error('Invalid cached similar chunks');
+      }
+      if (diagnostics) diagnostics[layer] = 'hit';
+      return parsed;
+    } catch (error) {
+      if (outcome !== 'invalid') outcome = 'error';
+      if (diagnostics) diagnostics[layer] = outcome;
+      this.logger.warn(`Failed to get ${visibility} chunks cached: ${error}`);
+      return undefined;
+    }
+  }
+
+  private async writeChunks(
+    key: string | undefined,
+    chunks: SimilarChunk[],
+  ): Promise<void> {
+    if (key === undefined) return;
+    try {
+      await this.cache.set(key, JSON.stringify(chunks), SIMILAR_CHUNKS_TTL_MS);
+    } catch (error) {
+      this.logger.warn('Failed to write similar chunks cache', error);
+    }
   }
 }

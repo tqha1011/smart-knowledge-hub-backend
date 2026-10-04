@@ -2,6 +2,7 @@ import { AddMemberRequestDto } from 'src/modules/knowledge-space/application/dto
 
 export type IngestionJobRequestDto = {
   documentPublicId: string;
+  expectedUpdatedAt?: string;
 };
 
 export type GenerateTitleJobRequestDto = {

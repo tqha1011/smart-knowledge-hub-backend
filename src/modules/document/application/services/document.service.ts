@@ -32,8 +32,10 @@ import {
   DocumentCreateRequestDto,
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
+  SearchDocumentQueryDto,
 } from '../dtos/document.request.dto';
 import {
+  DocumentTrashResponseDto,
   DocumentDetailResponseDto,
   DocumentListResponseDto,
   DocumentUploadUrlResponseDto,
@@ -61,6 +63,253 @@ export class DocumentService implements IDocumentService {
     @InjectQueue(QueueName.IngestionQueue) private ingestionQueue: Queue,
     private readonly cache: IApplicationCache,
   ) {}
+
+  async deleteDocumentAsync(
+    space: string,
+    user: string,
+    document: string,
+  ): Promise<Result<undefined, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          user,
+          space,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'delete document',
+      );
+      if (membership.isErr()) return err(membership.error);
+      const result = await this.documentRepository.softDeleteDocument(
+        document,
+        membership.value.knowledgeSpaceId,
+      );
+      if (result.isOk())
+        await this.invalidateDocumentList(
+          space,
+          membership.value.knowledgeSpaceId,
+        );
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to delete document', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to delete document',
+        ),
+      );
+    }
+  }
+
+  async restoreDocumentAsync(
+    space: string,
+    user: string,
+    document: string,
+  ): Promise<Result<DocumentListResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          user,
+          space,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'restore document',
+      );
+      if (membership.isErr()) return err(membership.error);
+      const result = await this.documentRepository.restoreDocument(
+        document,
+        membership.value.knowledgeSpaceId,
+      );
+      if (result.isOk())
+        await this.invalidateDocumentList(
+          space,
+          membership.value.knowledgeSpaceId,
+        );
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to restore document', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to restore document',
+        ),
+      );
+    }
+  }
+
+  async getDocumentTrashAsync(
+    space: string,
+    user: string,
+    pagination: PaginationRequest,
+  ): Promise<Result<PageResult<DocumentTrashResponseDto>, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          user,
+          space,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'view document trash',
+      );
+      if (membership.isErr()) return err(membership.error);
+      const result = await this.documentQueryRepository.getDocumentTrash(
+        membership.value.knowledgeSpaceId,
+        pagination,
+      );
+      if (result.isErr())
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get document trash',
+          ),
+        );
+      return ok(result.value);
+    } catch (error) {
+      this.logger.error('Failed to get document trash', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to get document trash',
+        ),
+      );
+    }
+  }
+
+  async retryIngestDocumentAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    documentPublicId: string,
+  ): Promise<Result<DocumentListResponseDto, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Editor,
+        'retry document ingestion',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const knowledgeSpaceId = membership.value.knowledgeSpaceId;
+      const snapshot =
+        await this.documentQueryRepository.getDocumentListItemByPublicId(
+          knowledgeSpaceId,
+          documentPublicId,
+        );
+      if (snapshot.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to get document for retry',
+          ),
+        );
+      }
+      if (snapshot.value === null) {
+        return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+      }
+      if (snapshot.value.status !== CommonDocumentStatus.Failed) {
+        return err(
+          new AppError(
+            ErrorCode.Conflict,
+            'Only failed documents can be retried',
+          ),
+        );
+      }
+
+      const transition = await this.documentRepository.transitionDocumentStatus(
+        documentPublicId,
+        knowledgeSpaceId,
+        CommonDocumentStatus.Failed,
+        snapshot.value.lastUpdated,
+        CommonDocumentStatus.Processing,
+      );
+      if (transition.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to transition document for retry',
+          ),
+        );
+      }
+      if (transition.value === null) {
+        return err(
+          new AppError(
+            ErrorCode.Conflict,
+            'Document changed before retry could start',
+          ),
+        );
+      }
+
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        knowledgeSpaceId,
+      );
+      try {
+        await this.ingestionQueue.add(
+          EventName.IngestionDocument,
+          {
+            documentPublicId,
+            expectedUpdatedAt: transition.value.toISOString(),
+          },
+          { attempts: 3 },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue document ingestion for document ${documentPublicId}`,
+          error,
+        );
+        try {
+          // Restore only this retry; a worker or a newer edit may have changed it.
+          const rollback =
+            await this.documentRepository.transitionDocumentStatus(
+              documentPublicId,
+              knowledgeSpaceId,
+              CommonDocumentStatus.Processing,
+              transition.value,
+              CommonDocumentStatus.Failed,
+            );
+          if (rollback.isErr()) {
+            this.logger.error(
+              'Failed to restore failed document status',
+              rollback.error,
+            );
+          }
+        } catch (rollbackError) {
+          this.logger.error(
+            'Failed to restore failed document status',
+            rollbackError,
+          );
+        }
+        await this.invalidateDocumentList(
+          knowledgeSpacePublicId,
+          knowledgeSpaceId,
+        );
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to enqueue document ingestion',
+          ),
+        );
+      }
+
+      // Use the claimed snapshot even if the worker already completed ingestion.
+      return ok({
+        ...snapshot.value,
+        status: CommonDocumentStatus.Processing,
+        lastUpdated: transition.value,
+      });
+    } catch (error) {
+      this.logger.error('Failed to retry document ingestion', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to retry document ingestion',
+        ),
+      );
+    }
+  }
 
   async getUploadUrlAsync(
     knowledgeSpacePublicId: string,
@@ -319,6 +568,8 @@ export class DocumentService implements IDocumentService {
         newDocument.value,
       );
       if (addDocumentResult.isErr()) {
+        if (addDocumentResult.error instanceof AppError)
+          return err(addDocumentResult.error);
         return err(
           new AppError(
             ErrorCode.InternalServerError,
@@ -326,7 +577,10 @@ export class DocumentService implements IDocumentService {
           ),
         );
       }
-      await this.invalidateDocumentList(knowledgeSpacePublicId);
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
 
       // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
       try {
@@ -334,6 +588,7 @@ export class DocumentService implements IDocumentService {
           EventName.IngestionDocument,
           {
             documentPublicId: newDocument.value.publicId,
+            expectedUpdatedAt: newDocument.value.updatedAt.toISOString(),
           },
           {
             attempts: 3, // retry up to 3 times in case of failure
@@ -401,6 +656,7 @@ export class DocumentService implements IDocumentService {
           )) ?? '0';
         cacheKey = CacheKey.generateDocumentListKey(
           knowledgeSpacePublicId,
+          userPublicId,
           version,
           pagination.pageNumber,
           pagination.pageSize,
@@ -422,7 +678,14 @@ export class DocumentService implements IDocumentService {
               throw new Error('Invalid cached document date');
             }
           }
-          return ok(page);
+          const validation =
+            await this.documentQueryRepository.validateCachedDocumentList(
+              membership.value.knowledgeSpaceId,
+              membership.value.userId,
+              pagination,
+              page,
+            );
+          if (validation.isOk() && validation.value) return ok(page);
         }
       } catch (error) {
         this.logger.warn('Failed to read document list cache', error);
@@ -431,6 +694,7 @@ export class DocumentService implements IDocumentService {
       const listResult =
         await this.documentQueryRepository.getDocumentListInKnowledgeSpace(
           membership.value.knowledgeSpaceId,
+          membership.value.userId,
           pagination,
         );
       if (listResult.isErr()) {
@@ -456,6 +720,51 @@ export class DocumentService implements IDocumentService {
         new AppError(
           ErrorCode.InternalServerError,
           'Failed to get document list',
+        ),
+      );
+    }
+  }
+
+  async searchDocumentsAsync(
+    knowledgeSpacePublicId: string,
+    userPublicId: string,
+    query: SearchDocumentQueryDto,
+  ): Promise<Result<PageResult<DocumentListResponseDto>, AppError>> {
+    try {
+      const membership = authorizeMembership(
+        await this.knowledgeSpaceRepository.getMembershipInKnowledgeSpace(
+          userPublicId,
+          knowledgeSpacePublicId,
+        ),
+        KnowledgeSpaceRole.Viewer,
+        'search documents',
+      );
+      if (membership.isErr()) {
+        return err(membership.error);
+      }
+
+      const searchResult =
+        await this.documentQueryRepository.searchDocumentsInKnowledgeSpace(
+          membership.value.knowledgeSpaceId,
+          membership.value.userId,
+          query.documentName,
+          { pageNumber: query.pageNumber, pageSize: query.pageSize },
+        );
+      if (searchResult.isErr()) {
+        return err(
+          new AppError(
+            ErrorCode.InternalServerError,
+            'Failed to search documents',
+          ),
+        );
+      }
+      return ok(searchResult.value);
+    } catch (error) {
+      this.logger.error('Failed to search documents', error);
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to search documents',
         ),
       );
     }
@@ -697,6 +1006,8 @@ export class DocumentService implements IDocumentService {
         },
       );
       if (updateResult.isErr()) {
+        if (updateResult.error instanceof AppError)
+          return err(updateResult.error);
         return err(
           new AppError(
             ErrorCode.InternalServerError,
@@ -705,13 +1016,19 @@ export class DocumentService implements IDocumentService {
         );
       }
 
-      await this.invalidateDocumentList(knowledgeSpacePublicId);
+      await this.invalidateDocumentList(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
 
-      if (needsReingestion) {
+      if (updateResult.value.status === CommonDocumentStatus.Processing) {
         try {
           await this.ingestionQueue.add(
             EventName.IngestionDocument,
-            { documentPublicId },
+            {
+              documentPublicId,
+              expectedUpdatedAt: updateResult.value.updatedAt.toISOString(),
+            },
             {
               attempts: 3, // retry up to 3 times in case of failure
             },
@@ -726,18 +1043,25 @@ export class DocumentService implements IDocumentService {
 
       // Best-effort: the DB already points at the new file, so a failed cleanup of
       // the old object only wastes storage, it doesn't affect the document's data.
-      if (fileReplacement) {
-        const deleteResult = await this.fileStorage.DeleteObject(
+      if (
+        fileReplacement &&
+        fileReplacement.storagePath !== documentData.value.storagePath
+      ) {
+        const canDelete = await this.documentRepository.canDeleteStorageObject(
           documentData.value.storagePath,
         );
-        if (deleteResult.isErr()) {
-          this.logger.error(
-            `Failed to delete replaced file ${documentData.value.storagePath} for document ${documentPublicId}`,
-            deleteResult.error,
+        if (canDelete.isOk() && canDelete.value) {
+          const deleteResult = await this.fileStorage.DeleteObject(
+            documentData.value.storagePath,
           );
+          if (deleteResult.isErr()) {
+            this.logger.error(
+              `Failed to delete replaced file ${documentData.value.storagePath} for document ${documentPublicId}`,
+              deleteResult.error,
+            );
+          }
         }
       }
-
       const updatedItem =
         await this.documentQueryRepository.getDocumentListItemByPublicId(
           membership.value.knowledgeSpaceId,
@@ -781,6 +1105,7 @@ export class DocumentService implements IDocumentService {
 
   private async invalidateDocumentList(
     knowledgeSpacePublicId: string,
+    knowledgeSpaceId: number,
   ): Promise<void> {
     try {
       await this.cache.set(
@@ -790,6 +1115,15 @@ export class DocumentService implements IDocumentService {
       );
     } catch (error) {
       this.logger.warn('Failed to invalidate document list cache', error);
+    }
+    try {
+      await this.cache.set(
+        CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate similar chunks cache', error);
     }
   }
 

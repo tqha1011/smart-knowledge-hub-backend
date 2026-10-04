@@ -1,8 +1,16 @@
 import {
+  DocumentTrashErrors,
+  documentListSchema,
+  trashPageSchema,
+} from './document-trash.swagger';
+import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
+  HttpCode,
+  HttpStatus,
   Logger,
   Param,
   ParseUUIDPipe,
@@ -14,10 +22,20 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiAcceptedResponse,
+  ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
   ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { toHttpException } from 'src/shared/common/app-error.mapper';
 import { AppError, ErrorCode } from 'src/shared/common/errorCode';
@@ -33,6 +51,7 @@ import {
   DocumentUpdateRequestDto,
   DocumentUploadUrlRequestDto,
   GetDownloadUrlQueryDto,
+  SearchDocumentQueryDto,
 } from '../application/dtos/document.request.dto';
 import { IDocumentService } from '../application/interfaces/document.service.interface';
 
@@ -43,6 +62,96 @@ import { IDocumentService } from '../application/interfaces/document.service.int
 export class DocumentController {
   private readonly logger = new Logger(DocumentController.name);
   constructor(private readonly documentService: IDocumentService) {}
+
+  @Get('trash')
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'List recoverable document trash',
+    description:
+      'Editor/Owner only. Includes Restricted documents; ordered by deletion time descending. Expired or claimed documents are excluded.',
+  })
+  @ApiQuery({ type: PaginationQueryDto })
+  @ApiOkResponse({ schema: trashPageSchema })
+  @DocumentTrashErrors(false)
+  async getDocumentTrash(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Query(new ValidationPipe({ transform: true }))
+    pagination: PaginationQueryDto,
+  ) {
+    const result = await this.documentService.getDocumentTrashAsync(
+      space,
+      user.sub,
+      pagination,
+    );
+    return result.match(
+      (value) => value,
+      (error) => {
+        throw this.toHttpError(error, 'listing document trash');
+      },
+    );
+  }
+
+  @Delete(':documentPublicId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'Soft delete a document',
+    description:
+      'No request body. Editor/Owner can delete Ready, Failed or Processing, including Restricted. Repeat deletion is idempotent and does not extend the stored retention deadline.',
+  })
+  @ApiNoContentResponse({
+    description: 'Deleted or already deleted; empty response',
+  })
+  @DocumentTrashErrors()
+  async deleteDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Param('documentPublicId', ParseUUIDPipe) document: string,
+  ) {
+    const result = await this.documentService.deleteDocumentAsync(
+      space,
+      user.sub,
+      document,
+    );
+    return result.match(
+      () => undefined,
+      (error) => {
+        throw this.toHttpError(error, 'deleting document');
+      },
+    );
+  }
+
+  @Post(':documentPublicId/restore')
+  @HttpCode(HttpStatus.OK)
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @ApiOperation({
+    summary: 'Restore a document before its retention deadline',
+    description:
+      'No request body. Preserves content, chunks and permissions. Processing becomes Failed and can be retried. Restore is unavailable at or after the stored deadline, even if cleanup has not run.',
+  })
+  @ApiOkResponse({
+    schema: documentListSchema,
+    description: 'DocumentListResponseDto snapshot written by restore',
+  })
+  @DocumentTrashErrors(true, true)
+  async restoreDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe) space: string,
+    @Param('documentPublicId', ParseUUIDPipe) document: string,
+  ) {
+    const result = await this.documentService.restoreDocumentAsync(
+      space,
+      user.sub,
+      document,
+    );
+    return result.match(
+      (value) => value,
+      (error) => {
+        throw this.toHttpError(error, 'restoring document');
+      },
+    );
+  }
 
   /**
    * Issues a short-lived URL the client uses to PUT the file straight to storage,
@@ -281,6 +390,75 @@ export class DocumentController {
     );
   }
 
+  @ApiOperation({
+    summary: 'Search readable documents by title in a knowledge space',
+  })
+  @ApiParam({ name: 'knowledgeSpacePublicId', type: String, format: 'uuid' })
+  @ApiQuery({ type: SearchDocumentQueryDto })
+  @ApiOkResponse({
+    description:
+      'Paginated readable documents matching a case-insensitive partial title',
+    schema: {
+      example: {
+        items: [
+          {
+            publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+            title: 'handbook.pdf',
+            fileType: 'PDF',
+            status: 'Ready',
+            visibility: 'Public',
+            lastUpdated: '2026-08-30T10:00:00.000Z',
+            category: {
+              publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+              name: 'Onboarding',
+            },
+            updatedBy: {
+              publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+              name: 'jane.doe',
+              avatarUrl: null,
+            },
+            cited: 3,
+          },
+        ],
+        totalPages: 1,
+        currentPage: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        hasPrevious: false,
+        hasNext: false,
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid knowledge space UUID, document name or pagination',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
+  @ApiForbiddenResponse({
+    description: 'User is not a member of the knowledge space',
+  })
+  @ApiInternalServerErrorResponse({ description: 'Failed to search documents' })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Get('search')
+  async searchDocuments(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Query(new ValidationPipe({ transform: true }))
+    query: SearchDocumentQueryDto,
+  ) {
+    const result = await this.documentService.searchDocumentsAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      query,
+    );
+    return result.match(
+      (page) => page,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'searching documents');
+      },
+    );
+  }
+
   /**
    * Returns the full detail of a document, including its content.
    * @remarks A `Restricted` document additionally requires a `DocumentPermission`
@@ -417,6 +595,75 @@ export class DocumentController {
       (document) => document,
       (error: AppError) => {
         throw this.toHttpError(error, 'updating a document');
+      },
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Retry ingestion of a failed document',
+    description:
+      'No request body is required. Only an Editor or Owner of the knowledge space can retry a Failed document, including Restricted documents.',
+  })
+  @ApiParam({ name: 'knowledgeSpacePublicId', type: String, format: 'uuid' })
+  @ApiParam({ name: 'documentPublicId', type: String, format: 'uuid' })
+  @ApiAcceptedResponse({
+    description:
+      'DocumentListResponseDto snapshot with status Processing and the retry timestamp',
+    schema: {
+      example: {
+        publicId: '8d4c2a1e-5b3f-4a6d-9e2c-1f7a3b5d9c0e',
+        title: 'handbook.pdf',
+        fileType: 'PDF',
+        status: 'Processing',
+        visibility: 'Restricted',
+        lastUpdated: '2026-10-04T10:00:00.000Z',
+        category: {
+          publicId: '0f2a1e3d-4b5c-4d6e-8f9a-0b1c2d3e4f5a',
+          name: 'Onboarding',
+        },
+        updatedBy: {
+          publicId: '6b1f2a4e-8c3d-4e2a-9f1b-3d5e7a9c1b2d',
+          name: 'jane.doe',
+          avatarUrl: null,
+        },
+        cited: 3,
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid knowledge space or document UUID',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid bearer token' })
+  @ApiForbiddenResponse({
+    description: 'User is not an Editor or Owner of the knowledge space',
+  })
+  @ApiNotFoundResponse({
+    description: 'Document does not exist in this knowledge space',
+  })
+  @ApiConflictResponse({
+    description: 'Document is not Failed or changed during a concurrent retry',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Database or ingestion queue failure',
+  })
+  @Roles([SystemRole.Admin, SystemRole.Employee])
+  @Post(':documentPublicId/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async retryIngestDocument(
+    @User() user: JwtPayload,
+    @Param('knowledgeSpacePublicId', ParseUUIDPipe)
+    knowledgeSpacePublicId: string,
+    @Param('documentPublicId', ParseUUIDPipe) documentPublicId: string,
+  ) {
+    const result = await this.documentService.retryIngestDocumentAsync(
+      knowledgeSpacePublicId,
+      user.sub,
+      documentPublicId,
+    );
+    return result.match(
+      (document) => document,
+      (error: AppError) => {
+        throw this.toHttpError(error, 'retrying document ingestion');
       },
     );
   }

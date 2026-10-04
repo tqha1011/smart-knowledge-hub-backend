@@ -183,6 +183,7 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
     }
 
     let documentPublicId: string;
+    let expectedUpdatedAt: Date;
     if (faqDocumentIdResult.value === null) {
       const newDocumentResult = Document.createDocument({
         title: FAQ_DOCUMENT_TITLE,
@@ -192,7 +193,7 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
         knowledgeSpaceId,
         categoryId: categoryIdResult.value,
         visibility: CommonDocumentVisibility.Public,
-        storagePath: `faq/${knowledgeSpacePublicId}.md`,
+        storagePath: `faq/${knowledgeSpacePublicId}/${randomUUID()}.md`,
         fileSize: Buffer.byteLength(qnaBlock, 'utf-8'),
         fileType: CommonDocumentType.MD,
       });
@@ -219,6 +220,7 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
       const newDocumentIdResult =
         await this.documentRepository.getDocumentIdByPublicId(
           newDocument.publicId,
+          knowledgeSpaceId,
         );
       if (newDocumentIdResult.isErr() || newDocumentIdResult.value === null) {
         return err(
@@ -243,6 +245,7 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
       }
 
       documentPublicId = newDocument.publicId;
+      expectedUpdatedAt = newDocument.updatedAt;
     } else {
       const existingResult =
         await this.documentRepository.getDocumentContentById(
@@ -283,12 +286,16 @@ export class UnansweredQuestionService implements IUnansweredQuestionService {
       }
 
       documentPublicId = existingResult.value.publicId;
+      expectedUpdatedAt = updateResult.value.updatedAt;
     }
 
     try {
       await this.ingestionQueue.add(
         EventName.IngestionDocument,
-        { documentPublicId },
+        {
+          documentPublicId,
+          expectedUpdatedAt: expectedUpdatedAt.toISOString(),
+        },
         {
           attempts: 3, // retry up to 3 times in case of failure
         },

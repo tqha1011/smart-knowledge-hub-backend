@@ -1,3 +1,5 @@
+import { DocumentCleanupRepository } from './infrastructure/document-cleanup.repo';
+import { DocumentCleanupService } from './application/services/document-cleanup.service';
 import { Module } from '@nestjs/common';
 import { CategoryModule } from 'src/modules/category/category.module';
 import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace.module';
@@ -26,6 +28,8 @@ import { DocumentRepository } from './infrastructure/document.repo';
   ],
   controllers: [DocumentController, DocumentPermissionController],
   providers: [
+    DocumentCleanupRepository,
+    DocumentCleanupService,
     {
       provide: IDocumentRepository,
       useClass: DocumentRepository,

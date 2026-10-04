@@ -16,7 +16,7 @@ function createDeps() {
   return {
     documentRepository: {
       getDocumentIngestionDataByPublicId: jest.fn(),
-      updateDocumentStatus: jest.fn(),
+      transitionDocumentStatus: jest.fn(),
     },
     embeddingService: { generateEmbeddings: jest.fn() },
     documentChunkRepository: { addChunks: jest.fn() },
@@ -44,6 +44,7 @@ function createService(deps: ReturnType<typeof createDeps>) {
 }
 
 const baseDocument = {
+  updatedAt: new Date('2026-10-04T12:00:00Z'),
   id: 42,
   knowledgeSpaceId: 7,
   knowledgeSpacePublicId: 'ks-public-id',
@@ -75,17 +76,21 @@ describe('ContentIngestionService', () => {
         { chunkIndex: 0, content: 'chunk', tokens: 3 },
       ]);
       deps.embeddingService.generateEmbeddings.mockResolvedValue(ok([[0.1]]));
-      deps.documentChunkRepository.addChunks.mockResolvedValue(ok(undefined));
-      deps.documentRepository.updateDocumentStatus.mockImplementation(() => {
-        expect(deps.cache.set).not.toHaveBeenCalled();
-        return Promise.resolve(ok(undefined));
-      });
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      deps.documentRepository.transitionDocumentStatus.mockImplementation(
+        () => {
+          expect(deps.cache.set).not.toHaveBeenCalled();
+          return Promise.resolve(ok(baseDocument.updatedAt));
+        },
+      );
       let release!: () => void;
       let started!: () => void;
       const invalidating = new Promise<void>((resolve) => {
         started = resolve;
       });
-      deps.cache.set.mockImplementation(() => {
+      deps.cache.set.mockImplementationOnce(() => {
         started();
         return new Promise<void>((resolve) => {
           release = resolve;
@@ -93,7 +98,10 @@ describe('ContentIngestionService', () => {
       });
       const service = createService(deps);
       const job = {
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
         opts: { attempts: 1 },
         attemptsMade: 1,
       } as Job<IngestionJobRequestDto>;
@@ -109,6 +117,11 @@ describe('ContentIngestionService', () => {
       expect(deps.realtimeNotifier.notifyDocumentStatus).not.toHaveBeenCalled();
       release();
       await pending;
+      expect(deps.cache.set).toHaveBeenCalledWith(
+        'rag:similar-chunks:version:7',
+        expect.stringMatching(/^[0-9a-f-]{36}$/),
+        0,
+      );
       expect(deps.realtimeNotifier.notifyDocumentStatus).toHaveBeenCalledWith(
         7,
         expect.objectContaining({ status }),
@@ -127,14 +140,19 @@ describe('ContentIngestionService', () => {
         { chunkIndex: 0, content: 'chunk', tokens: 3 },
       ]);
       deps.embeddingService.generateEmbeddings.mockResolvedValue(ok([[0.1]]));
-      deps.documentChunkRepository.addChunks.mockResolvedValue(ok(undefined));
-      deps.documentRepository.updateDocumentStatus.mockResolvedValue(
-        ok(undefined),
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
+        ok(baseDocument.updatedAt),
       );
       deps.cache.set.mockRejectedValue(new Error('Redis unavailable'));
       const service = createService(deps);
       const job = {
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
         opts: { attempts: 1 },
         attemptsMade: 1,
       } as Job<IngestionJobRequestDto>;
@@ -146,6 +164,103 @@ describe('ContentIngestionService', () => {
       );
     },
   );
+
+  describe('version fence', () => {
+    function setup() {
+      const deps = createDeps();
+      deps.documentRepository.getDocumentIngestionDataByPublicId.mockResolvedValue(
+        ok(baseDocument),
+      );
+      deps.chunkService.chunkText.mockReturnValue([
+        { chunkIndex: 0, content: 'chunk', tokens: 3 },
+      ]);
+      deps.embeddingService.generateEmbeddings.mockResolvedValue(ok([[0.1]]));
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      return { deps, service: createService(deps) };
+    }
+    it('persists legacy snapshot before extraction and reuses it on retry', async () => {
+      const { deps, service } = setup();
+      const updateData = jest.fn().mockResolvedValue(undefined);
+      const job = {
+        data: { documentPublicId: 'doc' },
+        updateData,
+      } as unknown as Job<IngestionJobRequestDto>;
+      await service.process(job);
+      expect(updateData).toHaveBeenCalledWith({
+        documentPublicId: 'doc',
+        expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+      });
+      expect(deps.documentChunkRepository.addChunks).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedUpdatedAt: baseDocument.updatedAt }),
+      );
+    });
+    it('retries rather than writing when legacy snapshot cannot be saved', async () => {
+      const { deps, service } = setup();
+      await expect(
+        service.process({
+          data: { documentPublicId: 'doc' },
+          updateData: jest
+            .fn()
+            .mockRejectedValue(new Error('Redis unavailable')),
+        } as unknown as Job<IngestionJobRequestDto>),
+      ).rejects.toThrow('Redis unavailable');
+      expect(deps.embeddingService.generateEmbeddings).not.toHaveBeenCalled();
+      expect(deps.documentChunkRepository.addChunks).not.toHaveBeenCalled();
+    });
+    it.each([
+      null,
+      { ...baseDocument, status: CommonDocumentStatus.Ready },
+      {
+        ...baseDocument,
+        updatedAt: new Date(baseDocument.updatedAt.getTime() + 1),
+      },
+    ])(
+      'skips obsolete, inactive or complete snapshots %j',
+      async (document) => {
+        const { deps, service } = setup();
+        deps.documentRepository.getDocumentIngestionDataByPublicId.mockResolvedValue(
+          ok(document),
+        );
+        await service.process({
+          data: {
+            documentPublicId: 'doc',
+            expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+          },
+        } as Job<IngestionJobRequestDto>);
+        expect(deps.documentChunkRepository.addChunks).not.toHaveBeenCalled();
+        expect(deps.embeddingService.generateEmbeddings).not.toHaveBeenCalled();
+      },
+    );
+    it('does not notify when delete or edit wins during embedding', async () => {
+      const { deps, service } = setup();
+      deps.documentChunkRepository.addChunks.mockResolvedValue(ok(null));
+      await service.process({
+        data: {
+          documentPublicId: 'doc',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
+      } as Job<IngestionJobRequestDto>);
+      expect(deps.realtimeNotifier.notifyDocumentStatus).not.toHaveBeenCalled();
+      expect(deps.cache.set).not.toHaveBeenCalled();
+    });
+    it('does not mark a newer retry Failed or notify when an old job exhausts attempts', async () => {
+      const { deps, service } = setup();
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
+        ok(null),
+      );
+      await service.onFailed({
+        data: {
+          documentPublicId: 'doc',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
+        opts: { attempts: 3 },
+        attemptsMade: 3,
+      } as Job<IngestionJobRequestDto>);
+      expect(deps.realtimeNotifier.notifyDocumentStatus).not.toHaveBeenCalled();
+    });
+  });
 
   describe('process', () => {
     it('notifies Ready after the document status update succeeds', async () => {
@@ -159,14 +274,19 @@ describe('ContentIngestionService', () => {
       deps.embeddingService.generateEmbeddings.mockResolvedValue(
         ok([[0.1, 0.2]]),
       );
-      deps.documentChunkRepository.addChunks.mockResolvedValue(ok(undefined));
-      deps.documentRepository.updateDocumentStatus.mockResolvedValue(
-        ok(undefined),
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
+        ok(baseDocument.updatedAt),
       );
       const service = createService(deps);
 
       await service.process({
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
       } as Job<IngestionJobRequestDto>);
 
       expect(deps.realtimeNotifier.notifyDocumentStatus).toHaveBeenCalledWith(
@@ -191,15 +311,20 @@ describe('ContentIngestionService', () => {
       deps.embeddingService.generateEmbeddings.mockResolvedValue(
         ok([[0.1, 0.2]]),
       );
-      deps.documentChunkRepository.addChunks.mockResolvedValue(ok(undefined));
-      deps.documentRepository.updateDocumentStatus.mockResolvedValue(
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
         err(new Error('db down')),
       );
       const service = createService(deps);
 
       await expect(
         service.process({
-          data: { documentPublicId: 'doc-public-id' },
+          data: {
+            documentPublicId: 'doc-public-id',
+            expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+          },
         } as Job<IngestionJobRequestDto>),
       ).rejects.toThrow();
       expect(deps.realtimeNotifier.notifyDocumentStatus).not.toHaveBeenCalled();
@@ -213,12 +338,15 @@ describe('ContentIngestionService', () => {
       deps.documentRepository.getDocumentIngestionDataByPublicId.mockResolvedValue(
         ok(baseDocument),
       );
-      deps.documentRepository.updateDocumentStatus.mockResolvedValue(
-        ok(undefined),
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
+        ok(baseDocument.updatedAt),
       );
       const service = createService(deps);
       const job = {
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
         opts: { attempts: 1 },
         attemptsMade: 1,
       } as unknown as Job<IngestionJobRequestDto>;
@@ -239,7 +367,10 @@ describe('ContentIngestionService', () => {
       const deps = createDeps();
       const service = createService(deps);
       const job = {
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
         opts: { attempts: 3 },
         attemptsMade: 1,
       } as unknown as Job<IngestionJobRequestDto>;
@@ -258,12 +389,15 @@ describe('ContentIngestionService', () => {
       deps.documentRepository.getDocumentIngestionDataByPublicId.mockResolvedValue(
         ok(baseDocument),
       );
-      deps.documentRepository.updateDocumentStatus.mockResolvedValue(
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
         err(new Error('db down')),
       );
       const service = createService(deps);
       const job = {
-        data: { documentPublicId: 'doc-public-id' },
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
         opts: { attempts: 1 },
         attemptsMade: 1,
       } as unknown as Job<IngestionJobRequestDto>;

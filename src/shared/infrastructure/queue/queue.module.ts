@@ -23,6 +23,7 @@ const isProduction = process.env.NODE_ENV === 'production';
     }),
 
     BullModule.registerQueue(
+      { name: QueueName.DocumentCleanupQueue },
       {
         name: QueueName.IngestionQueue,
       },
@@ -40,6 +41,10 @@ const isProduction = process.env.NODE_ENV === 'production';
           BullBoardModule.forRoot({
             route: '/admin/queues',
             adapter: ExpressAdapter,
+          }),
+          BullBoardModule.forFeature({
+            name: QueueName.DocumentCleanupQueue,
+            adapter: BullMQAdapter,
           }),
           BullBoardModule.forFeature({
             name: QueueName.IngestionQueue,

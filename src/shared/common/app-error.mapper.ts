@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GoneException,
   HttpException,
   HttpStatus,
   InternalServerErrorException,
@@ -17,6 +18,8 @@ import { AppError, ErrorCode } from './errorCode';
  */
 export function toHttpException(error: AppError): HttpException {
   switch (error.code) {
+    case ErrorCode.Gone:
+      return new GoneException(error.message);
     case ErrorCode.Conflict:
       return new ConflictException(error.message);
     case ErrorCode.NotFound:
