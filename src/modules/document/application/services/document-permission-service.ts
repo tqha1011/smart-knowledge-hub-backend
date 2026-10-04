@@ -115,7 +115,10 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           ),
         );
       }
-      await this.invalidateSimilarChunks(membership.value.knowledgeSpaceId);
+      await this.invalidateDocumentCaches(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
       return ok(undefined);
     } catch (error) {
       this.logger.error(
@@ -221,7 +224,10 @@ export class DocumentPermissionService implements IDocumentPermissionService {
           ),
         );
       }
-      await this.invalidateSimilarChunks(membership.value.knowledgeSpaceId);
+      await this.invalidateDocumentCaches(
+        knowledgeSpacePublicId,
+        membership.value.knowledgeSpaceId,
+      );
       return ok(undefined);
     } catch (error) {
       this.logger.error(
@@ -236,9 +242,19 @@ export class DocumentPermissionService implements IDocumentPermissionService {
     }
   }
 
-  private async invalidateSimilarChunks(
+  private async invalidateDocumentCaches(
+    knowledgeSpacePublicId: string,
     knowledgeSpaceId: number,
   ): Promise<void> {
+    try {
+      await this.cache.set(
+        CacheKey.generateDocumentListVersionKey(knowledgeSpacePublicId),
+        randomUUID(),
+        0,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to invalidate document list cache', error);
+    }
     try {
       await this.cache.set(
         CacheKey.generateSimilarChunksVersionKey(knowledgeSpaceId),

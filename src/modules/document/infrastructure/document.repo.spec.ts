@@ -3,6 +3,39 @@ import { PrismaService } from 'src/shared/infrastructure/database/prisma.service
 import { Logger } from '@nestjs/common';
 import { DocumentRepository } from './document.repo';
 
+describe('DocumentRepository.getDocumentListInKnowledgeSpace', () => {
+  it('includes Public documents and authorized Restricted documents using the same filter for rows and count', async () => {
+    const findMany = jest.fn().mockReturnValue(Promise.resolve([]));
+    const count = jest.fn().mockReturnValue(Promise.resolve(3));
+    const repository = new DocumentRepository({
+      document: { findMany, count },
+      $transaction: (queries: Promise<unknown>[]) => Promise.all(queries),
+    } as unknown as PrismaService);
+    const page = (
+      await repository.getDocumentListInKnowledgeSpace(7, 8, {
+        pageNumber: 3,
+        pageSize: 2,
+      })
+    )._unsafeUnwrap();
+    const where = {
+      knowledgeSpaceId: 7,
+      OR: [
+        { visibility: 'Public' },
+        {
+          visibility: 'Restricted',
+          documentPermissions: { some: { userId: 8 } },
+        },
+      ],
+    };
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where, skip: 4, take: 2 }),
+    );
+    expect(count).toHaveBeenCalledWith({ where });
+    expect(page.items).toEqual([]);
+    expect(page.totalPages).toBe(2);
+  });
+});
+
 describe('DocumentRepository.searchDocumentsInKnowledgeSpace', () => {
   const row = {
     publicId: 'doc',

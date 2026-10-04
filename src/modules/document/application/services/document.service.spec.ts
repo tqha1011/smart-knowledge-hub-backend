@@ -35,7 +35,7 @@ const item: DocumentListResponseDto = {
 };
 const pagination = { pageNumber: 1, pageSize: 20 };
 const versionKey = 'document-list:space:version';
-const pageKey = 'document-list:space:0:1:20';
+const pageKey = 'document-list:space:user:0:1:20';
 
 describe('DocumentService list cache', () => {
   const values = new Map<string, string>();
@@ -237,6 +237,61 @@ describe('DocumentService list cache', () => {
     await read();
     expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(1);
   });
+  it("does not reuse another user's cached restricted documents", async () => {
+    const restrictedPage = new PageResult(
+      [{ ...item, visibility: CommonDocumentVisibility.Restricted }],
+      1,
+      1,
+      1,
+      20,
+    );
+    query.getDocumentListInKnowledgeSpace.mockResolvedValueOnce(
+      ok(restrictedPage),
+    );
+    expect((await read())._unsafeUnwrap().items).toHaveLength(1);
+    membership.getMembershipInKnowledgeSpace.mockResolvedValueOnce(
+      ok({ knowledgeSpaceId: 7, userId: 9, role: KnowledgeSpaceRole.Viewer }),
+    );
+    query.getDocumentListInKnowledgeSpace.mockResolvedValueOnce(
+      ok(new PageResult([], 0, 1, 1, 20)),
+    );
+    const otherPage = (
+      await service.getDocumentListAsync('space', 'other-user', pagination)
+    )._unsafeUnwrap();
+    expect(otherPage.items).toEqual([]);
+    expect(otherPage.totalPages).toBe(0);
+    expect(query.getDocumentListInKnowledgeSpace).toHaveBeenLastCalledWith(
+      7,
+      9,
+      pagination,
+    );
+    expect(values.has('document-list:space:user:0:1:20')).toBe(true);
+    expect(values.has('document-list:space:other-user:0:1:20')).toBe(true);
+    await read();
+    expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(2);
+  });
+  it('ignores old cache entries shared by all users', async () => {
+    values.set('document-list:space:0:1:20', JSON.stringify(page));
+    query.getDocumentListInKnowledgeSpace.mockResolvedValueOnce(
+      ok(new PageResult([], 0, 1, 1, 20)),
+    );
+    expect((await read())._unsafeUnwrap().items).toEqual([]);
+    expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(1);
+  });
+  it("refreshes every user's cached list when the space version changes", async () => {
+    await read();
+    await service.getDocumentListAsync('space', 'other-user', pagination);
+    values.set(versionKey, 'permission-change');
+    await read();
+    await service.getDocumentListAsync('space', 'other-user', pagination);
+    expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(4);
+    expect(values.has('document-list:space:user:permission-change:1:20')).toBe(
+      true,
+    );
+    expect(
+      values.has('document-list:space:other-user:permission-change:1:20'),
+    ).toBe(true);
+  });
   it('separates workspace, page number, page size and version', async () => {
     await read();
     await service.getDocumentListAsync('other', 'user', pagination);
@@ -252,8 +307,8 @@ describe('DocumentService list cache', () => {
     await read();
     await read();
     expect(query.getDocumentListInKnowledgeSpace).toHaveBeenCalledTimes(5);
-    expect(values.has('document-list:other:0:1:20')).toBe(true);
-    expect(values.has('document-list:space:new:1:20')).toBe(true);
+    expect(values.has('document-list:other:user:0:1:20')).toBe(true);
+    expect(values.has('document-list:space:user:new:1:20')).toBe(true);
   });
   it('denies membership before any cache access even with a cached page', async () => {
     values.set(pageKey, JSON.stringify(page));

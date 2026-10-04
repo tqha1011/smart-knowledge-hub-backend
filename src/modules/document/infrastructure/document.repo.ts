@@ -228,13 +228,20 @@ export class DocumentRepository
     pagination: PaginationRequest,
   ): Promise<Result<PageResult<DocumentListResponseDto>, Error>> {
     try {
+      const where: Prisma.DocumentWhereInput = {
+        knowledgeSpaceId,
+        OR: [
+          { visibility: DocumentVisibility.Public },
+          {
+            visibility: DocumentVisibility.Restricted,
+            documentPermissions: { some: { userId } },
+          },
+        ],
+      };
       const [documents, totalDocuments] = await this.prismaService.$transaction(
         [
           this.prismaService.document.findMany({
-            where: {
-              knowledgeSpaceId: knowledgeSpaceId,
-              documentPermissions: { some: { userId: userId } },
-            },
+            where,
             select: {
               publicId: true,
               title: true,
@@ -269,7 +276,7 @@ export class DocumentRepository
           }),
 
           this.prismaService.document.count({
-            where: { knowledgeSpaceId: knowledgeSpaceId },
+            where,
           }),
         ],
       );

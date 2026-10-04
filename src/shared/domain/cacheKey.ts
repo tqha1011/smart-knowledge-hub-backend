@@ -11,11 +11,12 @@ export class CacheKey {
 
   static generateDocumentListKey(
     knowledgeSpacePublicId: string,
+    userPublicId: string,
     version: string,
     pageNumber: number,
     pageSize: number,
   ): string {
-    return `document-list:${knowledgeSpacePublicId}:${version}:${pageNumber}:${pageSize}`;
+    return `document-list:${knowledgeSpacePublicId}:${userPublicId}:${version}:${pageNumber}:${pageSize}`;
   }
 
   static generateOtpKey(email: string): string {

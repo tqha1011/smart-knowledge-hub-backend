@@ -22,7 +22,11 @@ describe('DocumentPermissionService retrieval cache invalidation', () => {
     addDocumentPermission: jest.fn(),
     updateDocumentPermission: jest.fn(),
   };
-  const cache = { get: jest.fn(), set: jest.fn(), delete: jest.fn() };
+  const cache = {
+    get: jest.fn(),
+    set: jest.fn<Promise<void>, [string, string, number?]>(),
+    delete: jest.fn(),
+  };
   let service: DocumentPermissionService;
 
   beforeEach(async () => {
@@ -66,7 +70,7 @@ describe('DocumentPermissionService retrieval cache invalidation', () => {
         );
 
   it.each(['add', 'update'] as const)(
-    '%s changes the retrieval version after permission persistence',
+    '%s changes both list and retrieval versions after permission persistence',
     async (action) => {
       repository[
         action === 'add' ? 'addDocumentPermission' : 'updateDocumentPermission'
@@ -81,10 +85,25 @@ describe('DocumentPermissionService retrieval cache invalidation', () => {
         7,
       );
       expect(cache.set).toHaveBeenCalledWith(
+        'document-list:space:version',
+        expect.stringMatching(/^[0-9a-f-]{36}$/),
+        0,
+      );
+      expect(cache.set).toHaveBeenCalledWith(
         'rag:similar-chunks:version:7',
         expect.stringMatching(/^[0-9a-f-]{36}$/),
         0,
       );
+      const firstVersion: unknown = cache.set.mock.calls.find(
+        (call) => call[0] === 'document-list:space:version',
+      )?.[1];
+      cache.set.mockClear();
+      await mutate(action);
+      const nextVersion: unknown = cache.set.mock.calls.find(
+        (call) => call[0] === 'document-list:space:version',
+      )?.[1];
+      expect(nextVersion).toEqual(expect.stringMatching(/^[0-9a-f-]{36}$/));
+      expect(nextVersion).not.toBe(firstVersion);
     },
   );
 
@@ -100,11 +119,44 @@ describe('DocumentPermissionService retrieval cache invalidation', () => {
     },
   );
 
-  it('keeps a successful permission update when Redis invalidation fails', async () => {
-    cache.set.mockRejectedValueOnce(new Error('Redis unavailable'));
+  it.each(['document-list:space:version', 'rag:similar-chunks:version:7'])(
+    'attempts both invalidations even if %s fails',
+    async (failedKey) => {
+      cache.set.mockImplementation((key: string) =>
+        key === failedKey
+          ? Promise.reject(new Error('Redis unavailable'))
+          : Promise.resolve(),
+      );
+      expect((await mutate('update')).isOk()).toBe(true);
+      expect(repository.updateDocumentPermission).toHaveBeenCalledTimes(1);
+      expect(cache.set).toHaveBeenCalledWith(
+        'document-list:space:version',
+        expect.any(String),
+        0,
+      );
+      expect(cache.set).toHaveBeenCalledWith(
+        'rag:similar-chunks:version:7',
+        expect.any(String),
+        0,
+      );
+    },
+  );
 
-    expect((await mutate('update')).isOk()).toBe(true);
-    expect(repository.updateDocumentPermission).toHaveBeenCalledTimes(1);
+  it('invalidates the list when all document permissions are revoked', async () => {
+    users.GetUserIdsByPublicIds.mockResolvedValueOnce(ok([]));
+    const result = await service.updateDocumentPermissionAsync(
+      'space',
+      'owner',
+      'document',
+      [],
+    );
+    expect(result.isOk()).toBe(true);
+    expect(repository.updateDocumentPermission).toHaveBeenCalledWith(42, []);
+    expect(cache.set).toHaveBeenCalledWith(
+      'document-list:space:version',
+      expect.any(String),
+      0,
+    );
   });
 
   it.each(['add', 'update'] as const)(

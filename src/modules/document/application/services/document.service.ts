@@ -405,6 +405,7 @@ export class DocumentService implements IDocumentService {
           )) ?? '0';
         cacheKey = CacheKey.generateDocumentListKey(
           knowledgeSpacePublicId,
+          userPublicId,
           version,
           pagination.pageNumber,
           pagination.pageSize,
