@@ -9,7 +9,7 @@ Smart Knowledge Hub is a **NestJS 11 and TypeScript backend** for a multi-worksp
 - **Asynchronous document ingestion:** BullMQ workers extract text, split it into token-aware chunks, generate 1,536-dimensional Gemini embeddings, and store them in PostgreSQL with pgvector. Processing status moves to Ready or Failed, with real-time Socket.IO notifications.
 - **Permission-aware RAG chat:** Embed a question, search the caller's accessible Ready documents by cosine similarity, pass relevant chunks to Groq for answer generation, and attach source references to the answer. Users can manage chat sessions and message history.
 - **Unanswered-question workflow:** Record questions without relevant document content and resolve them into a workspace FAQ document that is queued for ingestion.
-- **Caching:** Redis caches paginated document lists with workspace version keys and caches exact-match question embeddings by model, task type, and question hash. A cache hit skips the embedding API call; retrieval still applies current workspace and document permissions.
+- **Caching:** Redis caches paginated document lists, exact-match question embeddings, and retrieved chunks. Chunk caches are versioned per workspace, with separate Public and per-user Restricted scopes; retrieved chunks are revalidated against current document status and permissions before use.
 - **Accounts and notifications:** JWT login and refresh tokens, OTP-based password recovery, email jobs, and Redis-backed WebSocket notifications.
 
 ## Core technologies 🛠️
@@ -20,21 +20,93 @@ Smart Knowledge Hub is a **NestJS 11 and TypeScript backend** for a multi-worksp
 - **Async and real time:** Redis, BullMQ workers, Socket.IO, Redis Socket.IO adapter, and Bull Board in non-production environments.
 - **Storage and delivery:** S3-compatible object storage (including Cloudflare R2), presigned URLs, Jest, ESLint, Prettier, and GitHub Actions CI.
 
-## How the RAG flow works
+## User flow
 
-```text
-PDF / DOCX / TXT / MD upload
-  -> S3-compatible storage -> BullMQ ingestion worker
-  -> text extraction -> token-aware chunks -> Gemini embeddings
-  -> PostgreSQL + pgvector
+The diagrams use Mermaid and render directly on GitHub. Workspace roles are cumulative: Owners can also perform Editor and Viewer actions; Editors can also perform Viewer actions. Public documents are accessible to workspace members, while Restricted documents require an explicit document permission.
 
-Question
-  -> exact-question embedding cache (Gemini on a miss)
-  -> permission-aware pgvector search for relevant chunks
-  -> Groq answer generation -> answer with document sources
+```mermaid
+flowchart TD
+    login([Log in]) --> space{"Create or select a knowledge space"}
+    space -->|Create| create["Create space as Owner"]
+    space -->|Select| member["Open a space you belong to"]
+    create --> actions["Choose an action within your workspace role"]
+    member --> actions
+
+    actions -->|Owner| manage["Manage space settings, members and roles"]
+    actions -->|Owner or Editor| upload["Upload a document and set category and visibility"]
+    upload --> processing["Wait for processing status notification"]
+    processing --> status{"Document status"}
+    status -->|Failed| retry["Retry ingestion"]
+    retry --> processing
+    status -->|Ready| browse["Browse, read or download accessible documents"]
+    actions -->|Any workspace member| browse
+
+    actions -->|Any workspace member| session["Create or open a chat session"]
+    session --> ask["Ask a knowledge question"]
+    ask --> context{"Relevant accessible content found?"}
+    context -->|Yes| answer["Read the answer and document sources"]
+    context -->|No| unanswered["See the no-context reply; question is recorded"]
+    unanswered --> resolve["Owner or Editor provides an answer"]
+    resolve --> faq["Update FAQ document and queue ingestion"]
+    faq --> ready["FAQ becomes searchable when Ready"]
+    ready -.->|Ask again| ask
 ```
 
-The vector search checks both document processing status and the requesting user's access. Chat answers are generated from retrieved content; the cache stores question embeddings, not full answers or permission-filtered search results.
+## How the RAG flow works
+
+### Document ingestion
+
+Uploaded files and inline document content (including resolved FAQ entries) share the same chunking and embedding pipeline.
+
+```mermaid
+flowchart TD
+    upload["Request a presigned URL and upload PDF / DOCX / TXT / MD"]
+    upload --> storage[("S3-compatible storage")]
+    storage --> create["Create document metadata and enqueue ingestion"]
+    inline["Create or update inline content / FAQ"] --> queue
+    create --> queue["BullMQ ingestion worker - document Processing"]
+    queue --> input{"Inline content available?"}
+    input -->|Yes| text["Document text"]
+    input -->|No| extract["Download stored file and extract text"]
+    extract --> text
+    text --> chunks["Split into token-aware chunks"]
+    chunks --> embeddings["Gemini document embeddings - 1536 dimensions"]
+    embeddings --> db[("PostgreSQL + pgvector: chunks and embeddings")]
+    db --> ready["Mark Ready, invalidate caches and notify via Socket.IO"]
+    queue -.->|Failure after automatic retries are exhausted| failed["Mark Failed and notify via Socket.IO"]
+    failed -->|Owner or Editor retries| queue
+```
+
+### Question retrieval and answer generation
+
+Knowledge questions use cached embeddings and retrieved chunks where available. Small-talk messages receive a predefined reply without invoking RAG.
+
+```mermaid
+flowchart TD
+    question["Question in a chat session"] --> auth["Check workspace membership and session; save user message"]
+    auth --> smalltalk{"Small talk?"}
+    smalltalk -->|Yes| greeting["Predefined reply"]
+    smalltalk -->|No| embeddingCache{"Valid question embedding in Redis?"}
+    embeddingCache -->|Hit| vector["Question vector"]
+    embeddingCache -->|Miss / invalid / unavailable| gemini["Generate Gemini query embedding and cache it"]
+    gemini --> vector
+    vector --> chunkCache["Read workspace-versioned chunk caches: Public and per-user Restricted"]
+    chunkCache --> lookup{"Any scope missing or invalid?"}
+    lookup -->|Yes| search["Permission-aware pgvector search for missing scopes; cache results"]
+    lookup -->|No| validate
+    search --> validate["Revalidate chunks: workspace, Ready status, not deleted and current access"]
+    validate --> rank["Merge and rank; keep top 5, then discard cosine similarity scores below 0.5"]
+    rank --> relevant{"Any relevant chunks remain?"}
+    relevant -->|Yes| groq["Groq generates an answer from the question and retrieved content"]
+    groq --> sources["Save assistant message and document source references"]
+    relevant -->|No| unanswered["Record unanswered question and prepare no-context reply"]
+    greeting --> reply["Save assistant reply without sources"]
+    unanswered --> reply
+    sources --> response["Return response and sources; retain chat history"]
+    reply --> response
+```
+
+Redis caches embeddings and retrieved chunks, not generated answers. Public chunk caches are shared within a workspace; Restricted chunk caches are scoped to the requesting user. Cache hits still go through database validation before any content reaches Groq. Questions without relevant content are recorded for the Owner/Editor FAQ resolution workflow shown above.
 
 ## Architecture
 
