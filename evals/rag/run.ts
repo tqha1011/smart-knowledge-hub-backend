@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { ChatAnswerService } from '../../src/modules/chat/application/services/chat-answer.service';
 import { authorizeMembership } from '../../src/modules/knowledge-space/application/services/authorizeMembership';
@@ -39,22 +39,27 @@ async function main() {
   const { values } = parseArgs({
     options: {
       user: { type: 'string' },
+      dataset: { type: 'string' },
       limit: { type: 'string', default: '1' },
       out: { type: 'string' },
     },
   });
   const userPublicId = values.user ?? process.env.BENCHMARK_USER_PUBLIC_ID;
   if (!userPublicId) throw new Error('Provide --user <userPublicId>.');
-  const limit = Number(values.limit);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 10)
-    throw new Error('--limit must be an integer from 1 to 10.');
-
-  const dataset = readFileSync(resolve(__dirname, 'pilot-10.jsonl'), 'utf8');
-  const questions = dataset
+  const datasetPath = resolve(
+    values.dataset ?? resolve(__dirname, 'pilot-10.jsonl'),
+  );
+  const dataset = readFileSync(datasetPath, 'utf8');
+  const allQuestions = dataset
     .trim()
     .split('\n')
-    .map((line) => JSON.parse(line) as Question)
-    .slice(0, limit);
+    .map((line) => JSON.parse(line) as Question);
+  const limit = Number(values.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > allQuestions.length)
+    throw new Error(
+      `--limit must be an integer from 1 to ${allQuestions.length}.`,
+    );
+  const questions = allQuestions.slice(0, limit);
   const startedAt = new Date().toISOString();
   const output = resolve(
     values.out ??
@@ -140,6 +145,7 @@ async function main() {
           startedAt,
           userPublicId,
           questionIds: questions.map((question) => question.id),
+          datasetPath: relative(resolve(__dirname, '../..'), datasetPath),
           datasetSha256: createHash('sha256').update(dataset).digest('hex'),
           gitCommit: execFileSync('git', ['rev-parse', 'HEAD'], {
             encoding: 'utf8',

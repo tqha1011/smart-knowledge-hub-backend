@@ -1,0 +1,144 @@
+id,actualAnswer,verdict,reason
+Q11,"Theo Đề cương DA1.pdf, hệ thống hướng tới ba nhóm người dùng chính:
+
+1. **Sinh viên CNTT** (đặc biệt là năm 2‑4) đang chuẩn bị thực tập hoặc muốn học một hướng chuyên sâu.  
+2. **Người mới bắt đầu** hoặc những người chuyển ngành sang lập trình.  
+3. **Giảng viên, mentor, các câu lạc bộ học thuật** – những người sẽ đóng vai trò Admin để giao lộ trình cho các thành viên.  
+
+(Thông tin này được nêu trong mục “4. Đối tượng sử dụng” của Đề cương DA1.pdf)【1†L0-L4】",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q12,"Theo **Đề cương DA1.pdf**, các chức năng được ghi rõ là **ngoài phạm vi Đồ án 1** là:
+
+1. **Chấm bài tập thực hành**  
+2. **Mentor / cộng đồng** (hỗ trợ từ các mentor hoặc cộng đồng)  
+3. **Chatbot gia sư** (dự kiến sẽ được phát triển trong Đồ án 2)
+
+> Nguồn: “Ngoài phạm vi Đồ án 1: chấm bài tập thực hành, mentor/cộng đồng, chatbot gia sư (dự kiến phát triển ở Đồ án 2).” [4]",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q13,"Nhóm sẽ **đánh giá lộ trình AI** bằng cách **so sánh lộ trình AI sinh ra với lộ trình do mentor/giảng viên đề xuất** trên **từ 5 đến 10 hồ sơ mẫu**. Sau khi người dùng thử nghiệm nhận được lộ trình, nhóm sẽ **đo tỷ lệ người dùng thực tế tuân theo lộ trình trong vòng 2 tuần** để kiểm tra mức độ theo dõi và thực hiện [1].",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q14,"Theo phần “Kết quả mong đợi” được nêu trong Đề cương DA1.pdf:
+
+* **Độ đúng của đánh giá đầu vào**: phải đạt **≥ 80 %** các kỹ năng đã nắm được (đánh giá đúng ≥80 %).  
+* **Số người dùng thật**: cần có **≥ 10** người dùng thực tế.  
+* **Tỷ lệ người dùng còn cập nhật sau 2 tuần**: ít nhất **≥ 50 %** người dùng vẫn tiếp tục cập nhật tiến độ sau 2 tuần.  
+
+Nguồn: Bảng tiêu chí & cách đo trong tài liệu (có các mục “Đánh giá đầu vào xác định đúng ≥80% kỹ năng đã nắm”, “≥10 người dùng thật, ≥50% còn cập nhật sau 2 tuần”)【1†L1-L9】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q15,"Theo **Đặc tả dự án DA1.pdf** các trường **deadline**, **hoursPerWeek** và **targetSkillIds** được khai báo trong “LearningProfile” (hồ sơ mục tiêu) và phải đáp ứng các điều kiện sau:
+
+| Trường | Điều kiện bắt buộc | Nguồn |
+|--------|-------------------|-------|
+| **deadline** | – Là một giá trị kiểu **date**.<br>– Phải là ngày trong tương lai (được dùng để tính **availableWeeks = (deadline – today) / 7**). | 【3†L31-L34】 |
+| **hoursPerWeek** | – Là một số nguyên dương, biểu thị số giờ rảnh mỗi tuần.<br>– Nếu tổng số giờ cần học cho các kỹ năng mục tiêu vượt quá **hoursPerWeek × availableWeeks** thì hệ thống sẽ trả lỗi **INSUFFICIENT_TIME** và đề xuất “giảm mục tiêu” hoặc “tăng giờ/tuần”. | 【1†L14-L20】 |
+| **targetSkillIds** | – Là một mảng **uuid[]** chứa các **skillId** là kỹ năng mục tiêu.<br>– Các skillId phải tồn tại trong **skill graph** của hệ thống (không được tạo ra ngoài hệ thống) và sẽ được lọc bỏ các kỹ năng đã **MASTERED** trước khi sắp xếp thứ tự học. | 【3†L31-L34】【1†L8-L11】 |
+
+Tóm lại, khi khai báo mục tiêu học:
+
+1. **deadline** phải là một ngày tới, dùng để tính số tuần khả dụng.  
+2. **hoursPerWeek** phải là số nguyên dương, đủ lớn để chứa tổng thời gian học cần thiết trong số tuần tính được; nếu không đủ sẽ gây ra lỗi **INSUFFICIENT_TIME**.  
+3. **targetSkillIds** phải là danh sách các skillId hợp lệ, có trong hệ thống và chưa được người dùng “mastered”.  
+
+Nếu bất kỳ một trong các điều kiện trên không được thỏa, việc tạo lộ trình sẽ bị từ chối hoặc trả về lỗi tương ứng.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q16,"Theo quy trình đánh giá trong **Đặc tả dự án DA1**:
+
+* Khi một kỹ năng được hỏi câu độ khó 3 và người học trả lời **sai**, hệ thống sẽ chuyển sang hỏi câu độ khó 2.  
+* Nếu câu độ khó 2 **đúng**, kỹ năng được gán trạng thái **PARTIAL** (người học “biết nền nhưng chưa vững”)【1†L5-L9】.  
+
+**Xử lý trong lộ trình:**  
+* Các kỹ năng ở trạng thái **PARTIAL** vẫn được đưa vào lộ trình học, nhưng chúng được đánh dấu “ôn lại” (cần ôn tập lại) và thời gian học ước tính cho chúng được giảm **50 %**【1†L10-L11】.  
+
+Vì vậy, kỹ năng đó sẽ ở trạng thái **PARTIAL** và sẽ được giữ trong lộ trình với nhãn ôn lại và thời gian học giảm một nửa.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q17,"Nếu tổng số giờ học cần thiết vượt quá quỹ thời gian mà người dùng đặt ra, bước **chia lịch** phải trả kết quả **“INSUFFICIENT_TIME”** và đồng thời đưa ra **hai gợi ý**:  
+1. **Giảm mục tiêu** (giảm số kỹ năng / nội dung cần học).  
+2. **Tăng giờ / tuần** (tăng thời lượng học mỗi tuần).  
+
+[Nguồn: Đặc tả dự án DA1.pdf, phần mô tả thuật toán chia lịch – “Nếu tổng giờ vượt quỹ thời gian → trả INSUFFICIENT_TIME kèm 2 gợi ý: giảm mục tiêu hoặc tăng giờ/tuần”]",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q18,"Theo lớp **validate** được mô tả trong Đặc tả dự án DA1.pdf:
+
+* **SkillId / resourceId không có trong tập đã chốt**  
+  - Khi LLM sinh ra output, lớp validate sẽ kiểm tra mỗi `skillId` (bước 1) và mỗi `resourceId` (bước 3).  
+  - Nếu có bất kỳ `skillId` nào **không tồn tại** trong tập kỹ năng đã chốt ở bước 1, hoặc bất kỳ `resourceId` nào **không tồn tại** trong tập tài liệu đã chốt ở bước 3, **các phần tử này sẽ bị loại bỏ** khỏi output.【1†L1-L4】
+
+* **Kiểm tra ràng buộc tiên quyết**  
+  - Sau khi loại bỏ các `skillId`/`resourceId` không hợp lệ, lớp validate thực hiện lại kiểm tra các ràng buộc tiên quyết.  
+  - Nếu ràng buộc vẫn **sai**, hệ thống sẽ **retry một lần**.【1†L5-L6】
+
+* **Nếu retry vẫn thất bại**  
+  - Khi lần retry không đáp ứng được các ràng buộc, hệ thống sẽ **fallback** sang kết quả **deterministic** được tạo ở các bước 1–3 (tức là dùng mô tả mặc định, không có phần diễn giải do LLM).【1†L7-L8】
+
+Tóm lại, bất kỳ `skillId` hoặc `resourceId` nào không thuộc tập đã chốt sẽ bị loại bỏ; nếu sau đó các ràng buộc vẫn không thỏa, hệ thống sẽ thử lại một lần, và nếu lần thử lại cũng thất bại thì sẽ chuyển sang kết quả định sẵn (deterministic) mà không dùng phần giải thích của LLM.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q19,"Theo báo cáo công nghệ, **NexusChat** sử dụng:
+
+* **Database chính**: **MongoDB** – lưu trữ người dùng, phòng chat, tin nhắn, v.v. [1]  
+* **Cache**: **Redis** (được sử dụng qua lớp HybridCache) để giảm tải truy vấn và tăng tốc phản hồi. [1][2]  
+* **Realtime**: **SignalR** – cung cấp kết nối WebSocket/Long‑Polling cho các hub ChatHub và PresenceHub. [1][3]",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q20,"Backend tích hợp chatbot **thông qua thư viện Microsoft Semantic Kernel**, cho phép tách logic chatbot khỏi nhà cung cấp cụ thể và cho phép thay đổi model chỉ bằng cấu hình thay vì sửa code nghiệp vụ [1].  
+
+Đối với **Groq**, nó được kết nối dưới dạng **endpoint tương thích OpenAI** (OpenAI‑compatible endpoint) [1].",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q21,"Theo quy trình được mô tả trong **Báo cáo công nghệ Nexus.docx**:
+
+1. **Tạo branch cho task**  
+   - Không được push trực tiếp lên `main`.  
+   - Mỗi task phải tạo một branch riêng **từ `main`** (vd. `features/chat‑send‑message`, `fix/auth‑token‑expired`, …) [1].
+
+2. **Hoàn thành công việc và mở Pull Request**  
+   - Khi task hoàn tất, mở **Pull Request (PR) trực tiếp vào `main`** [1].
+
+3. **Điều kiện để PR được chấp nhận (trước khi merge)**  
+   - **CI phải pass**: PR cần vượt qua các pipeline CI tương ứng (backend build + SonarCloud, frontend SonarCloud hoặc Docker build nếu có thay đổi backend) [1].  
+   - **Review & approve**: Ít nhất **một thành viên khác** phải review và approve PR trước khi merge [1].
+
+4. **Merge vào `main`**  
+   - Khi PR đã **được approve** và **CI pass**, branch tính năng được **merge vào `main`**.  
+   - Sau khi `main` nhận thay đổi, các workflow **deploy/build** được kích hoạt tự động theo cấu hình GitHub Actions [1].
+
+Vì vậy, một task mới phải di chuyển từ branch → PR → `main` và chỉ được merge khi **đạt đủ hai điều kiện**: (1) CI thành công và (2) có ít nhất một review/approval từ thành viên khác.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q22,"Theo **Báo cáo công nghệ Nexus.docx**:
+
+* **Frontend** được deploy lên **Vercel** (phù hợp với SPA React/Vite và có cấu hình rewrite route về `index.html`)【1†L15-L19】.  
+* **Backend** được deploy lên **Azure Web App**.  
+
+Workflow chịu trách nhiệm **build, publish và deploy** backend ASP.NET Core lên Azure là **`.github/workflows/main_nexus-chat.yml`** – workflow này thực hiện việc build, publish và đưa backend lên Azure Web App khi có push lên nhánh `main`【1†L31-L35】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q23,"Write‑Behind (còn gọi là Write‑Back) trả về “thành công” ngay khi dữ liệu được ghi vào RAM của lớp Cache, rồi mới đồng bộ dữ liệu xuống Database một cách bất đồng bộ. Vì vậy, nếu Cache bị **crash hoặc mất điện trước khi quá trình đồng bộ diễn ra**, toàn bộ các bản ghi chỉ tồn tại trong RAM sẽ **bị mất**. Đây là rủi ro mất dữ liệu cao do cơ chế trả lời trước khi ghi vào bộ lưu trữ vĩnh viễn (Disk) và việc đồng bộ chỉ diễn ra sau một khoảng thời gian trễ hoặc định kỳ【1†L3-L9】.  
+
+Do vậy, khi Cache gặp sự cố đột ngột trước khi đồng bộ, dữ liệu tạm thời trên RAM sẽ không được lưu lại ở Database, dẫn đến mất mát dữ liệu.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q24,"Theo báo cáo, khi kẻ tấn công gọi API liên tục với một ID không tồn tại (ví dụ api/products/-999), hai biện pháp phòng ngừa Cache Penetration được đề xuất là:
+
+1. **Cache Null Object** – Khi DB trả về rỗng, vẫn lưu một key (ví dụ ‑999) vào Redis với giá trị NULL và TTL rất ngắn (30 giây), để các request tiếp theo bị Redis chặn lại.  
+2. **Sử dụng Bloom Filter** – Đặt một Bloom Filter trước Redis; Bloom Filter có thể nhanh chóng xác định một ID “không chắc chắn tồn tại”, nếu nó nói ID không tồn tại thì ngay tại API sẽ từ chối request mà không cần query DB.  
+
+[Nguồn: các đoạn mô tả chiến lược phòng ngự Cache Penetration trong tài liệu “Báo cáo mô hình hóa.pdf”]【1†L31-L38】【2†L24-L28】",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q25,"- **Sự cố xảy ra:** Khi 10.000 key được nạp cùng một TTL 2 giờ và hết hạn đồng thời, hệ thống gặp **Cache Avalanche (sụp đổ dây chuyền)** – toàn bộ các request đồng loạt “đột nhập” vào DB khiến DB bị quá tải và sập hoàn toàn【1†L1-L5】.
+
+- **Công thức TTL có jitter để giảm thiểu:** Thay vì đặt TTL cố định 120 phút, thêm một khoảng thời gian ngẫu nhiên (jitter). Ví dụ:  
+
+  \[
+  \text{TTL} = 120\ \text{phút} + \text{random}(1 \rightarrow 15)\ \text{phút}
+  \]
+
+  Như vậy các key sẽ hết hạn rải rác, tránh tải đồng thời lên DB【1†L9-L13】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q26,"Theo phần mô tả “Sliding Expiration” trong Báo cáo mô hình hóa.pdf, **TTL sẽ được đặt lại (reset) mỗi khi có một request truy cập vào key đó**. Như vậy mỗi lần dữ liệu được “chạm” sẽ kéo dài thời gian sống của nó lên lại giá trị TTL đã cấu hình.  
+
+Nếu **không có ai truy cập vào key trong một khoảng thời gian X phút**, TTL sẽ không được reset nữa và key sẽ **bị xóa** khi thời gian này hết. [1]",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q27,"Mỗi node kỹ năng phải có **bốn trường** :
+
+* **name** – tên kỹ năng  
+* **difficulty** – độ khó (trong thang **1 – 5**)  
+* **estimatedHours** – số giờ dự kiến học  
+* **prerequisiteId** – danh sách các node tiên quyết  
+
+Nguồn: 【1†L12-L15】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q28,"Theo “Quy trình tìm skill & resource.docx”, **mỗi kỹ năng phải có đúng 3 tài liệu**.  Ba slot tài liệu được định sẵn như sau:
+
+| Slot | Loại tài liệu | Nguồn ưu tiên | Vai trò |
+|------|---------------|--------------|---------|
+| 1 | **Tài liệu chính thức** (Docs của framework/ngôn ngữ, MDN, RFC) | Docs framework/ngôn ngữ, MDN, RFC | Nguồn chuẩn để tra cứu, gần như không chết link |
+| 2 | **Bài viết / tutorial** | Blog kỹ thuật uy tín, freeCodeCamp, dev.to | Giải thích dễ vào hơn docs, là tài liệu học sinh đọc đầu tiên |
+| 3 | **Video / tài liệu tiếng Việt** | Kênh YouTube đã biết, khóa học miễn phí | Phục vụ người học bằng video, cân bằng ngôn ngữ |
+
+(Tham khảo bảng “Ô – Loại – Nguồn ưu tiên – Vai trò” trong phần 4.1 của tài liệu)【1†L4-L9】【4†L1-L7】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q29,"Hai sheet **Skill** và **Resource** được nối với nhau bằng trường **skillSlug** – không dùng trường name vì tên có thể bị nhập sai dấu hoặc khoảng trắng giữa hai sheet【1†L17-L19】.  
+
+Việc import phải thực hiện **Skill trước Resource** vì trong bảng Resource có cột **skillId** là khóa ngoại (foreign key) tham chiếu tới bảng Skill; do đó các bản ghi Skill phải tồn tại trong cơ sở dữ liệu trước khi nhập Resource để ràng buộc khóa ngoại được thỏa mãn【1†L22-L24】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.
+Q30,"Theo Quy trình **“skill & resource”**:
+
+* **Ai kiểm duyệt:** Đối với hướng mà người chịu trách nhiệm **không rành**, graph phải được **ít nhất một người ngoài nhóm** xem lại – có thể là anh/chị khóa trên, mentor CLB hoặc giảng viên hướng dẫn【1†L31-L33】【2†L13-L15】.  
+* **Cần xác nhận:** Người review phải **kiểm chứng thứ tự các quan hệ tiên quyết** (prerequisite) của các node có hợp lý, không có lỗi chu trình hay sắp xếp sai 【1†L31-L33】【2†L13-L15】.  
+* **Nơi lưu tên người review:** Tên người thực hiện review được ghi **vào trường `Direction.ownerNote`** của hướng (direction) tương ứng【1†L33-L34】【2†L15-L16】.",CORRECT,Người dùng chấm tay và xác nhận câu trả lời đúng.

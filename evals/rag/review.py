@@ -53,9 +53,13 @@ def main():
         print(f"Correct: {correct}/{evaluated}; errors: {errors}; ungraded: {ungraded}")
         return
 
-    dataset_path = Path(__file__).with_name("pilot-10.jsonl")
-    dataset_bytes = dataset_path.read_bytes()
     metadata = json.loads(Path(base + ".meta.json").read_text(encoding="utf-8"))
+    dataset_path = (
+        Path(__file__).resolve().parents[2] / metadata["datasetPath"]
+        if "datasetPath" in metadata
+        else Path(__file__).with_name("pilot-10.jsonl")
+    )
+    dataset_bytes = dataset_path.read_bytes()
     if metadata["datasetSha256"] != hashlib.sha256(dataset_bytes).hexdigest():
         raise ValueError("Dataset changed since this run; use the original dataset")
     dataset = {
