@@ -22,6 +22,8 @@ import { IDocumentPermissionRepository } from '../../domain/repositories/documen
 import { IDocumentQueryRepository } from '../interfaces/document-query.repo.interface';
 import { DocumentListResponseDto } from '../dtos/document.response.dto';
 import { DocumentService } from './document.service';
+import { Document } from '../../domain/entities/document.entity';
+import { IRealtimeNotifier } from 'src/shared/infrastructure/notification/realtime-notifier.interface';
 
 const item: DocumentListResponseDto = {
   publicId: 'doc',
@@ -65,6 +67,9 @@ describe('DocumentService list cache', () => {
     getDocumentStorageDataByPublicId: jest.fn(),
   };
   const queue = { add: jest.fn() };
+  const notifier = {
+    notifyDocumentStatus: jest.fn().mockResolvedValue(undefined),
+  };
   const permissions = { checkDocumentPermission: jest.fn() };
   let warning: jest.SpyInstance;
   let service: DocumentService;
@@ -94,7 +99,7 @@ describe('DocumentService list cache', () => {
       .mockReset()
       .mockResolvedValue(ok(page));
     query.getDocumentListItemByPublicId.mockReset().mockResolvedValue(ok(item));
-    repository.addDocument.mockResolvedValue(ok(undefined));
+    repository.addDocument.mockReset().mockResolvedValue(ok(undefined));
     repository.updateDocument.mockResolvedValue(
       ok({ updatedAt: item.lastUpdated, status: CommonDocumentStatus.Ready }),
     );
@@ -102,12 +107,16 @@ describe('DocumentService list cache', () => {
       ok({
         id: 9,
         storagePath: 'old',
+        fileName: item.title,
         visibility: CommonDocumentVisibility.Public,
       }),
     );
+    queue.add.mockReset().mockResolvedValue(undefined);
+    notifier.notifyDocumentStatus.mockReset().mockResolvedValue(undefined);
     const module = await Test.createTestingModule({
       providers: [
         DocumentService,
+        { provide: IRealtimeNotifier, useValue: notifier },
         { provide: IApplicationCache, useValue: cache },
         { provide: IDocumentRepository, useValue: repository },
         { provide: IDocumentQueryRepository, useValue: query },
@@ -389,6 +398,15 @@ describe('DocumentService list cache', () => {
           versionKey,
           'rag:similar-chunks:version:7',
         ]);
+        if (rollback === 'restored')
+          expect(notifier.notifyDocumentStatus).toHaveBeenCalledWith(7, {
+            documentPublicId: 'doc',
+            knowledgeSpacePublicId: 'space',
+            fileName: failedItem.title,
+            status: 'Failed',
+            updatedAt: retryTime.toISOString(),
+          });
+        else expect(notifier.notifyDocumentStatus).not.toHaveBeenCalled();
         if (rollback === 'error' || rollback === 'rejected')
           expect(errorLog).toHaveBeenCalledWith(
             expect.stringContaining('restore'),
@@ -641,6 +659,7 @@ describe('DocumentService list cache', () => {
       ok({
         id: 9,
         storagePath: 'old',
+        fileName: item.title,
         visibility: CommonDocumentVisibility.Public,
         status: CommonDocumentStatus.Processing,
       }),
@@ -696,6 +715,173 @@ describe('DocumentService list cache', () => {
       );
     },
   );
+
+  describe('enqueue failure on create/update', () => {
+    const failedAt = new Date('2026-10-08T12:00:00Z');
+    let errorLog: jest.SpyInstance;
+    let persisted: DocumentListResponseDto;
+    const run = (operation: string) =>
+      operation === 'create'
+        ? service.createDocumentAsync('space', 'user', {
+            name: 'Guide.txt',
+            categoryPublicId: 'cat',
+            storageKey: 'documents/space/file.txt',
+          })
+        : service.updateDocumentAsync('space', 'user', 'doc', {
+            content: 'new content',
+          });
+
+    beforeEach(() => {
+      errorLog = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      notifier.notifyDocumentStatus.mockReset().mockResolvedValue(undefined);
+      queue.add.mockReset().mockRejectedValue(new Error('queue down'));
+      persisted = { ...item };
+      repository.addDocument.mockImplementation((document: Document) => {
+        persisted = {
+          ...item,
+          publicId: document.publicId,
+          lastUpdated: document.updatedAt,
+        };
+        return Promise.resolve(ok(undefined));
+      });
+      repository.updateDocument.mockResolvedValue(
+        ok({
+          updatedAt: item.lastUpdated,
+          status: CommonDocumentStatus.Processing,
+        }),
+      );
+      query.getDocumentListItemByPublicId.mockImplementation(() =>
+        Promise.resolve(ok(persisted)),
+      );
+      repository.transitionDocumentStatus
+        .mockReset()
+        .mockImplementation(
+          (
+            id: string,
+            space: number,
+            status: CommonDocumentStatus,
+            version: Date,
+            next: CommonDocumentStatus,
+          ) => {
+            expect([id, space, status, version, next]).toEqual([
+              persisted.publicId,
+              7,
+              CommonDocumentStatus.Processing,
+              persisted.lastUpdated,
+              CommonDocumentStatus.Failed,
+            ]);
+            persisted = {
+              ...persisted,
+              status: CommonDocumentStatus.Failed,
+              lastUpdated: failedAt,
+            };
+            return Promise.resolve(ok(failedAt));
+          },
+        );
+    });
+
+    it.each(['create', 'update'])(
+      '%s returns the persisted Failed version and emits after persistence/cache invalidation',
+      async (operation) => {
+        notifier.notifyDocumentStatus.mockImplementation(
+          (space: number, event: unknown) => {
+            expect(persisted.status).toBe(CommonDocumentStatus.Failed);
+            expect(cache.set).toHaveBeenCalledTimes(4);
+            expect([space, event]).toEqual([
+              7,
+              {
+                documentPublicId: persisted.publicId,
+                knowledgeSpacePublicId: 'space',
+                fileName: persisted.title,
+                status: 'Failed',
+                updatedAt: failedAt.toISOString(),
+              },
+            ]);
+            return Promise.resolve();
+          },
+        );
+        const result = (await run(operation))._unsafeUnwrap();
+        expect(result).toMatchObject({
+          publicId: persisted.publicId,
+          status: CommonDocumentStatus.Failed,
+          lastUpdated: failedAt,
+        });
+        expect(notifier.notifyDocumentStatus).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each(
+      ['create', 'update'].flatMap((operation) =>
+        [CommonDocumentStatus.Ready, CommonDocumentStatus.Processing].map(
+          (status) => ({ operation, status }),
+        ),
+      ),
+    )(
+      '$operation reads current snapshot when a newer edit/worker won ($status)',
+      async ({ operation, status }) => {
+        repository.transitionDocumentStatus.mockImplementationOnce(() => {
+          persisted = {
+            ...persisted,
+            title: 'newer.txt',
+            status,
+            lastUpdated: failedAt,
+          };
+          return Promise.resolve(ok(null));
+        });
+        expect((await run(operation))._unsafeUnwrap()).toEqual(persisted);
+        expect(notifier.notifyDocumentStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['create', 'update'])(
+      '%s returns 404 when concurrently deleted',
+      async (operation) => {
+        repository.transitionDocumentStatus.mockResolvedValueOnce(ok(null));
+        query.getDocumentListItemByPublicId.mockResolvedValue(ok(null));
+        expect((await run(operation))._unsafeUnwrapErr().code).toBe(
+          ErrorCode.NotFound,
+        );
+        expect(notifier.notifyDocumentStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(
+      ['create', 'update'].flatMap((operation) =>
+        ['error', 'rejected'].map((failure) => ({ operation, failure })),
+      ),
+    )(
+      '$operation returns 500 and logs when Failed cannot be persisted ($failure)',
+      async ({ operation, failure }) => {
+        if (failure === 'error')
+          repository.transitionDocumentStatus.mockResolvedValueOnce(
+            err(new Error('db down')),
+          );
+        else
+          repository.transitionDocumentStatus.mockRejectedValueOnce(
+            new Error('db down'),
+          );
+        expect((await run(operation))._unsafeUnwrapErr().code).toBe(
+          ErrorCode.InternalServerError,
+        );
+        expect(errorLog).toHaveBeenCalled();
+        expect(notifier.notifyDocumentStatus).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['create', 'update'])(
+      '%s keeps persisted success when notification rejects',
+      async (operation) => {
+        notifier.notifyDocumentStatus.mockRejectedValueOnce(
+          new Error('notification down'),
+        );
+        expect((await run(operation))._unsafeUnwrap().status).toBe(
+          CommonDocumentStatus.Failed,
+        );
+      },
+    );
+  });
 
   const mutate = (operation: string) =>
     operation === 'create'

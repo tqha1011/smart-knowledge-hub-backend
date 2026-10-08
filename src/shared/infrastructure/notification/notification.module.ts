@@ -9,6 +9,7 @@ import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace
 import { UserModule } from 'src/modules/user/user.module';
 import { IRealtimeNotifier } from './realtime-notifier.interface';
 import { SocketNotificationGateway } from './socket-notification.gateway';
+import { DocumentStatusAudienceRepository } from './document-status-audience.repo';
 
 @Global()
 @Module({
@@ -43,6 +44,7 @@ import { SocketNotificationGateway } from './socket-notification.gateway';
     UserModule,
   ],
   providers: [
+    DocumentStatusAudienceRepository,
     NotificationService,
     SendEmailService,
     {

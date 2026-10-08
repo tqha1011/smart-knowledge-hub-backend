@@ -22,7 +22,9 @@ function createDeps() {
     documentChunkRepository: { addChunks: jest.fn() },
     chunkService: { chunkText: jest.fn() },
     fileIngestionService: { extractText: jest.fn() },
-    realtimeNotifier: { notifyDocumentStatus: jest.fn() },
+    realtimeNotifier: {
+      notifyDocumentStatus: jest.fn().mockResolvedValue(undefined),
+    },
     cache: {
       get: jest.fn(),
       set: jest.fn().mockResolvedValue(undefined),
@@ -64,6 +66,61 @@ describe('ContentIngestionService', () => {
       .mockImplementation(() => undefined);
   });
   afterEach(() => jest.restoreAllMocks());
+
+  it.each(['Ready', 'Failed'])(
+    'awaits %s notification without failing ingestion on rejection',
+    async (status) => {
+      const deps = createDeps();
+      deps.documentRepository.getDocumentIngestionDataByPublicId.mockResolvedValue(
+        ok(baseDocument),
+      );
+      deps.chunkService.chunkText.mockReturnValue([
+        { chunkIndex: 0, content: 'chunk', tokens: 3 },
+      ]);
+      deps.embeddingService.generateEmbeddings.mockResolvedValue(ok([[0.1]]));
+      deps.documentChunkRepository.addChunks.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      deps.documentRepository.transitionDocumentStatus.mockResolvedValue(
+        ok(baseDocument.updatedAt),
+      );
+      let reject!: (error: Error) => void;
+      const notification = new Promise<void>((_, rejectPromise) => {
+        reject = rejectPromise;
+      });
+      deps.realtimeNotifier.notifyDocumentStatus.mockReturnValue(notification);
+      const service = createService(deps);
+      const job = {
+        data: {
+          documentPublicId: 'doc-public-id',
+          expectedUpdatedAt: baseDocument.updatedAt.toISOString(),
+        },
+        opts: { attempts: 1 },
+        attemptsMade: 1,
+      } as Job<IngestionJobRequestDto>;
+      let done = false;
+      const pending = (
+        status === 'Ready' ? service.process(job) : service.onFailed(job)
+      ).then(() => {
+        done = true;
+      });
+      // Wait until production reaches the notifier, without a time-based sleep.
+      for (
+        let i = 0;
+        i < 30 && !deps.realtimeNotifier.notifyDocumentStatus.mock.calls.length;
+        i++
+      )
+        await Promise.resolve();
+      await Promise.resolve();
+      const finishedEarly = done;
+      reject(new Error('notification unavailable'));
+      // Attach a handler for the red implementation which does not await the notifier.
+      await notification.catch(() => undefined);
+      await expect(pending).resolves.toBeUndefined();
+      expect(finishedEarly).toBe(false);
+      expect(warning).toHaveBeenCalled();
+    },
+  );
 
   it.each(['Ready', 'Failed'])(
     'awaits %s invalidation after persistence and before realtime',

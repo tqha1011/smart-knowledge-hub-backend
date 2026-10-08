@@ -7,7 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { IKnowledgeSpaceRepository } from 'src/modules/knowledge-space/domain/repositories/knowledgeSpace.repo.interface';
+import { DocumentStatusAudienceRepository } from './document-status-audience.repo';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { ALLOWED_ORIGINS } from 'src/shared/common/cors';
 import { JwtPayload } from 'src/shared/common/jwt.payload.interface';
@@ -31,7 +31,7 @@ export class SocketNotificationGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepository: IUserRepository,
-    private readonly knowledgeSpaceRepository: IKnowledgeSpaceRepository,
+    private readonly audienceRepository: DocumentStatusAudienceRepository,
   ) {}
 
   async handleConnection(@ConnectedSocket() client: Socket): Promise<void> {
@@ -57,30 +57,22 @@ export class SocketNotificationGateway
       return;
     }
 
-    const spaceIdsResult =
-      await this.knowledgeSpaceRepository.getKnowledgeSpaceIdsForUser(
-        userIdResult.value,
-      );
-    if (spaceIdsResult.isErr()) {
-      this.logger.warn(
-        `Failed to resolve knowledge spaces for socket ${client.id}: ${spaceIdsResult.error}`,
-      );
-      client.disconnect();
-      return;
-    }
-
-    for (const knowledgeSpaceId of spaceIdsResult.value) {
-      await client.join(`ks:${knowledgeSpaceId}`);
-    }
+    await client.join(`user:${userIdResult.value}`);
   }
 
-  notifyDocumentStatus(
+  async notifyDocumentStatus(
     knowledgeSpaceId: number,
     payload: DocumentStatusPayload,
-  ): void {
+  ): Promise<void> {
     try {
+      const userIds = await this.audienceRepository.getRecipientUserIds(
+        knowledgeSpaceId,
+        payload,
+      );
+      if (userIds.length === 0) return;
+      // Socket.IO emits to the union, delivering once to every matching socket.
       this.server
-        .to(`ks:${knowledgeSpaceId}`)
+        .to(userIds.map((id) => `user:${id}`))
         .emit('document.status.updated', payload);
     } catch (error) {
       this.logger.warn(

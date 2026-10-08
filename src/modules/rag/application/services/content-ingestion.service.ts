@@ -8,7 +8,10 @@ import { IDocumentRepository } from 'src/modules/document/domain/repositories/do
 import { CommonDocumentStatus } from 'src/shared/domain/enum';
 import { QueueName } from 'src/shared/infrastructure/queue/constant/queue-name';
 import { IngestionJobRequestDto } from 'src/shared/infrastructure/queue/types/job.request.dto';
-import { IRealtimeNotifier } from 'src/shared/infrastructure/notification/realtime-notifier.interface';
+import {
+  DocumentStatusPayload,
+  IRealtimeNotifier,
+} from 'src/shared/infrastructure/notification/realtime-notifier.interface';
 import {
   EmbeddingResult,
   IDocumentChunkRepository,
@@ -134,7 +137,7 @@ export class ContentIngestionService extends WorkerHost {
       document.knowledgeSpaceId,
     );
 
-    this.realtimeNotifier.notifyDocumentStatus(document.knowledgeSpaceId, {
+    await this.notifyDocumentStatus(document.knowledgeSpaceId, {
       documentPublicId: job.data.documentPublicId,
       knowledgeSpacePublicId: document.knowledgeSpacePublicId,
       fileName: document.fileName,
@@ -191,16 +194,27 @@ export class ContentIngestionService extends WorkerHost {
       documentResult.value.knowledgeSpaceId,
     );
 
-    this.realtimeNotifier.notifyDocumentStatus(
-      documentResult.value.knowledgeSpaceId,
-      {
-        documentPublicId: job.data.documentPublicId,
-        knowledgeSpacePublicId: documentResult.value.knowledgeSpacePublicId,
-        fileName: documentResult.value.fileName,
-        status: 'Failed',
-        updatedAt: statusResult.value.toISOString(),
-      },
-    );
+    await this.notifyDocumentStatus(documentResult.value.knowledgeSpaceId, {
+      documentPublicId: job.data.documentPublicId,
+      knowledgeSpacePublicId: documentResult.value.knowledgeSpacePublicId,
+      fileName: documentResult.value.fileName,
+      status: 'Failed',
+      updatedAt: statusResult.value.toISOString(),
+    });
+  }
+
+  private async notifyDocumentStatus(
+    knowledgeSpaceId: number,
+    payload: DocumentStatusPayload,
+  ): Promise<void> {
+    try {
+      await this.realtimeNotifier.notifyDocumentStatus(
+        knowledgeSpaceId,
+        payload,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to notify document status', error);
+    }
   }
 
   private async invalidateDocumentList(
