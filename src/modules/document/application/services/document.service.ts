@@ -42,6 +42,11 @@ import {
 } from '../dtos/document.response.dto';
 import { IDocumentService } from '../interfaces/document.service.interface';
 
+import {
+  DocumentStatusPayload,
+  IRealtimeNotifier,
+} from 'src/shared/infrastructure/notification/realtime-notifier.interface';
+
 const EXTENSION_TO_FILE_TYPE: Record<string, CommonDocumentType> = {
   pdf: CommonDocumentType.PDF,
   docx: CommonDocumentType.DOCX,
@@ -62,6 +67,7 @@ export class DocumentService implements IDocumentService {
     private readonly documentPermissionRepository: IDocumentPermissionRepository,
     @InjectQueue(QueueName.IngestionQueue) private ingestionQueue: Queue,
     private readonly cache: IApplicationCache,
+    private readonly realtimeNotifier: IRealtimeNotifier,
   ) {}
 
   async deleteDocumentAsync(
@@ -260,6 +266,7 @@ export class DocumentService implements IDocumentService {
           `Failed to enqueue document ingestion for document ${documentPublicId}`,
           error,
         );
+        let failedAt: Date | null = null;
         try {
           // Restore only this retry; a worker or a newer edit may have changed it.
           const rollback =
@@ -275,6 +282,8 @@ export class DocumentService implements IDocumentService {
               'Failed to restore failed document status',
               rollback.error,
             );
+          } else {
+            failedAt = rollback.value;
           }
         } catch (rollbackError) {
           this.logger.error(
@@ -286,6 +295,15 @@ export class DocumentService implements IDocumentService {
           knowledgeSpacePublicId,
           knowledgeSpaceId,
         );
+        if (failedAt !== null) {
+          await this.notifyFailed(knowledgeSpaceId, {
+            documentPublicId,
+            knowledgeSpacePublicId,
+            fileName: snapshot.value.title,
+            status: 'Failed',
+            updatedAt: failedAt.toISOString(),
+          });
+        }
         return err(
           new AppError(
             ErrorCode.InternalServerError,
@@ -582,24 +600,6 @@ export class DocumentService implements IDocumentService {
         membership.value.knowledgeSpaceId,
       );
 
-      // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
-      try {
-        await this.ingestionQueue.add(
-          EventName.IngestionDocument,
-          {
-            documentPublicId: newDocument.value.publicId,
-            expectedUpdatedAt: newDocument.value.updatedAt.toISOString(),
-          },
-          {
-            attempts: 3, // retry up to 3 times in case of failure
-          },
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to enqueue document ingestion for document ${newDocument.value.publicId}`,
-          error,
-        );
-      }
       const documentListResponseDto: DocumentListResponseDto = {
         publicId: newDocument.value.publicId,
         title: newDocument.value.title,
@@ -618,6 +618,55 @@ export class DocumentService implements IDocumentService {
         },
         cited: 0,
       };
+
+      // push to ingestion queue for further processing (e.g., text extraction, indexing, etc.)
+      try {
+        await this.ingestionQueue.add(
+          EventName.IngestionDocument,
+          {
+            documentPublicId: newDocument.value.publicId,
+            expectedUpdatedAt: newDocument.value.updatedAt.toISOString(),
+          },
+          {
+            attempts: 3, // retry up to 3 times in case of failure
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to enqueue document ingestion for document ${newDocument.value.publicId}`,
+          error,
+        );
+        const failed = await this.failEnqueueSnapshot(
+          knowledgeSpacePublicId,
+          membership.value.knowledgeSpaceId,
+          newDocument.value.publicId,
+          newDocument.value.updatedAt,
+          newDocument.value.title,
+        );
+        if (failed.isErr()) return err(failed.error);
+        if (failed.value !== null) {
+          return ok({
+            ...documentListResponseDto,
+            status: CommonDocumentStatus.Failed,
+            lastUpdated: failed.value,
+          });
+        }
+        const current =
+          await this.documentQueryRepository.getDocumentListItemByPublicId(
+            membership.value.knowledgeSpaceId,
+            newDocument.value.publicId,
+          );
+        if (current.isErr())
+          return err(
+            new AppError(
+              ErrorCode.InternalServerError,
+              'Failed to get current document',
+            ),
+          );
+        if (current.value === null)
+          return err(new AppError(ErrorCode.NotFound, 'Document not found'));
+        return ok(current.value);
+      }
       return ok(documentListResponseDto);
     } catch (error) {
       this.logger.error('Failed to create document', error);
@@ -1038,6 +1087,14 @@ export class DocumentService implements IDocumentService {
             `Failed to enqueue document ingestion for document ${documentPublicId}`,
             error,
           );
+          const failed = await this.failEnqueueSnapshot(
+            knowledgeSpacePublicId,
+            membership.value.knowledgeSpaceId,
+            documentPublicId,
+            updateResult.value.updatedAt,
+            documentUpdateRequestDto.name ?? documentData.value.fileName,
+          );
+          if (failed.isErr()) return err(failed.error);
         }
       }
 
@@ -1101,6 +1158,59 @@ export class DocumentService implements IDocumentService {
     }
 
     return EXTENSION_TO_FILE_TYPE[parts[parts.length - 1]] ?? null;
+  }
+
+  private async failEnqueueSnapshot(
+    knowledgeSpacePublicId: string,
+    knowledgeSpaceId: number,
+    documentPublicId: string,
+    expectedUpdatedAt: Date,
+    fileName: string,
+  ): Promise<Result<Date | null, AppError>> {
+    const transition = await this.documentRepository.transitionDocumentStatus(
+      documentPublicId,
+      knowledgeSpaceId,
+      CommonDocumentStatus.Processing,
+      expectedUpdatedAt,
+      CommonDocumentStatus.Failed,
+    );
+    if (transition.isErr()) {
+      this.logger.error(
+        'Failed to persist document enqueue failure',
+        transition.error,
+      );
+      return err(
+        new AppError(
+          ErrorCode.InternalServerError,
+          'Failed to persist document enqueue failure',
+        ),
+      );
+    }
+    await this.invalidateDocumentList(knowledgeSpacePublicId, knowledgeSpaceId);
+    if (transition.value !== null) {
+      await this.notifyFailed(knowledgeSpaceId, {
+        documentPublicId,
+        knowledgeSpacePublicId,
+        fileName,
+        status: 'Failed',
+        updatedAt: transition.value.toISOString(),
+      });
+    }
+    return ok(transition.value);
+  }
+
+  private async notifyFailed(
+    knowledgeSpaceId: number,
+    payload: DocumentStatusPayload,
+  ): Promise<void> {
+    try {
+      await this.realtimeNotifier.notifyDocumentStatus(
+        knowledgeSpaceId,
+        payload,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to notify document enqueue failure', error);
+    }
   }
 
   private async invalidateDocumentList(

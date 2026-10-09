@@ -1,0 +1,82 @@
+{
+  "verifiedAt": "2026-10-08T16:17:48.005121+00:00",
+  "synthetic": true,
+  "knowledgeSpacePublicId": "37c6da52-99f1-5465-a49c-6ec0cc721737",
+  "ownerUserPublicId": "10000000-0000-4000-8000-000000000001",
+  "readyPublicMarkdownDocuments": 100,
+  "topics": {
+    "backend": 10,
+    "frontend": 10,
+    "database": 10,
+    "caching": 10,
+    "queue": 10,
+    "ci-cd": 10,
+    "security": 10,
+    "observability": 10,
+    "architecture": 10,
+    "development": 10
+  },
+  "wordCount": {
+    "min": 1089,
+    "max": 1151,
+    "method": "whitespace-separated Vietnamese syllables"
+  },
+  "chunkCount": 336,
+  "embeddingModel": "gemini-embedding-001",
+  "embeddingDimensions": 1536,
+  "aiMock": false,
+  "storageAndDatabaseVerification": "passed: 100 storage metadata/byte hashes, document metadata, chunk contents/token counts and float32 vector fingerprints; final database snapshot RepeatableRead",
+  "resumeCheck": {
+    "preservedReadyDocuments": 24,
+    "duplicates": 0,
+    "reindexedCompletedDocuments": 0
+  },
+  "concurrentLockRejection": "passed: rejected before AI, journal preserved",
+  "verifyOnly": {
+    "indexed": 0,
+    "skipped": 100,
+    "journalUnchanged": true
+  },
+  "questionIds": [
+    "Q31",
+    "Q32",
+    "Q33",
+    "Q34",
+    "Q35",
+    "Q36",
+    "Q37",
+    "Q38",
+    "Q39",
+    "Q40",
+    "Q41",
+    "Q42",
+    "Q43",
+    "Q44",
+    "Q45",
+    "Q46",
+    "Q47",
+    "Q48",
+    "Q49",
+    "Q50"
+  ],
+  "questionTypes": {
+    "lookup": 8,
+    "scenario": 8,
+    "synthesis": 4
+  },
+  "distinctSourceDocuments": 20,
+  "evidenceCount": 28,
+  "evidenceDatabaseCheck": "passed: all 28 exact quotes, public IDs and chunk indices",
+  "reviewPyFixture": "passed: 20 sections and 20 blank grading rows; temporary fixture only",
+  "existingBenchmarkFilesUnchanged": 20,
+  "validation": {
+    "build": "passed",
+    "lintNewTypeScriptFiles": "passed without warnings",
+    "focusedTests": 7,
+    "existingUnitTests": 286,
+    "fullTypecheck": "Pre-existing TS2352 in src/modules/auth/api/load-test-auth-throttle.spec.ts:18; production build passes."
+  },
+  "answersCollected": false,
+  "combined50QuestionsCreated": false,
+  "limitation": "Topic templates share examples and fact schemas; this fictional corpus does not represent 100 independent real internal documents."
+}

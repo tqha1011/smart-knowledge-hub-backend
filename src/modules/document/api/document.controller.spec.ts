@@ -28,6 +28,8 @@ describe('DocumentController search HTTP', () => {
       .fn()
       .mockResolvedValue(ok(new PageResult([], 0, 1, 1, 20))),
     searchDocumentsAsync: jest.fn(),
+    createDocumentAsync: jest.fn(),
+    updateDocumentAsync: jest.fn(),
     getDocumentDetailAsync: jest.fn(),
   };
   let app: INestApplication;
@@ -62,6 +64,40 @@ describe('DocumentController search HTTP', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  it.each(['create', 'update'])(
+    'keeps the %s HTTP success code with a Failed document response',
+    async (operation) => {
+      const failed = {
+        publicId: userId,
+        status: CommonDocumentStatus.Failed,
+        lastUpdated: new Date('2026-10-08T12:00:00Z'),
+      };
+      service.createDocumentAsync.mockResolvedValueOnce(ok(failed));
+      service.updateDocumentAsync.mockResolvedValueOnce(ok(failed));
+      const base = `/api/knowledge-spaces/${spaceId}/documents`;
+      const response =
+        operation === 'create'
+          ? await request(server)
+              .post(base)
+              .auth(token, { type: 'bearer' })
+              .send({
+                name: 'Guide.txt',
+                categoryPublicId: userId,
+                storageKey: `documents/${spaceId}/file.txt`,
+              })
+              .expect(201)
+          : await request(server)
+              .patch(`${base}/${userId}`)
+              .auth(token, { type: 'bearer' })
+              .send({ content: 'updated' })
+              .expect(200);
+      expect(response.body).toEqual({
+        ...failed,
+        lastUpdated: failed.lastUpdated.toISOString(),
+      });
+    },
+  );
 
   it('documents trash, delete and restore responses, UUIDs and errors in Swagger', () => {
     const document = SwaggerModule.createDocument(

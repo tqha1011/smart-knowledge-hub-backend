@@ -10,5 +10,5 @@ export abstract class IRealtimeNotifier {
   abstract notifyDocumentStatus(
     knowledgeSpaceId: number,
     payload: DocumentStatusPayload,
-  ): void;
+  ): Promise<void>;
 }

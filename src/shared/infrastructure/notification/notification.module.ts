@@ -9,6 +9,7 @@ import { KnowledgeSpaceModule } from 'src/modules/knowledge-space/knowledgeSpace
 import { UserModule } from 'src/modules/user/user.module';
 import { IRealtimeNotifier } from './realtime-notifier.interface';
 import { SocketNotificationGateway } from './socket-notification.gateway';
+import { DocumentStatusAudienceRepository } from './document-status-audience.repo';
 
 @Global()
 @Module({
@@ -17,15 +18,18 @@ import { SocketNotificationGateway } from './socket-notification.gateway';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        transport: {
-          host: config.getOrThrow<string>('SMTP_HOST'),
-          port: config.get<number>('SMTP_PORT', 587),
-          secure: false,
-          auth: {
-            user: config.getOrThrow<string>('SMTP_USER'),
-            pass: config.getOrThrow<string>('SMTP_PASSWORD'),
-          },
-        },
+        transport:
+          config.get<string>('EMAIL_ENABLED') === 'false'
+            ? { jsonTransport: true }
+            : {
+                host: config.getOrThrow<string>('SMTP_HOST'),
+                port: config.get<number>('SMTP_PORT', 587),
+                secure: false,
+                auth: {
+                  user: config.getOrThrow<string>('SMTP_USER'),
+                  pass: config.getOrThrow<string>('SMTP_PASSWORD'),
+                },
+              },
         defaults: {
           from: config.get<string>(
             'SMTP_FROM',
@@ -43,6 +47,7 @@ import { SocketNotificationGateway } from './socket-notification.gateway';
     UserModule,
   ],
   providers: [
+    DocumentStatusAudienceRepository,
     NotificationService,
     SendEmailService,
     {

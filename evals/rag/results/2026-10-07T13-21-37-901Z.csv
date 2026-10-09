@@ -1,0 +1,38 @@
+id,actualAnswer,verdict,reason
+Q01,"The daily stand‑up is scheduled for **9:00 AM** and is intended to last **about 15 minutes**.  
+During the stand‑up each team member reports:
+
+* What they worked on **yesterday**  
+* What they plan to work on **today**  
+* Any **blockers** they are facing  
+
+These details are listed in the “Quy trình làm việc hằng ngày” section of the guide【1†L1-L3】.",CORRECT,Người dùng chấm đúng: 9:00 AM; 15 phút; việc hôm qua; hôm nay; blocker.
+Q02,"The team tracks its work with **Jira or Trello**, and for every task they create a corresponding Git branch (one branch is attached to each task)【1†L4-L6】.",CORRECT,Người dùng chấm đúng: Jira/Trello; mỗi task gắn với một branch.
+Q03,"Theo guide, các nhánh phải đặt tên theo mẫu:
+
+- Tính năng mới: `feature/<tên>`  
+- Sửa lỗi: `fix/<tên>`  
+- Hotfix: `hotfix/<tên>`  
+
+[1]",CORRECT,Người dùng chấm đúng: đủ mẫu feature/<ten>; fix/<ten>; hotfix/<ten>.
+Q04,"Không, bạn không được phép push trực tiếp lên `develop` ngay cả khi chỉ sửa một lỗi nhỏ. Theo hướng dẫn Git Workflow, “Không push trực tiếp lên `main`/`develop` — luôn qua Pull Request”【1】. Vì vậy mọi thay đổi, dù nhỏ, đều cần mở Pull Request và nhận ít nhất một approve trước khi merge.",CORRECT,Người dùng chấm đúng: không push trực tiếp lên develop; luôn qua Pull Request.
+Q05,"Một Pull Request phải có **ít nhất 1 approve** mới được merge, và team thực hiện **merge dạng “squash”** để giữ lịch sử sạch [3].",CORRECT,Người dùng chấm đúng: tối thiểu một approve; merge bằng squash.
+Q06,"Checklist code review của team gồm ba nội dung:
+
+1. **Có test chưa**  
+2. **Có log/secret bị lộ không**  
+3. **Có phá API cũ không**  
+
+(Nguồn: [1])",CORRECT,Người dùng chấm đúng: kiểm tra test; lộ log/secret; phá API cũ.
+Q07,Môi trường **dev** dùng để **test nội bộ** và sẽ **deploy mỗi lần merge vào `develop`** [1].,CORRECT,Người dùng chấm đúng: dev dùng test nội bộ; deploy mỗi lần merge vào develop.
+Q08,"- **Staging**: được dùng để thực hiện **UAT (User Acceptance Testing) trước khi release**.  
+- **Production**: phục vụ **người dùng thật** (các khách hàng, người dùng cuối).  
+
+Production chỉ được **deploy sau khi môi trường staging đã pass** (đạt yêu cầu kiểm thử).  
+
+Nguồn: bảng “Environment” trong tài liệu Dev Team Guide, mục 4 [1].",CORRECT,Người dùng chấm đúng: staging dùng UAT; production cho người dùng thật; deploy sau staging pass.
+Q09,"Team thực hiện việc deploy thông qua pipeline CI/CD (không thực hiện deploy tay)【1†L15-L16】.  
+Nếu phát hiện lỗi sau khi deploy, họ phải **đầu tiên rollback về phiên bản trước** bằng cách dùng tag, rồi mới tiến hành sửa lỗi【1†L17-L18】.",CORRECT,Người dùng chấm đúng: deploy qua CI/CD; rollback version trước bằng tag; sau đó mới fix.
+Q10,"- Khi phát hiện lỗi, team phải **báo ngay vào kênh `#incident`**【1†L30-L31】.  
+- **Người trực** (on‑call) là người **xác định mức độ nghiêm trọng** của incident (P0‑P3)【1†L32-L33】.  
+- **Postmortem** phải được viết **trong vòng 24 giờ** sau sự cố và phải bao gồm **nguyên nhân, cách xử lý, và cách phòng tránh**【1†L35-L36】.",CORRECT,Người dùng chấm đúng: báo #incident; người trực phân loại P0–P3; postmortem trong 24 giờ gồm nguyên nhân; xử lý; phòng tránh.

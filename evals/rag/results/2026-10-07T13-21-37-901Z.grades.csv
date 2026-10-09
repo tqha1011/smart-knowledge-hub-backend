@@ -1,0 +1,11 @@
+id,verdict,reason
+Q01,CORRECT,Người dùng chấm đúng: 9:00 AM; 15 phút; việc hôm qua; hôm nay; blocker.
+Q02,CORRECT,Người dùng chấm đúng: Jira/Trello; mỗi task gắn với một branch.
+Q03,CORRECT,Người dùng chấm đúng: đủ mẫu feature/<ten>; fix/<ten>; hotfix/<ten>.
+Q04,CORRECT,Người dùng chấm đúng: không push trực tiếp lên develop; luôn qua Pull Request.
+Q05,CORRECT,Người dùng chấm đúng: tối thiểu một approve; merge bằng squash.
+Q06,CORRECT,Người dùng chấm đúng: kiểm tra test; lộ log/secret; phá API cũ.
+Q07,CORRECT,Người dùng chấm đúng: dev dùng test nội bộ; deploy mỗi lần merge vào develop.
+Q08,CORRECT,Người dùng chấm đúng: staging dùng UAT; production cho người dùng thật; deploy sau staging pass.
+Q09,CORRECT,Người dùng chấm đúng: deploy qua CI/CD; rollback version trước bằng tag; sau đó mới fix.
+Q10,CORRECT,Người dùng chấm đúng: báo #incident; người trực phân loại P0–P3; postmortem trong 24 giờ gồm nguyên nhân; xử lý; phòng tránh.

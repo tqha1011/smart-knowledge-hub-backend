@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   DocumentTrashErrors,
   documentListSchema,
@@ -301,6 +302,7 @@ export class DocumentController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get(':documentPublicId/download-url')
   async getDownloadUrl(
     @User() user: JwtPayload,
@@ -369,6 +371,7 @@ export class DocumentController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get()
   async getDocumentList(
     @User() user: JwtPayload,
@@ -438,6 +441,7 @@ export class DocumentController {
   })
   @ApiInternalServerErrorResponse({ description: 'Failed to search documents' })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get('search')
   async searchDocuments(
     @User() user: JwtPayload,
@@ -512,6 +516,7 @@ export class DocumentController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get(':documentPublicId')
   async getDocumentDetail(
     @User() user: JwtPayload,
@@ -525,7 +530,10 @@ export class DocumentController {
       documentPublicId,
     );
     return result.match(
-      (document) => document,
+      (document) =>
+        user.type === 'demo'
+          ? { ...document, citedQuestion: [], permissions: [] }
+          : document,
       (error: AppError) => {
         throw this.toHttpError(error, 'getting a document detail');
       },
@@ -592,7 +600,10 @@ export class DocumentController {
       documentUpdateRequestDto,
     );
     return result.match(
-      (document) => document,
+      (document) =>
+        user.type === 'demo'
+          ? { ...document, citedQuestion: [], permissions: [] }
+          : document,
       (error: AppError) => {
         throw this.toHttpError(error, 'updating a document');
       },
@@ -661,7 +672,10 @@ export class DocumentController {
       documentPublicId,
     );
     return result.match(
-      (document) => document,
+      (document) =>
+        user.type === 'demo'
+          ? { ...document, citedQuestion: [], permissions: [] }
+          : document,
       (error: AppError) => {
         throw this.toHttpError(error, 'retrying document ingestion');
       },

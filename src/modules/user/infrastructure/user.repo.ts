@@ -82,7 +82,7 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
   ): Promise<Result<UserCredentials | null, Error>> {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { publicId: userPublicId },
+        where: { publicId: userPublicId, demoSession: null },
         select: { id: true, password: true },
       });
       if (!user) {
@@ -148,7 +148,7 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
   ): Promise<Result<UserAuthData | null, Error>> {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { id },
+        where: { id, demoSession: null },
         select: { publicId: true, email: true, role: true },
       });
       if (!user) {
@@ -211,7 +211,7 @@ export class UserRepository implements IUserRepository, IUserQueryRepository {
   async GetUserByEmail(email: string): Promise<Result<User | null, Error>> {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { email },
+        where: { email, demoSession: null },
       });
       if (!user) {
         return ok(null);

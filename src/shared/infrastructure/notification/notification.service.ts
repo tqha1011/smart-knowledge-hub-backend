@@ -20,11 +20,19 @@ export class NotificationService {
   constructor(
     private readonly mailService: MailerService,
     private readonly applicationCache: IApplicationCache,
+    private readonly configService: ConfigService,
   ) {}
   async sendOtpAsync(
     email: string,
     userName: string,
   ): Promise<Result<undefined, AppError>> {
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false')
+      return err(
+        new AppError(
+          ErrorCode.ServiceUnavailable,
+          'Email delivery is disabled.',
+        ),
+      );
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const cacheKey = CacheKey.generateOtpKey(email);
     await this.applicationCache.set(cacheKey, otp, OTP_TTL_MS);
@@ -64,6 +72,10 @@ export class SendEmailService extends WorkerHost {
     super();
   }
   async process(job: Job<SendEmailJobRequestDto>): Promise<void> {
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false') {
+      this.logger.warn('Email job skipped: delivery disabled');
+      return;
+    }
     this.logger.log(`Processing job ${job.id}`);
     const result = await this.notifyMembersAdded(
       job.data.inviterPublicId,

@@ -16,6 +16,7 @@ const isProduction = process.env.NODE_ENV === 'production';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
+        prefix: config.get<string>('QUEUE_PREFIX') ?? 'bull',
         connection: new Redis(config.getOrThrow<string>('REDIS_URL'), {
           maxRetriesPerRequest: null,
         }),

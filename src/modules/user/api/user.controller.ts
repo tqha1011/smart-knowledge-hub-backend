@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   Controller,
   Get,
@@ -53,6 +54,7 @@ export class UserController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('self')
   @Get('me')
   async getMe(@User() user: JwtPayload) {
     const result = await this.userService.getUserInformation(user.sub);

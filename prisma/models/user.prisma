@@ -15,6 +15,7 @@ model User {
   feedbacks           Feedback[]
   unansweredQuestions UnAnsweredQuestion[]
   refreshTokens       RefreshToken[]
+  demoSession         DemoSession?
 
   @@map("user")
 }

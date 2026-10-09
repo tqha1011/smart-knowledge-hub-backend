@@ -32,6 +32,7 @@ export class ChatSessionRepository implements IChatSessionRepository {
           select: {
             id: true,
             knowledgeSpaceId: true,
+            userId: true,
             title: true,
           },
         });

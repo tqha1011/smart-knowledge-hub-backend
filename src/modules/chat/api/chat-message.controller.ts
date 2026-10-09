@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   Body,
   Controller,
@@ -51,6 +52,7 @@ export class ChatMessageController {
    */
   @ApiOperation({ summary: 'Send a chat message and get the assistant answer' })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('chat')
   @Post()
   async chat(
     @User() user: JwtPayload,

@@ -1,0 +1,1278 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "knowledgeSpacePublicId": "37c6da52-99f1-5465-a49c-6ec0cc721737",
+  "spaceName": "Test RAG",
+  "description": "100 tài liệu Markdown nội bộ GIẢ LẬP bằng tiếng Việt để benchmark RAG; tên dự án, số liệu và quy định đều mô phỏng, không phải dữ liệu hay chính sách tổ chức thật.",
+  "wordCountMethod": "whitespace-separated Vietnamese syllables",
+  "documents": [
+    {
+      "id": "TR-01-01",
+      "publicId": "ef95c775-4659-5e5f-969c-e17f8fd5cd4f",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/01.md",
+      "title": "Mây Trắng — Giới hạn thời gian API.md",
+      "sha256": "e32ac6e08fc50fea52f28e755690bed710d748fab280458bb17301df67f1435f",
+      "wordCount": 1101,
+      "fileSize": 6715,
+      "benchmark": {
+        "id": "Q31",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Giới hạn thời gian API.md” của dự án Mây Trắng, timeout và số lần thử lại tối đa là bao nhiêu?",
+        "requiredFacts": [
+          "Timeout API của Mây Trắng là 740 ms; mỗi yêu cầu chỉ được thử lại tối đa 1 lần."
+        ]
+      }
+    },
+    {
+      "id": "TR-01-02",
+      "publicId": "1498a900-0144-57df-8eb9-7c4ad6767f55",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/02.md",
+      "title": "Sao Bắc — Khôi phục yêu cầu chậm.md",
+      "sha256": "9203871697086042685bbb316060cdb400d48084193b4f7d9f2877cd91a6f055",
+      "wordCount": 1102,
+      "fileSize": 6707,
+      "benchmark": {
+        "id": "Q32",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Khôi phục yêu cầu chậm.md” của dự án Sao Bắc, một thao tác ghi chưa có khóa idempotency vượt timeout. Phải xử lý thế nào?",
+        "requiredFacts": [
+          "Khi độ trễ vượt 780 ms, trả mã RAG-BE-504 và không tự gửi lại thao tác ghi chưa có khóa idempotency."
+        ]
+      }
+    },
+    {
+      "id": "TR-01-03",
+      "publicId": "ada2c682-9013-5b35-ac0e-e5d8850e291c",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/03.md",
+      "title": "Sông Xanh — Chống ghi trùng giao dịch.md",
+      "sha256": "0dad7aecfdca9f35cc16ecbdd2764a8906e2932676b4bfc0dc66e02552d014cb",
+      "wordCount": 1103,
+      "fileSize": 6720
+    },
+    {
+      "id": "TR-01-04",
+      "publicId": "fdcea08a-1e37-5b31-b9a4-b506492b77fc",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/04.md",
+      "title": "Tre Vàng — Phân trang hồ sơ.md",
+      "sha256": "897c8986c49131b904c39c6a54f65445b2f3faa1ae6e38caa652c7ea4b5a8632",
+      "wordCount": 1097,
+      "fileSize": 6661
+    },
+    {
+      "id": "TR-01-05",
+      "publicId": "417c00ec-16c3-54ad-b158-7d9057218f80",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/05.md",
+      "title": "Cánh Buồm — Kiểm tra DTO đầu vào.md",
+      "sha256": "edef4857931d84edb49303948ae1b274a5e847d8f8c51cb991c6f8bff1511d86",
+      "wordCount": 1101,
+      "fileSize": 6706
+    },
+    {
+      "id": "TR-01-06",
+      "publicId": "2260734b-d3c8-5f98-a2ef-a1462929c837",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/06.md",
+      "title": "Đồi Thông — Phiên bản hợp đồng API.md",
+      "sha256": "67866a3a3d9aa98b53ecb736359fd3cc0274ae753df025925f09fe288c0bbc1f",
+      "wordCount": 1101,
+      "fileSize": 6727
+    },
+    {
+      "id": "TR-01-07",
+      "publicId": "fd4768e8-de68-572d-9e44-92b80fe5202a",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/07.md",
+      "title": "Hải Đăng — Lưu vết thay đổi.md",
+      "sha256": "b943e6361c2ebe26085608d68ebfba07b591a4ff272a516472c5f8ca5918e079",
+      "wordCount": 1098,
+      "fileSize": 6695
+    },
+    {
+      "id": "TR-01-08",
+      "publicId": "abc75d89-fc46-56a5-8e93-42428d4f26dc",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/08.md",
+      "title": "Sen Hồng — Xử lý lỗi nghiệp vụ.md",
+      "sha256": "59e38bbe4f4f9d45bd05e051fd48a2e9af5dfffaa970dafaf308ee31b1345b92",
+      "wordCount": 1101,
+      "fileSize": 6704
+    },
+    {
+      "id": "TR-01-09",
+      "publicId": "5c9a3019-3268-57bc-aac3-de5acf63c8f0",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/09.md",
+      "title": "Bình Minh — Tắt tiến trình an toàn.md",
+      "sha256": "ac1150b878caae68d97e5af466a535b5dfa3d316ffbe06ea063982a3113913bb",
+      "wordCount": 1101,
+      "fileSize": 6704
+    },
+    {
+      "id": "TR-01-10",
+      "publicId": "b775c112-6db2-5ff6-a0f1-3e4cfc8784e2",
+      "topic": "backend",
+      "topicName": "Backend",
+      "path": "backend/10.md",
+      "title": "Gió Nam — Kiểm soát tải đồng thời.md",
+      "sha256": "47b3da4b4a8f8db6f3ed8630a8c30edf009a7e537b73d33eb6c1477efdc15a3d",
+      "wordCount": 1103,
+      "fileSize": 6720
+    },
+    {
+      "id": "TR-02-01",
+      "publicId": "637843bf-43fc-5839-95f0-7b865d54f26c",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/01.md",
+      "title": "Mây Trắng — Lưu bản nháp biểu mẫu.md",
+      "sha256": "f6fbad6f9705e5fefc5acc7927c1db8cc0bbb7bdf9e61a4cecf2bf0a2f09ee04",
+      "wordCount": 1121,
+      "fileSize": 6828,
+      "benchmark": {
+        "id": "Q33",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Lưu bản nháp biểu mẫu.md” của dự án Mây Trắng, chu kỳ lưu và hạn dùng của bản nháp là bao nhiêu?",
+        "requiredFacts": [
+          "Bản nháp của Mây Trắng được lưu mỗi 6 giây và hết hạn sau 22 giờ."
+        ]
+      }
+    },
+    {
+      "id": "TR-02-02",
+      "publicId": "e2685f1d-a2f2-5df5-970a-8d1bf24b7345",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/02.md",
+      "title": "Sao Bắc — Xử lý mất kết nối.md",
+      "sha256": "3f02d06a4a412c6a90e9331cf639ac5914bdb7eb679ef942273b6d336c31fece",
+      "wordCount": 1122,
+      "fileSize": 6800,
+      "benchmark": {
+        "id": "Q34",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Xử lý mất kết nối.md” của dự án Sao Bắc, người dùng mất mạng khi đang nhập biểu mẫu. Cần xử lý nút gửi và bản nháp thế nào, và khi nào được gửi?",
+        "requiredFacts": [
+          "Khi mất mạng, giữ bản nháp tại máy và khóa nút gửi; chỉ gửi sau khi kết nối phục hồi và người dùng xác nhận."
+        ]
+      }
+    },
+    {
+      "id": "TR-02-03",
+      "publicId": "5ea7d2a7-765e-52b9-bed2-b203cc419d1d",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/03.md",
+      "title": "Sông Xanh — Danh sách ảo hóa.md",
+      "sha256": "41e6940d2654df2a1d1ce1a6207ef80bb8dda28e6223c281582f66ac5d05bd09",
+      "wordCount": 1119,
+      "fileSize": 6789
+    },
+    {
+      "id": "TR-02-04",
+      "publicId": "8ac43b13-6c77-5ead-9deb-0f870e8ab64c",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/04.md",
+      "title": "Tre Vàng — Phân quyền nút thao tác.md",
+      "sha256": "c07926a20c5b4796968c3abc5862b83364a15278a61dff57a38bfa227f4cc03f",
+      "wordCount": 1121,
+      "fileSize": 6802
+    },
+    {
+      "id": "TR-02-05",
+      "publicId": "2f3d2106-f0f3-508b-8e33-c925082b3c12",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/05.md",
+      "title": "Cánh Buồm — Điều hướng bàn phím.md",
+      "sha256": "cce16dd13968cd6aacf53c14d49bc764161a0b9e7639aa87b27726731ee7d204",
+      "wordCount": 1117,
+      "fileSize": 6820
+    },
+    {
+      "id": "TR-02-06",
+      "publicId": "cb05da65-23f3-5167-a98c-918fe8492156",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/06.md",
+      "title": "Đồi Thông — Đồng bộ bộ lọc URL.md",
+      "sha256": "0f6b21dc9faa469889dbcfd87b7c7ad982eed73d5557a204c66f06f8d8af8b46",
+      "wordCount": 1121,
+      "fileSize": 6825
+    },
+    {
+      "id": "TR-02-07",
+      "publicId": "41724c0d-a551-5a0a-8c8a-93f89b2f108f",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/07.md",
+      "title": "Hải Đăng — Kiểm tra biểu mẫu dài.md",
+      "sha256": "1f1740a6083209904690434022d3fa9cfc294e58b8fbb965070166a6a93b4079",
+      "wordCount": 1122,
+      "fileSize": 6829
+    },
+    {
+      "id": "TR-02-08",
+      "publicId": "e958f3f5-59c3-553b-922d-ee6dc986ed7b",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/08.md",
+      "title": "Sen Hồng — Tải lại dữ liệu nền.md",
+      "sha256": "4be3e14d366d059e200a6c6d58af4563f049f0c368e7e6b2c0379234eba2ada8",
+      "wordCount": 1121,
+      "fileSize": 6816
+    },
+    {
+      "id": "TR-02-09",
+      "publicId": "af8874b9-5cad-5350-bf13-2e966972a524",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/09.md",
+      "title": "Bình Minh — Xử lý phiên hết hạn.md",
+      "sha256": "6979f6034ac159902258429add26e5335696d9a6461d9fc1317d96f3634ffb3d",
+      "wordCount": 1121,
+      "fileSize": 6808
+    },
+    {
+      "id": "TR-02-10",
+      "publicId": "3691f18f-4dc2-5e2a-9451-a5da734b09b2",
+      "topic": "frontend",
+      "topicName": "Frontend",
+      "path": "frontend/10.md",
+      "title": "Gió Nam — Hiển thị tiến độ tác vụ.md",
+      "sha256": "3c7bd1b130c248f448ff0c55d2e8179302c127bca5bb73cf5fa41825b6af18bf",
+      "wordCount": 1127,
+      "fileSize": 6836
+    },
+    {
+      "id": "TR-03-01",
+      "publicId": "2a6ebb10-9233-5e25-9629-192b700c2199",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/01.md",
+      "title": "Mây Trắng — Pool và timeout truy vấn.md",
+      "sha256": "de7d4e11131e435ad651a536837183c8f1a7a0a36e18ac973fbfab6eabf0c2f3",
+      "wordCount": 1104,
+      "fileSize": 6760,
+      "benchmark": {
+        "id": "Q35",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Pool và timeout truy vấn.md” của dự án Mây Trắng, pool tối đa và statement_timeout là bao nhiêu?",
+        "requiredFacts": [
+          "Pool PostgreSQL của Mây Trắng có tối đa 12 kết nối; statement_timeout là 1600 ms."
+        ]
+      }
+    },
+    {
+      "id": "TR-03-02",
+      "publicId": "ea43818a-6726-5b55-b911-1097d8d82a89",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/02.md",
+      "title": "Sao Bắc — Migration gặp khóa dài.md",
+      "sha256": "390a5b66138bda2d81a54faa320079f83d5dba169c02bfbb3b179ebffa4bba64",
+      "wordCount": 1101,
+      "fileSize": 6740,
+      "benchmark": {
+        "id": "Q36",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Migration gặp khóa dài.md” của dự án Sao Bắc, migration chờ khóa hơn 5 giây. Phải tiếp tục bằng cách tăng timeout hay xử lý theo quy trình nào?",
+        "requiredFacts": [
+          "Nếu migration chờ khóa quá 5 giây, hủy migration và chuyển sang cửa sổ bảo trì; không tăng timeout ngay trên production."
+        ]
+      }
+    },
+    {
+      "id": "TR-03-03",
+      "publicId": "73e20a1e-5a98-57a6-96ed-3426aa4b18af",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/03.md",
+      "title": "Sông Xanh — Chỉ mục danh sách.md",
+      "sha256": "5f26b344ead36257a52bdfb459a645b265677484d7f3803597cb801c53ad9c11",
+      "wordCount": 1102,
+      "fileSize": 6737
+    },
+    {
+      "id": "TR-03-04",
+      "publicId": "fe133d7d-54a5-54bb-9791-143be967dd38",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/04.md",
+      "title": "Tre Vàng — Ghi nhận idempotency.md",
+      "sha256": "60c23bac82dd409363734620329037fb70bf60354907270982a843444d164cc3",
+      "wordCount": 1096,
+      "fileSize": 6718
+    },
+    {
+      "id": "TR-03-05",
+      "publicId": "0a6b3104-9c9a-55c2-93e2-c77c3e574524",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/05.md",
+      "title": "Cánh Buồm — Phục hồi bản sao lưu.md",
+      "sha256": "bdcb050b22ab8255d6a98dfe37c9f9728ff73cc74f763cdb931a9ab9c3d77ed5",
+      "wordCount": 1104,
+      "fileSize": 6759
+    },
+    {
+      "id": "TR-03-06",
+      "publicId": "3da8aa4d-2fff-5a4d-8a64-bc20c3143967",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/06.md",
+      "title": "Đồi Thông — Dọn dữ liệu lịch sử.md",
+      "sha256": "ad6751536f59690980c02a80f86d9d9cf7a4990049edb992da7e1e0a57202616",
+      "wordCount": 1104,
+      "fileSize": 6772
+    },
+    {
+      "id": "TR-03-07",
+      "publicId": "8de87a71-c3b0-5c93-ad78-e4804c57b3d7",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/07.md",
+      "title": "Hải Đăng — Kiểm tra toàn vẹn.md",
+      "sha256": "fb6ba5fd431d3b03459bc4c4ab4fbf97802abd0afd631b52e287025d58fe2153",
+      "wordCount": 1101,
+      "fileSize": 6745
+    },
+    {
+      "id": "TR-03-08",
+      "publicId": "085d803b-2ffb-5c08-b85a-e2b116657414",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/08.md",
+      "title": "Sen Hồng — Đọc dữ liệu báo cáo.md",
+      "sha256": "d6b19945fe7be9d80a2ba92f8ae60d8c4c24305adadbde3041b65cad2ef3061a",
+      "wordCount": 1104,
+      "fileSize": 6752
+    },
+    {
+      "id": "TR-03-09",
+      "publicId": "424b2ee1-4d50-5558-994b-1f8608583560",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/09.md",
+      "title": "Bình Minh — Chuyển đổi cột lớn.md",
+      "sha256": "6b4acd51fa400593a7f575bbde69da83aaf8ded6a913c6fd5bda35c8b6937467",
+      "wordCount": 1100,
+      "fileSize": 6748
+    },
+    {
+      "id": "TR-03-10",
+      "publicId": "2eaf9f99-43df-524b-885f-d356fa233c98",
+      "topic": "database",
+      "topicName": "Database",
+      "path": "database/10.md",
+      "title": "Gió Nam — Theo dõi replication lag.md",
+      "sha256": "52ecf7961756d1e550b8edfc15e073ca09b90ed0f6608640ec0a11c352ee02f0",
+      "wordCount": 1102,
+      "fileSize": 6736
+    },
+    {
+      "id": "TR-04-01",
+      "publicId": "a30ca822-23e3-5f14-9a2e-8de2d9142de7",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/01.md",
+      "title": "Mây Trắng — TTL và jitter.md",
+      "sha256": "836944baa51c0bceb73ec85cf2a1ce2fe3ad49e448f2de8aae276f592d88b014",
+      "wordCount": 1104,
+      "fileSize": 6697,
+      "benchmark": {
+        "id": "Q37",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — TTL và jitter.md” của dự án Mây Trắng, TTL danh sách và jitter tối đa là bao nhiêu?",
+        "requiredFacts": [
+          "Cache danh sách của Mây Trắng có TTL 105 giây và jitter tối đa 6 giây."
+        ]
+      }
+    },
+    {
+      "id": "TR-04-02",
+      "publicId": "bc0f8e46-4511-59c1-afb1-cf4440f3546d",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/02.md",
+      "title": "Sao Bắc — Đọc dữ liệu cũ có điều kiện.md",
+      "sha256": "d4880af234c368d50cb80566127989c74c1b32b30a4d00d9dbb40a59697c3f5e",
+      "wordCount": 1121,
+      "fileSize": 6789,
+      "benchmark": {
+        "id": "Q38",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Đọc dữ liệu cũ có điều kiện.md” của dự án Sao Bắc, nguồn tạm lỗi nhưng quyền truy cập vừa thay đổi. Có thể đọc cache cũ không? Điều kiện đọc cache cũ bình thường là gì?",
+        "requiredFacts": [
+          "Chỉ đọc cache cũ trong 14 giây khi nguồn tạm lỗi và quyền không đổi; nếu quyền thay đổi phải bỏ cache và kiểm tra lại ở DB."
+        ]
+      }
+    },
+    {
+      "id": "TR-04-03",
+      "publicId": "f4486f6d-48f9-5749-bae6-235cf1aa70f2",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/03.md",
+      "title": "Sông Xanh — Khóa chống cache stampede.md",
+      "sha256": "f3748941737335c3926016bf8749549c26f6d2c4d66fa9ca417c20e6fba1f6a5",
+      "wordCount": 1110,
+      "fileSize": 6750
+    },
+    {
+      "id": "TR-04-04",
+      "publicId": "ea716d0f-9422-5145-834d-07a4dc91e197",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/04.md",
+      "title": "Tre Vàng — Cache kết quả rỗng.md",
+      "sha256": "5be744d190a57d71fb9f8a9433c864a25212696004f25ff2e653e5bd304edf4c",
+      "wordCount": 1108,
+      "fileSize": 6715
+    },
+    {
+      "id": "TR-04-05",
+      "publicId": "7c1befbb-2fad-52aa-9a3e-68cbdb2532d0",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/05.md",
+      "title": "Cánh Buồm — Xóa cache khi đổi quyền.md",
+      "sha256": "10f84a3cecddcc6bc28cc287063b22c53c99726a7bb826c83699059549948840",
+      "wordCount": 1112,
+      "fileSize": 6757
+    },
+    {
+      "id": "TR-04-06",
+      "publicId": "6c98af52-ddd0-57e2-a2d8-3ef3d7bb9e15",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/06.md",
+      "title": "Đồi Thông — Phiên bản khóa cache.md",
+      "sha256": "d28d7eac09473f6dd58575ef67d82376173e6625a1f663aac6789153393d89ca",
+      "wordCount": 1108,
+      "fileSize": 6743
+    },
+    {
+      "id": "TR-04-07",
+      "publicId": "f0886a86-1d4b-5843-bab0-d0efd8657e8a",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/07.md",
+      "title": "Hải Đăng — Giới hạn bộ nhớ.md",
+      "sha256": "05375a58a3a7f365bdf77e532fc1bdad894ba5c3c5e8727521232d98e9724181",
+      "wordCount": 1109,
+      "fileSize": 6739
+    },
+    {
+      "id": "TR-04-08",
+      "publicId": "719af222-a97f-599e-935b-58ad599af737",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/08.md",
+      "title": "Sen Hồng — Warmup danh sách.md",
+      "sha256": "bd5e08325b374c2d39f6d4c5e6fec88480cbfdfc3f0fba8daefeb373f0b5b4ae",
+      "wordCount": 1104,
+      "fileSize": 6699
+    },
+    {
+      "id": "TR-04-09",
+      "publicId": "773b5136-1975-57e4-a48b-9d5ed3ff0e75",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/09.md",
+      "title": "Bình Minh — Theo dõi hit ratio.md",
+      "sha256": "f8f88c85ddab32476f9513c1075f40240fa7a943a7ed1fa7c9451633eeea4a42",
+      "wordCount": 1108,
+      "fileSize": 6707
+    },
+    {
+      "id": "TR-04-10",
+      "publicId": "0972d1f3-e4ba-5c1e-acf9-32fdf44ee4d6",
+      "topic": "caching",
+      "topicName": "Caching",
+      "path": "caching/10.md",
+      "title": "Gió Nam — Đối chiếu cache với DB.md",
+      "sha256": "3b70e7b7b30ae216631e0f2863b79b06de21e44f37233f9d4b4029e92be3ea65",
+      "wordCount": 1114,
+      "fileSize": 6743
+    },
+    {
+      "id": "TR-05-01",
+      "publicId": "f7168db5-1118-5139-ab08-72ddb2ea7f2a",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/01.md",
+      "title": "Mây Trắng — Concurrency và attempts.md",
+      "sha256": "7692b2dd6c865d87cc24a6f4ff4e9b1e2783f25ab7301326da83fffbaf2b9048",
+      "wordCount": 1089,
+      "fileSize": 6676,
+      "benchmark": {
+        "id": "Q39",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Concurrency và attempts.md” của dự án Mây Trắng, concurrency và số attempts tối đa là bao nhiêu?",
+        "requiredFacts": [
+          "Worker của Mây Trắng chạy concurrency 3 và tối đa 3 attempts cho mỗi job."
+        ]
+      }
+    },
+    {
+      "id": "TR-05-02",
+      "publicId": "84736b7e-fd79-5e80-b754-9e081628d5f2",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/02.md",
+      "title": "Sao Bắc — Chuyển job lỗi sang DLQ.md",
+      "sha256": "be18c2611f400c3f9ce313d6a442329758a5af6b501b72d0253fd385d6222df1",
+      "wordCount": 1098,
+      "fileSize": 6672,
+      "benchmark": {
+        "id": "Q40",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Chuyển job lỗi sang DLQ.md” của dự án Sao Bắc, job đã thất bại hết 4 attempts. Job phải đi đâu và điều kiện replay là gì?",
+        "requiredFacts": [
+          "Sau 4 attempts thất bại, chuyển job sang DLQ và chỉ replay sau khi người trực đối soát tác dụng phụ."
+        ]
+      }
+    },
+    {
+      "id": "TR-05-03",
+      "publicId": "56fcbb2e-ff14-56f2-966b-7f4cfd90c6ce",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/03.md",
+      "title": "Sông Xanh — Khử job trùng.md",
+      "sha256": "646379ce6e20f40022d1e2dd5b7a7444c98afaf117c57cc622ef31eb508f43f0",
+      "wordCount": 1091,
+      "fileSize": 6641
+    },
+    {
+      "id": "TR-05-04",
+      "publicId": "7804ad97-264a-5c05-957d-4e689074c959",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/04.md",
+      "title": "Tre Vàng — Gia hạn khóa worker.md",
+      "sha256": "2747c9e9c08607a672303c310b7e1f26c50195cdec652fc25c8fa35b7fcf45f8",
+      "wordCount": 1093,
+      "fileSize": 6646
+    },
+    {
+      "id": "TR-05-05",
+      "publicId": "248608fb-d83a-5f81-9101-bb7fb50fb9ae",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/05.md",
+      "title": "Cánh Buồm — Ưu tiên tác vụ khẩn.md",
+      "sha256": "3ac610748a3c727f70975cc93c5525a1997f82fe3a1b67a4b476db377bc98b8f",
+      "wordCount": 1097,
+      "fileSize": 6684
+    },
+    {
+      "id": "TR-05-06",
+      "publicId": "7a5fb4b0-7288-5d57-a84f-6a889277c9f1",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/06.md",
+      "title": "Đồi Thông — Dừng worker an toàn.md",
+      "sha256": "33532b73552e9ea5d704f7fe85d1762ee068f0aa109bd7ba8dd1a76010826e08",
+      "wordCount": 1093,
+      "fileSize": 6673
+    },
+    {
+      "id": "TR-05-07",
+      "publicId": "367659c5-c0a5-5a1f-b79c-44f6821335ad",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/07.md",
+      "title": "Hải Đăng — Xử lý callback ngoài.md",
+      "sha256": "13255c082d08ef2aa8d752829679995f1ba641f30bfab580afa7123ed01ba25c",
+      "wordCount": 1094,
+      "fileSize": 6681
+    },
+    {
+      "id": "TR-05-08",
+      "publicId": "d35346a1-9f56-5383-bf61-80d7ab884826",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/08.md",
+      "title": "Sen Hồng — Chia batch nhập liệu.md",
+      "sha256": "02ff81cb1cec8cc14076329a260780a88000b7a082b664ff54ed8865b670e2d0",
+      "wordCount": 1093,
+      "fileSize": 6665
+    },
+    {
+      "id": "TR-05-09",
+      "publicId": "b5fc8ff6-a722-5de4-ba3d-33b97803015c",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/09.md",
+      "title": "Bình Minh — Theo dõi tuổi job.md",
+      "sha256": "7a9e0cf251b9d4e186597e310fac5e6a7081a6e17673553753bb9f81f6147f60",
+      "wordCount": 1093,
+      "fileSize": 6649
+    },
+    {
+      "id": "TR-05-10",
+      "publicId": "ae9bdb94-36c8-58e3-849d-67a081096b28",
+      "topic": "queue",
+      "topicName": "Queue",
+      "path": "queue/10.md",
+      "title": "Gió Nam — Replay job đã đối soát.md",
+      "sha256": "f38bad22e648bc48783b1e3b0105d806dfa5f4c5d314db8420d96d0a0ad5099c",
+      "wordCount": 1099,
+      "fileSize": 6677
+    },
+    {
+      "id": "TR-06-01",
+      "publicId": "650ca9bf-f04a-5c28-af92-dab560654b98",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/01.md",
+      "title": "Mây Trắng — Cổng kiểm tra phát hành.md",
+      "sha256": "c4a6626c8bfdf7f106fabca9a7e66581231c2fde87d384374c084a56a6a24f21",
+      "wordCount": 1113,
+      "fileSize": 6839,
+      "benchmark": {
+        "id": "Q41",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Cổng kiểm tra phát hành.md” của dự án Mây Trắng, các kiểm tra bắt buộc trước phát hành là gì, và image ở staging có quan hệ thế nào với production?",
+        "requiredFacts": [
+          "Phát hành Mây Trắng cần unit test, kiểm tra migration và smoke test staging đều đạt; cùng một image digest được dùng ở staging và production."
+        ]
+      }
+    },
+    {
+      "id": "TR-06-02",
+      "publicId": "6bea77a9-bdfa-5a0a-837a-e4e96ae16156",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/02.md",
+      "title": "Sao Bắc — Rollback khi smoke test lỗi.md",
+      "sha256": "db681319a762b7c887ba8ab9e914a9e99acce499a668bde06dd850db0fb9ec48",
+      "wordCount": 1114,
+      "fileSize": 6823,
+      "benchmark": {
+        "id": "Q42",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Rollback khi smoke test lỗi.md” của dự án Sao Bắc, smoke test production lỗi trong 7 phút đầu. Cần xử lý artifact và lưu lượng thế nào?",
+        "requiredFacts": [
+          "Nếu smoke test production lỗi trong 7 phút đầu, quay về digest đã xác minh trước đó và tạm dừng tăng lưu lượng."
+        ]
+      }
+    },
+    {
+      "id": "TR-06-03",
+      "publicId": "a79cb0e3-569e-5da7-bd19-d3d9097244c7",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/03.md",
+      "title": "Sông Xanh — Kiểm tra migration CI.md",
+      "sha256": "296fa9e9857d858fdb1b3cf5d67366d98438a86515e82304e5697e080dcee538",
+      "wordCount": 1111,
+      "fileSize": 6812
+    },
+    {
+      "id": "TR-06-04",
+      "publicId": "5f282d64-3bb9-5386-b33f-d553b9e87ad2",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/04.md",
+      "title": "Tre Vàng — Quản lý artifact.md",
+      "sha256": "b5156d2d70024edf72fd1f3c1bc6f92b30eae90a087453d5806aec9e1c3ff24c",
+      "wordCount": 1105,
+      "fileSize": 6777
+    },
+    {
+      "id": "TR-06-05",
+      "publicId": "13f81c52-b2b7-5310-9def-7ad8c7850e9d",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/05.md",
+      "title": "Cánh Buồm — Triển khai canary.md",
+      "sha256": "1a5ae413f8e5570262a63e8e376cb36539acecacc29f78400c56b379a7ca464b",
+      "wordCount": 1105,
+      "fileSize": 6800
+    },
+    {
+      "id": "TR-06-06",
+      "publicId": "569c72f5-a9ae-542a-86f1-d5a0cafe2d15",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/06.md",
+      "title": "Đồi Thông — Phê duyệt production.md",
+      "sha256": "daa09819880427883c0047c8478e1a23636ef60f958112166771c504a979e677",
+      "wordCount": 1105,
+      "fileSize": 6821
+    },
+    {
+      "id": "TR-06-07",
+      "publicId": "ef171cbd-30d0-5355-8b9b-e71c0a0d73ac",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/07.md",
+      "title": "Hải Đăng — Đóng băng phát hành.md",
+      "sha256": "e25a9fc2602d8ac876294ade0385ddb732ffb9357bec3a10e1e683273735cbf9",
+      "wordCount": 1110,
+      "fileSize": 6825
+    },
+    {
+      "id": "TR-06-08",
+      "publicId": "5db5eb91-41c4-518c-9022-52b5ef276d8e",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/08.md",
+      "title": "Sen Hồng — Quét dependency.md",
+      "sha256": "b23fdc08be32e770dbefd5eff4defde23bdd66276d83e3b6e792c51ddcb4c12a",
+      "wordCount": 1101,
+      "fileSize": 6776
+    },
+    {
+      "id": "TR-06-09",
+      "publicId": "2a513440-3b80-59dc-a7bb-dd7955d19131",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/09.md",
+      "title": "Bình Minh — Đồng bộ cấu hình.md",
+      "sha256": "40f47dc02e032bc68d351a9a8bc0e19c0e0304a240a18a6e085ceb6d4f6421ae",
+      "wordCount": 1109,
+      "fileSize": 6808
+    },
+    {
+      "id": "TR-06-10",
+      "publicId": "9214b3bd-9619-55ec-8b75-90ac6986824a",
+      "topic": "ci-cd",
+      "topicName": "CI/CD",
+      "path": "ci-cd/10.md",
+      "title": "Gió Nam — Đối soát sau deploy.md",
+      "sha256": "26c2993d00374f9d1c99a3d794e645074148d615924e8a5b6d5e5adf6b3c234f",
+      "wordCount": 1111,
+      "fileSize": 6800
+    },
+    {
+      "id": "TR-07-01",
+      "publicId": "8b9f886d-b240-574f-91e2-ea10e868c324",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/01.md",
+      "title": "Mây Trắng — Thời hạn token và khóa đăng nhập.md",
+      "sha256": "6aaee213a59dfaa6c8c83431bd3ae707244e96936c65d7b1e17ec642b7bfbaae",
+      "wordCount": 1134,
+      "fileSize": 6861,
+      "benchmark": {
+        "id": "Q43",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — Thời hạn token và khóa đăng nhập.md” của dự án Mây Trắng, access token sống bao lâu và điều kiện khóa đăng nhập là gì?",
+        "requiredFacts": [
+          "Access token của Mây Trắng sống 9 phút; khóa đăng nhập 12 phút sau 5 lần sai liên tiếp."
+        ]
+      }
+    },
+    {
+      "id": "TR-07-02",
+      "publicId": "9e839116-ab58-547e-9eed-44a4edd8f831",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/02.md",
+      "title": "Sao Bắc — Ứng phó khóa dịch vụ bị lộ.md",
+      "sha256": "4fe3d17f88025b725f93fb83c70dc84d4c9e1099aaa0f9609ee30415e29dcfbb",
+      "wordCount": 1135,
+      "fileSize": 6830,
+      "benchmark": {
+        "id": "Q44",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Ứng phó khóa dịch vụ bị lộ.md” của dự án Sao Bắc, nghi khóa dịch vụ đã bị lộ. Những bước xử lý và khoảng thời gian log cần kiểm tra là gì?",
+        "requiredFacts": [
+          "Khi nghi khóa dịch vụ bị lộ, thu hồi khóa, cấp khóa mới và kiểm tra log đã che dữ liệu trong 14 giờ gần nhất."
+        ]
+      }
+    },
+    {
+      "id": "TR-07-03",
+      "publicId": "22978895-0c28-525d-a4ef-a13b4464a2d5",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/03.md",
+      "title": "Sông Xanh — Kiểm tra quyền tài liệu.md",
+      "sha256": "d9553ece3fb163a992eda5e4b7efa9fbdc37c3e75cf418cd36a4e2142859cdc4",
+      "wordCount": 1128,
+      "fileSize": 6812
+    },
+    {
+      "id": "TR-07-04",
+      "publicId": "f924b524-f473-5c04-a70c-5bf053630d76",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/04.md",
+      "title": "Tre Vàng — Phân tách tenant.md",
+      "sha256": "165e7b270ab1b3d48dde04da2f4e2bd05d5fe0bfcccb5709b2537b4c39e51529",
+      "wordCount": 1118,
+      "fileSize": 6745
+    },
+    {
+      "id": "TR-07-05",
+      "publicId": "fcf03ada-5f5c-5a0d-906f-59a3857f4d39",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/05.md",
+      "title": "Cánh Buồm — Luân chuyển secret.md",
+      "sha256": "015a8a183a264c17be3b2afd1f24f38fbdeefd6d1ec3ba27dd02b9dbdc26deca",
+      "wordCount": 1118,
+      "fileSize": 6778
+    },
+    {
+      "id": "TR-07-06",
+      "publicId": "a88423b4-f9bf-5acf-8492-e0da6f1f365b",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/06.md",
+      "title": "Đồi Thông — Xác minh webhook.md",
+      "sha256": "dddd13eda326e2bb733806e6a2a360c8440745ecbcb43e87b649b621fc6d128a",
+      "wordCount": 1118,
+      "fileSize": 6767
+    },
+    {
+      "id": "TR-07-07",
+      "publicId": "d5fcc447-5180-5fea-a0d4-80e7ef395b81",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/07.md",
+      "title": "Hải Đăng — Giới hạn tải file.md",
+      "sha256": "093720a0a2fa6f1b0a89d9b5edba43762598564ef809fe6aad6d6faa371bc1fb",
+      "wordCount": 1123,
+      "fileSize": 6791
+    },
+    {
+      "id": "TR-07-08",
+      "publicId": "8666f022-eadb-59f7-a525-7725863e2429",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/08.md",
+      "title": "Sen Hồng — Kiểm soát phiên quản trị.md",
+      "sha256": "49d8c968ed9169fe0a760e90783319d0257e26b48044aa4e2fca22087697ab68",
+      "wordCount": 1126,
+      "fileSize": 6810
+    },
+    {
+      "id": "TR-07-09",
+      "publicId": "8e517b4f-21de-5da6-bf09-51fdce4ac7e0",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/09.md",
+      "title": "Bình Minh — Bảo vệ dữ liệu nhạy cảm.md",
+      "sha256": "2d9b23bad0044d09793c23e8e77ab0f1bdd6422f4c45aa9b3d01669e7a48fc07",
+      "wordCount": 1130,
+      "fileSize": 6822
+    },
+    {
+      "id": "TR-07-10",
+      "publicId": "347ac93b-a637-532e-9744-e3b5421cbd43",
+      "topic": "security",
+      "topicName": "Bảo mật",
+      "path": "security/10.md",
+      "title": "Gió Nam — Rà soát quyền định kỳ.md",
+      "sha256": "ff1ceebf691e0103ccaff7074998be54fe6829b76df3fd5b6475ecd169448958",
+      "wordCount": 1128,
+      "fileSize": 6798
+    },
+    {
+      "id": "TR-08-01",
+      "publicId": "8da0a966-9eef-528a-a4b4-264e6b307c7b",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/01.md",
+      "title": "Mây Trắng — SLO và điều kiện cảnh báo.md",
+      "sha256": "85a8d9e8ea4f791550c320be29b924a9e64b3587f1da8fae0bf3419e8095e971",
+      "wordCount": 1135,
+      "fileSize": 6915,
+      "benchmark": {
+        "id": "Q45",
+        "type": "lookup",
+        "question": "Theo tài liệu “Mây Trắng — SLO và điều kiện cảnh báo.md” của dự án Mây Trắng, SLO, cửa sổ đo và điều kiện cảnh báo lỗi là gì?",
+        "requiredFacts": [
+          "SLO của Mây Trắng là 99.01% yêu cầu thành công trong 28 ngày; cảnh báo khi lỗi vượt 1.1% liên tục 4 phút."
+        ]
+      }
+    },
+    {
+      "id": "TR-08-02",
+      "publicId": "1cc3427f-85a9-516b-869c-f42afe516b74",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/02.md",
+      "title": "Sao Bắc — Ngân sách lỗi và phát hành.md",
+      "sha256": "d31a36c1560c4d68ac906e0e4d47a6232d503bd73c4fb54f5dd19185aa9f3418",
+      "wordCount": 1136,
+      "fileSize": 6895,
+      "benchmark": {
+        "id": "Q46",
+        "type": "scenario",
+        "question": "Theo tài liệu “Sao Bắc — Ngân sách lỗi và phát hành.md” của dự án Sao Bắc, đã dùng hơn 46% ngân sách lỗi tuần. Những loại phát hành nào còn được phép và ai duyệt?",
+        "requiredFacts": [
+          "Khi đã dùng hơn 46% ngân sách lỗi tuần, tạm dừng phát hành tính năng và chỉ cho phép bản sửa tăng độ ổn định được người trực duyệt."
+        ]
+      }
+    },
+    {
+      "id": "TR-08-03",
+      "publicId": "7076a38f-a3c3-5309-adc4-9012c52e4bfc",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/03.md",
+      "title": "Sông Xanh — Tương quan log trace.md",
+      "sha256": "9e9f936656b92a759602be69400e8e7f41648e7a36d36a09fab0792aa2716450",
+      "wordCount": 1129,
+      "fileSize": 6864
+    },
+    {
+      "id": "TR-08-04",
+      "publicId": "17733ecc-8ac3-537a-8b1c-39cf8d081ac6",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/04.md",
+      "title": "Tre Vàng — Giới hạn nhãn metric.md",
+      "sha256": "daaf1114839b84413ec970d98973f814f479278edb55248213ee12981f602a27",
+      "wordCount": 1127,
+      "fileSize": 6857
+    },
+    {
+      "id": "TR-08-05",
+      "publicId": "31859777-14ba-56bb-97c1-b205494f8750",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/05.md",
+      "title": "Cánh Buồm — Lấy mẫu trace.md",
+      "sha256": "dd1830a6ee433f2de94482116ba74a6c651766dd58c797e7068755557d64f87e",
+      "wordCount": 1123,
+      "fileSize": 6847
+    },
+    {
+      "id": "TR-08-06",
+      "publicId": "037eb4ef-a8e3-57c2-83c3-5ae2b2a03965",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/06.md",
+      "title": "Đồi Thông — Giám sát phụ thuộc.md",
+      "sha256": "f5ebd42729b6040ec483ca1587aff2c33ff9b4b0599919ff77b5fa5c50fc75c6",
+      "wordCount": 1127,
+      "fileSize": 6880
+    },
+    {
+      "id": "TR-08-07",
+      "publicId": "2228f88d-2694-555c-9f10-1eb62d641b26",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/07.md",
+      "title": "Hải Đăng — Theo dõi độ trễ đuôi.md",
+      "sha256": "ce5e8bd6bfc5f96ef099634c0755be0e1435f442d66195fab4abbe82e8cd57fd",
+      "wordCount": 1132,
+      "fileSize": 6897
+    },
+    {
+      "id": "TR-08-08",
+      "publicId": "d3044d85-4458-5c77-befb-1e3934fff2fd",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/08.md",
+      "title": "Sen Hồng — Kiểm tra cảnh báo giả.md",
+      "sha256": "a3ad2c4dddb1c58d150f257a05fd9ac6cf3cadd592c3604725c6a300fa460228",
+      "wordCount": 1131,
+      "fileSize": 6880
+    },
+    {
+      "id": "TR-08-09",
+      "publicId": "468d5e42-2fb3-5f1b-aa04-47814a78e919",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/09.md",
+      "title": "Bình Minh — Runbook trực vận hành.md",
+      "sha256": "6fde20360a9e712fbfa33188f7b4c34dcdbca2cb5c7bffbc68bf5df0f227b1c5",
+      "wordCount": 1127,
+      "fileSize": 6872
+    },
+    {
+      "id": "TR-08-10",
+      "publicId": "1e9603dd-9645-5e47-b5f6-9fcc2144e726",
+      "topic": "observability",
+      "topicName": "Observability",
+      "path": "observability/10.md",
+      "title": "Gió Nam — Lưu giữ dữ liệu đo.md",
+      "sha256": "8564a58b5ed7de46f034dc633a8af7231c01fb3ec869fb6c7071e9ee04308f3b",
+      "wordCount": 1133,
+      "fileSize": 6868
+    },
+    {
+      "id": "TR-09-01",
+      "publicId": "59429234-dfd3-5fe1-927c-89308fdb10c6",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/01.md",
+      "title": "Mây Trắng — Tách luồng báo cáo.md",
+      "sha256": "7a855776c9ed7e99ce6318dda70c38292d7f72555236d3231ff61f8f7e851c51",
+      "wordCount": 1145,
+      "fileSize": 6943,
+      "benchmark": {
+        "id": "Q47",
+        "type": "synthesis",
+        "question": "Theo tài liệu “Mây Trắng — Tách luồng báo cáo.md”, hãy tổng hợp cách phân chia luồng, điều kiện tách dịch vụ và điều kiện quay về đường xử lý cũ.",
+        "requiredFacts": [
+          "Mây Trắng giữ thao tác ghi phiếu trong API đồng bộ và chuyển tác vụ phụ sang worker qua outbox trong cùng transaction.",
+          "Chỉ tách dịch vụ khi tác vụ phụ chiếm hơn 23% thời gian API trong 4 ngày liên tiếp và có nhóm vận hành nhận trách nhiệm.",
+          "Nếu độ trễ sự kiện vượt 25 giây trong 3 phút, tắt cờ tách luồng và dùng đường xử lý cũ đã kiểm tra."
+        ]
+      }
+    },
+    {
+      "id": "TR-09-02",
+      "publicId": "2f3498ca-735b-561a-b1df-32aca5054dca",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/02.md",
+      "title": "Sao Bắc — Tách luồng thông báo.md",
+      "sha256": "5b7f11c18a2248fdfd061a5cc71f999a5b13f55f43fa06c0b43f36be28281bee",
+      "wordCount": 1146,
+      "fileSize": 6935,
+      "benchmark": {
+        "id": "Q48",
+        "type": "synthesis",
+        "question": "Theo tài liệu “Sao Bắc — Tách luồng thông báo.md”, hãy tổng hợp cách phân chia luồng, điều kiện tách dịch vụ và điều kiện quay về đường xử lý cũ.",
+        "requiredFacts": [
+          "Sao Bắc giữ thao tác ghi phiếu trong API đồng bộ và chuyển tác vụ phụ sang worker qua outbox trong cùng transaction.",
+          "Chỉ tách dịch vụ khi tác vụ phụ chiếm hơn 26% thời gian API trong 5 ngày liên tiếp và có nhóm vận hành nhận trách nhiệm.",
+          "Nếu độ trễ sự kiện vượt 30 giây trong 4 phút, tắt cờ tách luồng và dùng đường xử lý cũ đã kiểm tra."
+        ]
+      }
+    },
+    {
+      "id": "TR-09-03",
+      "publicId": "e9e5b370-78c9-581b-9bd9-7a1cacc9453d",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/03.md",
+      "title": "Sông Xanh — Ranh giới module nghiệp vụ.md",
+      "sha256": "a2c8005d694dc2747ee059bf669d4d385f34d552a91137ad12ea9965d449f865",
+      "wordCount": 1151,
+      "fileSize": 6977
+    },
+    {
+      "id": "TR-09-04",
+      "publicId": "3366b5bc-62aa-53f3-b99c-819e549ce00b",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/04.md",
+      "title": "Tre Vàng — Chọn outbox sự kiện.md",
+      "sha256": "01a193533079e8b6640888d37b3710c51247318b1c3c0a02a27ba8863d8dcef5",
+      "wordCount": 1145,
+      "fileSize": 6930
+    },
+    {
+      "id": "TR-09-05",
+      "publicId": "3a2e7f47-d503-5eb4-83f3-2bbd8abb7a06",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/05.md",
+      "title": "Cánh Buồm — Đồng bộ dữ liệu đọc.md",
+      "sha256": "eaa3bbb1cb4eed5433c69c9a7d137675d4ddaff6399a4d695df95f674bcbbbb9",
+      "wordCount": 1149,
+      "fileSize": 6975
+    },
+    {
+      "id": "TR-09-06",
+      "publicId": "56a73837-2e52-58dd-b1f0-6114c631ce41",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/06.md",
+      "title": "Đồi Thông — Giảm phụ thuộc chéo.md",
+      "sha256": "0c7169998e52f5a05f157af08297ce8884c5c0a2990a760fe603318d34b5c62d",
+      "wordCount": 1145,
+      "fileSize": 6960
+    },
+    {
+      "id": "TR-09-07",
+      "publicId": "b3ab2169-040b-5d3a-884e-8db28dc1a840",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/07.md",
+      "title": "Hải Đăng — Phân chia tenant.md",
+      "sha256": "3391922654a5702ee43d15a82b667ae0f4cd526c2bbf11a0f87fa9b155d27ed5",
+      "wordCount": 1142,
+      "fileSize": 6925
+    },
+    {
+      "id": "TR-09-08",
+      "publicId": "11b9d7cb-6f5a-50f4-ade3-b4896581a8cd",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/08.md",
+      "title": "Sen Hồng — Thiết kế đường phục hồi.md",
+      "sha256": "83faee5bc786d70787e0b10188ed2a899127c8fbd62d3ba84d8b8ecd45b00c38",
+      "wordCount": 1149,
+      "fileSize": 6981
+    },
+    {
+      "id": "TR-09-09",
+      "publicId": "cb34c2aa-5e86-5c76-99ad-3e1fc670775a",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/09.md",
+      "title": "Bình Minh — Chuyển đổi từng phần.md",
+      "sha256": "136ed1298a222647a13a42a6037f114802f218402c2fd16293c3d2a9cfe1ed5d",
+      "wordCount": 1145,
+      "fileSize": 6957
+    },
+    {
+      "id": "TR-09-10",
+      "publicId": "f9322d47-1ee2-5798-9f55-e42ff28b79d9",
+      "topic": "architecture",
+      "topicName": "Kiến trúc hệ thống",
+      "path": "architecture/10.md",
+      "title": "Gió Nam — Đối chiếu quyết định ADR.md",
+      "sha256": "a2e66b5aa22c35fe54257620f2494e6ffe5c1952f89e42bf0b0095be71eacfc5",
+      "wordCount": 1151,
+      "fileSize": 6973
+    },
+    {
+      "id": "TR-10-01",
+      "publicId": "1ac905ab-4154-5b5a-84af-d5a2ac89cbe3",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/01.md",
+      "title": "Mây Trắng — Điều kiện hoàn tất ticket.md",
+      "sha256": "6a901352f7543727bff80130b8c2a2e4c23f04164128663da8b58c4f6cf0eef3",
+      "wordCount": 1149,
+      "fileSize": 7015,
+      "benchmark": {
+        "id": "Q49",
+        "type": "synthesis",
+        "question": "Theo tài liệu “Mây Trắng — Điều kiện hoàn tất ticket.md”, hãy tổng hợp điều kiện hoàn tất ticket, phê duyệt và review hotfix, cùng cách xử lý khi lỗi tái hiện.",
+        "requiredFacts": [
+          "Ticket của Mây Trắng chỉ hoàn tất khi đủ tiêu chí chấp nhận, bằng chứng test và review của người khác người viết.",
+          "Hotfix cần người trực Incident duyệt trước khi triển khai; bổ sung review độc lập trong 14 giờ sau triển khai.",
+          "Nếu lỗi tái hiện sau hotfix, mở lại ticket, quay về bản ổn định và tổ chức đối soát trong 3 ngày làm việc."
+        ]
+      }
+    },
+    {
+      "id": "TR-10-02",
+      "publicId": "c5495fbc-ca5a-5d8a-a74c-cce5463fe6aa",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/02.md",
+      "title": "Sao Bắc — Luồng hotfix khẩn cấp.md",
+      "sha256": "b57a55f7166be8b979119bb6d4284cc66447ad847933c1a39ca498308be204c0",
+      "wordCount": 1146,
+      "fileSize": 6975,
+      "benchmark": {
+        "id": "Q50",
+        "type": "synthesis",
+        "question": "Theo tài liệu “Sao Bắc — Luồng hotfix khẩn cấp.md”, hãy tổng hợp điều kiện hoàn tất ticket, phê duyệt và review hotfix, cùng cách xử lý khi lỗi tái hiện.",
+        "requiredFacts": [
+          "Ticket của Sao Bắc chỉ hoàn tất khi đủ tiêu chí chấp nhận, bằng chứng test và review của người khác người viết.",
+          "Hotfix cần người trực Incident duyệt trước khi triển khai; bổ sung review độc lập trong 16 giờ sau triển khai.",
+          "Nếu lỗi tái hiện sau hotfix, mở lại ticket, quay về bản ổn định và tổ chức đối soát trong 4 ngày làm việc."
+        ]
+      }
+    },
+    {
+      "id": "TR-10-03",
+      "publicId": "ca41aedf-0dd3-5991-83e9-e6862b4659ba",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/03.md",
+      "title": "Sông Xanh — Chuẩn bị refinement.md",
+      "sha256": "8e3ac8add5eff7e2b398b121dd82f2729d3702b32d25ca365df868d530b104c9",
+      "wordCount": 1143,
+      "fileSize": 6972
+    },
+    {
+      "id": "TR-10-04",
+      "publicId": "ebbe5624-b107-511a-b577-efe082a784c4",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/04.md",
+      "title": "Tre Vàng — Phân chia task.md",
+      "sha256": "85df2965d53c6316c373642e34dedb1ed9f97bf403906266a6ac6240277c8ed1",
+      "wordCount": 1141,
+      "fileSize": 6921
+    },
+    {
+      "id": "TR-10-05",
+      "publicId": "6b255960-5c57-5d37-9d01-eee9c7f19f57",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/05.md",
+      "title": "Cánh Buồm — Review thay đổi dữ liệu.md",
+      "sha256": "47e469ad5282179eee201a8a24939ca148e13ca0a445a9c2fbfb5be527cb5c8e",
+      "wordCount": 1149,
+      "fileSize": 7003
+    },
+    {
+      "id": "TR-10-06",
+      "publicId": "8ed07ef1-ad7d-5312-a312-96542b44de47",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/06.md",
+      "title": "Đồi Thông — Quản lý nợ kỹ thuật.md",
+      "sha256": "173e751f5c3cb3d95ad9ab2292b6a70c851d47664f448213c267a27c638dfac6",
+      "wordCount": 1149,
+      "fileSize": 7000
+    },
+    {
+      "id": "TR-10-07",
+      "publicId": "9044c1f8-2b32-5e40-a1aa-95125c81cbf1",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/07.md",
+      "title": "Hải Đăng — Bàn giao ca trực.md",
+      "sha256": "03c1198fba3055e469aa47435c5be4fff72153b8c16654e17b47799ce93f96e4",
+      "wordCount": 1146,
+      "fileSize": 6964
+    },
+    {
+      "id": "TR-10-08",
+      "publicId": "3d3e6821-887d-5372-a7b0-740a6b0e5e6d",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/08.md",
+      "title": "Sen Hồng — Viết biên bản sự cố.md",
+      "sha256": "83a76e176742acd381168c6e4faa7912321ab4526f2cbbbf04897f59c543f65f",
+      "wordCount": 1149,
+      "fileSize": 6984
+    },
+    {
+      "id": "TR-10-09",
+      "publicId": "3c7b807b-8526-54a4-8168-a8be9d30ce0b",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/09.md",
+      "title": "Bình Minh — Kiểm tra hồi quy.md",
+      "sha256": "61adec0003c13aec488a33c2d33b74f2bda727ae9ade4b08c7b8698dec3f6598",
+      "wordCount": 1145,
+      "fileSize": 6952
+    },
+    {
+      "id": "TR-10-10",
+      "publicId": "7536cba5-21ff-5987-9fba-3b594649e642",
+      "topic": "development",
+      "topicName": "Quy trình phát triển",
+      "path": "development/10.md",
+      "title": "Gió Nam — Đánh giá cuối sprint.md",
+      "sha256": "95e9da01a96a4831f707eeb0ab70b7b46a54bed14ddf2327cf8004ce3336bff7",
+      "wordCount": 1147,
+      "fileSize": 6968
+    }
+  ]
+}

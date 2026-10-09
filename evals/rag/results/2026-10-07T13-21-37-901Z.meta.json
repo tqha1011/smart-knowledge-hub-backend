@@ -1,0 +1,23 @@
+{
+  "startedAt": "2026-10-07T13:21:37.901Z",
+  "userPublicId": "10000000-0000-4000-8000-000000000001",
+  "questionIds": [
+    "Q01",
+    "Q02",
+    "Q03",
+    "Q04",
+    "Q05",
+    "Q06",
+    "Q07",
+    "Q08",
+    "Q09",
+    "Q10"
+  ],
+  "datasetSha256": "d1984159bec680da623f6200433aca4f4b1248bd924f4782715abc61dd061b77",
+  "gitCommit": "d97de2e898dbe86e38403b4c95ab23f8a68a7ba5",
+  "mode": "ChatAnswerService",
+  "embeddingModel": "gemini-embedding-001",
+  "answerClient": "GroqChatClient",
+  "aiMock": false,
+  "cache": "disabled"
+}

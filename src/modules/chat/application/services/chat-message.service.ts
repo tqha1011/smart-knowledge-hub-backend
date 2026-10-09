@@ -1,3 +1,6 @@
+import { ConfigService } from '@nestjs/config';
+import { DemoRepository } from 'src/modules/demo/infrastructure/demo.repo';
+import { demoOptions } from 'src/modules/demo/domain/demo-policy';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
@@ -58,6 +61,8 @@ export class ChatMessageService implements IChatMessageService {
     private readonly unansweredQuestionRepository: IUnansweredQuestionRepository,
     @InjectQueue(QueueName.GenerateTitleQueue)
     private readonly generateTitleQueue: Queue<GenerateTitleJobRequestDto>,
+    private readonly demoRepository: DemoRepository,
+    private readonly configService: ConfigService,
   ) {}
 
   async chatAsync(
@@ -91,11 +96,13 @@ export class ChatMessageService implements IChatMessageService {
           ),
         );
       }
-      if (checkIdResult.value === null) {
+      if (
+        checkIdResult.value === null ||
+        checkIdResult.value.userId !== membership.value.userId
+      ) {
         return err(new AppError(ErrorCode.NotFound, 'Chat session not found.'));
       }
       const chatSessionId = checkIdResult.value.id;
-
       const newUserMessage = ChatMessage.createChatMessage({
         chatSessionId,
         role: CommonChatRole.User,
@@ -106,6 +113,10 @@ export class ChatMessageService implements IChatMessageService {
           new AppError(ErrorCode.BadRequest, newUserMessage.error.message),
         );
       }
+      const isDemo = await this.demoRepository.reserveQuestion(
+        userPublicId,
+        demoOptions(this.configService),
+      );
       const addUserMessageResult = await this.chatMessageRepository.addMessage(
         newUserMessage.value,
       );
@@ -195,7 +206,12 @@ export class ChatMessageService implements IChatMessageService {
       // not fail an answer that already saved fine.
       try {
         const isFirstTurn = checkIdResult.value.title === DEFAULT_SESSION_TITLE;
-        if (isFirstTurn) {
+        if (isFirstTurn && isDemo) {
+          await this.chatSessionRepository.updateSessionTitle(
+            chatSessionId,
+            request.content.slice(0, 80),
+          );
+        } else if (isFirstTurn) {
           await this.generateTitleQueue.add(EventName.GenerateTitle, {
             chatSessionPublicId: request.chatSessionPublicId,
             knowledgeSpacePublicId: request.knowledgeSpacePublicId,
@@ -223,6 +239,7 @@ export class ChatMessageService implements IChatMessageService {
           : [],
       });
     } catch (error) {
+      if (error instanceof AppError) return err(error);
       return err(
         new AppError(
           ErrorCode.InternalServerError,

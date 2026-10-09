@@ -1,0 +1,136 @@
+id,actualAnswer,verdict,reason
+"Q31","Theo tài liệu “Mây Trắng — Giới hạn thời gian API”, timeout của API được đặt là **740 ms** và mỗi yêu cầu chỉ được **thử lại tối đa 1 lần**【1†L9-L10】.","",""
+"Q32","Khi một thao tác ghi (không có khóa idempotency) bị kéo dài quá thời gian cho phép, tài liệu quy định phải **trả về mã lỗi RAG‑BE‑504** và **không tự động gửi lại** thao tác đó. [2]","",""
+"Q33","Theo tài liệu “Mây Trắng — Lưu bản nháp biểu mẫu.md”, bản nháp được **lưu mỗi 6 giây** và **hết hạn sau 22 giờ**【1】.","",""
+"Q34","Khi người dùng bị mất mạng trong lúc nhập biểu mẫu, đội ngũ phải **giữ bản nháp trên máy người dùng và khóa (vô hiệu hoá) nút “gửi”**. Bản nháp chỉ được **gửi lên hệ thống sau khi kết nối mạng được khôi phục và người dùng xác nhận** rằng muốn tiếp tục gửi dữ liệu. [1]","",""
+"Q35","Theo tài liệu “Mây Trắng — Pool và timeout truy vấn.md”, dự án Mây Trắng cấu hình:
+
+- **Số kết nối tối đa trong pool**: 12 kết nối.  
+- **Giá trị `statement_timeout`**: 1600 ms.  
+
+(Thông tin này được nêu trong phần “Quy định cấu hình” của tài liệu)【1†L7-L9】","",""
+"Q36","Theo tài liệu “Sao Bắc — Migration gặp khóa dài.md” nếu một migration đang chờ khóa **hơn 5 giây** thì không được tăng `statement_timeout`. Thay vào đó phải **hủy migration** và chuyển sang thực hiện trong **cửa sổ bảo trì** — không được tăng timeout ngay trên production [1].","",""
+"Q37","Theo tài liệu “Mây Trắng — TTL và jitter.md”, cache danh sách của dự án được cấu hình **TTL là 105 giây** và **jitter tối đa là 6 giây**【1†L1-L3】.","",""
+"Q38","Theo quy định trong tài liệu **“Sao Bắc — Đọc dữ liệu cũ có điều kiện.md”**:
+
+* **Khi nguồn tạm lỗi nhưng quyền truy cập đã thay đổi** → **không được phép đọc cache cũ**; phải bỏ cache và kiểm tra lại ở DB.  
+* **Điều kiện để đọc cache cũ** (trong trường hợp nguồn tạm lỗi) là: **đọc được trong vòng 14 giây và quyền không đổi**. Nếu quyền thay đổi, cache phải bị vô hiệu hoá và dữ liệu phải lấy lại từ cơ sở dữ liệu.  
+
+Nguồn: [1] “Chỉ đọc cache cũ trong 14 giây khi nguồn tạm lỗi và quyền không đổi; nếu quyền thay đổi phải bỏ cache và kiểm tra lại ở DB.”【1†L31-L33】","",""
+"Q39","Theo tài liệu **“Mây Trắng — Concurrency và attempts.md”**, worker của dự án được cấu hình chạy với **concurrency = 3** và **tối đa 3 attempts** cho mỗi job【1†L9-L11】.","",""
+"Q40","Theo tài liệu **Sao Bắc — Chuyển job lỗi sang DLQ.md**, Worker của dự án Sao Bắc cho phép tối đa 4 attempts cho mỗi job. Khi một job đã thất bại hết 4 attempts, nó phải được **đưa vào DLQ (dead‑letter queue)**. Việc **replay** (đưa job trở lại queue để xử lý lại) chỉ được thực hiện **sau khi người trực đã đối soát, xác nhận các tác dụng phụ của lần chạy trước** và xác nhận rằng việc replay là an toàn 【1†L58-L60】.","",""
+"Q41","Theo “Mây Trắng — Cổng kiểm tra phát hành.md” việc phát hành phải đáp ứng **ba kiểm tra bắt buộc**:  
+
+* **Unit test**  
+* **Kiểm tra migration**  
+* **Smoke test ở môi trường staging**  
+
+và **cùng một image digest** (phiên bản ảnh bất biến) được **đưa từ staging sang production** – tức là image được build một lần và dùng lại ở cả hai môi trường, không tạo image mới khi chuyển sang production【1†L15-L18】.","",""
+"Q42","Theo tài liệu của dự án Sao Bắc, khi smoke test ở môi trường production gặp lỗi trong **7 phút đầu** thì phải:
+
+* **Quay lại (rollback) digest** – tức là sử dụng lại image digest đã được xác minh trước đó thay vì tạo image mới.  
+* **Tạm dừng việc tăng lưu lượng** – không tiến hành mở rộng (ramp‑up) lượng traffic nữa cho đến khi kiểm tra lại.  
+
+Sau khi rollback, **artifact gây lỗi** phải được giữ lại để phân tích và thực hiện lại smoke test trên phiên bản đã phục hồi.  
+
+Các yêu cầu này được nêu trong tài liệu “Sao Bắc — Rollback khi smoke test lỗi.md” :  
+
+- “Nếu smoke test production lỗi trong 7 phút đầu, quay về digest đã xác minh trước đó và tạm dừng tăng lưu lượng.”【1†L1-L3】  
+- “Sau rollback, giữ artifact lỗi để phân tích và chạy lại smoke trên bản phục hồi.”【1†L13-L15】","",""
+"Q43","Theo tài liệu “Mây Trắng — Thời hạn token và khóa đăng nhập.md”:
+
+* **Access token** của dự án Mây Trắng **có thời gian sống 9 phút**.  
+* **Khóa đăng nhập** sẽ bị khóa **sau 12 phút** khi có **5 lần nhập sai liên tiếp**.  
+
+Nguồn: “Access token của Mây Trắng sống 9 phút; khóa đăng nhập 12 phút sau 5 lần sai liên tiếp.”【1†L13-L15】","",""
+"Q44","Theo tài liệu “Sao Bắc — Ứng phó khóa dịch vụ bị lộ.md”, khi nghi dịch vụ đã bị rò rỉ, quy trình ứng phó gồm các bước sau :
+
+1. **Thu hồi (revoke) khóa hiện tại**  
+2. **Cấp lại (issue) khóa mới**  
+3. **Kiểm tra log** – đảm bảo mọi token, mật khẩu và dữ liệu riêng tư đã được che trong log, và kiểm tra các log **trong 14 giờ gần nhất** để phát hiện mọi dấu hiệu rò rỉ hoặc hành vi bất thường.  
+
+(Trích từ tài liệu: “Khi nghi khóa dịch vụ bị lộ, thu hồi khóa, cấp khóa mới và kiểm tra log đã che dữ liệu trong 14 giờ gần nhất.” [1])","",""
+"Q45","Theo tài liệu **“Mây Trắng — SLO và điều kiện cảnh báo.md”** của dự án Mây Trắng:
+
+* **SLO**: đạt 99.01 % yêu cầu thành công.  
+* **Cửa sổ đo**: tính trên khoảng thời gian **28 ngày**.  
+* **Điều kiện cảnh báo lỗi**: khi tỷ lệ lỗi **vượt quá 1.1 %** liên tục trong **4 phút**.  
+
+Nguồn: [1] “Mây Trắng — SLO và điều kiện cảnh báo.md”.","",""
+"Q46","Khi đã tiêu thụ hơn 46 % ngân sách lỗi trong tuần, dự án **đình chỉ việc phát hành các tính năng mới** và chỉ cho phép **các bản sửa (patch) nhằm tăng độ ổn định** được triển khai. Các bản sửa này phải **được người trực (người on‑call) duyệt** trước khi thực hiện【1†L1-L2】.","",""
+"Q47","**Cách phân chia luồng (theo “Mây Trắng — Tách luồng báo cáo”)**  
+- Luồng **đồng bộ**: API thực hiện ghi phiếu (hoạt động chính) trong một transaction.  
+- Luồng **bất đồng bộ**: các tác vụ phụ được đưa vào bảng *outbox* trong cùng transaction và sau khi transaction thành công sẽ được bộ phát sự kiện chuyển cho một *worker* để xử lý.  [1]  
+
+**Điều kiện để tách dịch vụ**  
+- Tác vụ phụ phải chiếm **hơn 23 %** thời gian của API **trong 4 ngày liên tiếp**.  
+- Cần có **nhóm vận hành nhận trách nhiệm** cho việc tách dịch vụ. [1]  
+
+**Điều kiện quay lại (fallback) sang đường xử lý cũ**  
+- Khi **độ trễ sự kiện vượt 25 giây** trong một khoảng **3 phút**, phải **tắt cờ tách luồng** và quay trở lại **đường xử lý cũ đã được kiểm tra**. [1]  ","",""
+"Q48","**Cách phân chia luồng (theo “Sao Bắc — Tách luồng thông báo”)**  
+- Giao dịch ghi phiếu được thực hiện **trong API đồng bộ**; các tác vụ phụ (ví dụ gửi sự kiện, xử lý hậu‑giao) được **đẩy sang worker thông qua outbox** trong cùng một transaction.  
+- Như vậy, **luồng đồng bộ** bảo vệ tính nhất quán nghiệp vụ, còn **luồng bất đồng bộ** chịu trách nhiệm thực hiện các công việc có thể hoàn tất sau khi transaction đã commit【1†L9-L12】.  
+
+**Điều kiện để tách dịch vụ**  
+- Chỉ thực hiện tách luồng khi **tác vụ phụ chiếm hơn 26 % thời gian API** trong **5 ngày liên tiếp** và **có nhóm vận hành nhận trách nhiệm**【1†L31-L33】.  
+
+**Điều kiện quay trở lại đường xử lý cũ**  
+- **Giữ đường xử lý cũ trong 9 ngày** sau khi chuyển đổi, để có thể quay lại nếu cần【4†L57-L59】.  
+- Nếu **độ trễ sự kiện vượt 30 giây trong 4 phút**, phải **tắt cờ tách luồng và quay lại đường xử lý cũ đã kiểm tra**【1†L46-L48】.  
+
+Tóm lại, dự án Sao Bắc tách luồng bằng cách giữ phần ghi phiếu đồng bộ và chuyển các công việc phụ sang worker bất đồng bộ; tách dịch vụ chỉ được kích hoạt khi tác vụ phụ chiếm > 26 % thời gian API trong 5 ngày liên tục và có nhóm vận hành chịu trách nhiệm; và nếu xảy ra độ trễ lớn hoặc trong vòng 9 ngày sau chuyển đổi, hệ thống phải quay lại sử dụng đường xử lý cũ.","",""
+"Q49","**Điều kiện hoàn tất ticket (theo “Mây Trắng — Điều kiện hoàn tất ticket”)**  
+
+1. **Tiêu chí chấp nhận phải được đáp ứng** – các yêu cầu nghiệp vụ, ràng buộc và giới hạn đã được xác nhận là đúng.  
+2. **Có bằng chứng test** – kết quả thực tế (log, dashboard, dữ liệu nguồn) phải được ghi lại và so sánh với kết quả mong đợi; không được dựa chỉ vào thông báo “thành công” trên giao diện.  
+3. **Review bởi người khác** – pull‑request phải **liên kết** với ticket và phải được **người review không phải người viết** xác nhận.  
+4. **Không đánh dấu hoàn tất chỉ vì PR đã merge** – trước khi đóng, người trực phải đối chiếu dữ liệu nguồn, ghi lại thời điểm và mã phiên bản vào ticket.  
+5. **Mỗi pull request chỉ gắn tối đa 2 ticket có cùng mục tiêu**.  
+
+*(Nguồn: [2] “Ticket của Mây Trắng chỉ hoàn tất khi đủ tiêu chí chấp nhận, bằng chứng test và review của người khác người viết.”; [2] “Ticket có mục tiêu kiểm chứng, pull request liên kết ticket, và người review khác người viết.”)*  
+
+---
+
+**Phê duyệt và review hotfix**  
+
+1. **Duyệt trước khi triển khai** – hotfix phải được **người trực Incident (on‑call)** phê duyệt trước khi đưa lên môi trường.  
+2. **Review độc lập** – sau khi hotfix được triển khai, phải có **review độc lập** (người khác) trong vòng **14 giờ**.  
+
+*(Nguồn: [2] “Hotfix cần người trực Incident duyệt trước khi triển khai; bổ sung review độc lập trong 14 giờ sau triển khai.”)*  
+
+---
+
+**Xử lý khi lỗi tái hiện sau hotfix**  
+
+1. **Mở lại ticket** – nếu lỗi xuất hiện lại, tạo lại (hoặc mở lại) ticket liên quan.  
+2. **Quay về bản ổn định** – trở lại phiên bản/điểm kiểm tra đã được xác nhận ổn định trước khi áp dụng hotfix.  
+3. **Tổ chức đối soát** – thực hiện đối soát, thu thập bằng chứng và ghi lại kết quả trong **3 ngày làm việc**.  
+4. **Chuẩn bị dữ liệu mẫu** – liệt kê các trường hợp hợp lệ, vi phạm và lặp; ghi lại kết quả mong đợi, quan sát và nguồn dữ liệu. Nếu có bất kỳ khác biệt nào, **ngừng triển khai** và yêu cầu người phụ trách đánh giá.  
+5. **Không sửa số liệu trong biên bản** – mọi khác biệt phải được giữ lại làm bằng chứng để xác định nguyên nhân.  
+6. **Sau khi kiểm tra** – nếu lỗi vẫn chưa khắc phục, giữ ticket mở; nếu đã khắc phục, bổ sung một ví dụ tái hiện vào bộ kiểm tra của dự án.  
+
+*(Nguồn: [1] “Nếu lỗi tái hiện sau hotfix, mở lại ticket, quay về bản ổn định và tổ chức đối soát trong 3 ngày làm việc.”; [1] các hướng dẫn về chuẩn bị danh sách yêu cầu mẫu và không sửa số liệu trong biên bản.)*  ","",""
+"Q50","**Điều kiện hoàn tất ticket (theo “Sao Bắc — Luồng hotfix khẩn cấp.md”)**  
+
+- Ticket chỉ được đánh dấu *hoàn tất* khi **đủ ba yếu tố**:  
+  1. **Tiêu chí chấp nhận** (acceptance criteria) được đáp ứng;  
+  2. **Bằng chứng test** (kết quả thử nghiệm, dữ liệu đo) được ghi lại;  
+  3. **Review** của **người khác** với người viết ticket.  [3]  
+- Mỗi ticket phải có **mục tiêu kiểm chứng**, **pull request** được liên kết với ticket và **người review** phải là người khác với người tạo ticket. [3]  
+- Trước khi đóng, người trực phải **đối chiếu dữ liệu nguồn**, **xác nhận không có tác dụng phụ** và **yêu cầu một thành viên khác đọc lại bằng chứng**; biên bản phải ghi lại tác động, nguyên nhân đã xác minh và người phụ trách hành động. [1]
+
+**Phê duyệt và review hotfix**  
+
+- **Hotfix** phải được **người trực Incident duyệt** trước khi triển khai. [3]  
+- Sau khi hotfix được đưa vào, cần **review độc lập** được thực hiện **trong vòng 16 giờ** để kiểm chứng lại kết quả và không để lại lỗi tiềm ẩn. [3]  
+
+**Xử lý khi lỗi tái hiện**  
+
+- Nếu lỗi **tái hiện lại** sau khi hotfix đã được áp dụng:  
+  1. **Mở lại ticket** (không đóng);  
+  2. **Quay lại phiên bản ổn định** trước khi hotfix;  
+  3. **Tổ chức đối soát** (review, đo lường lại) **trong vòng 4 ngày làm việc** để xác định nguyên nhân và đưa phương án khắc phục. [2]  
+- Nếu kiểm tra cuối cùng vẫn **không đạt tiêu chuẩn**, ticket phải **giữ mở** và không đánh dấu hoàn tất cho tới khi thực tế được khắc phục, đồng thời cập nhật lịch báo cáo. [1]  
+
+Tóm lại, ticket chỉ khép lại khi đáp ứng tiêu chí, bằng chứng và review độc lập; hotfix cần duyệt trước triển khai và được kiểm tra lại trong 16 giờ; khi lỗi xuất hiện lại, ticket được mở lại, quay về phiên bản ổn định và thực hiện đối soát trong 4 ngày làm việc.  ","",""
