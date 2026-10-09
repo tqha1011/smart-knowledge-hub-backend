@@ -55,6 +55,13 @@ export class AuthService implements IAuthService {
     email: string,
     otp: string,
   ): Promise<Result<OtpVerifiedResult, AppError>> {
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false')
+      return err(
+        new AppError(
+          ErrorCode.ServiceUnavailable,
+          'Email delivery is disabled on this demo deployment.',
+        ),
+      );
     const user = await this.userRepository.GetUserByEmail(email);
     if (user.isErr()) {
       return err(
@@ -91,6 +98,13 @@ export class AuthService implements IAuthService {
     newPassword: string,
   ): Promise<Result<undefined, AppError>> {
     const user = await this.userRepository.GetUserByEmail(email);
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false')
+      return err(
+        new AppError(
+          ErrorCode.ServiceUnavailable,
+          'Email delivery is disabled on this demo deployment.',
+        ),
+      );
     if (user.isErr()) {
       return err(
         new AppError(
@@ -200,6 +214,13 @@ export class AuthService implements IAuthService {
   }
 
   async sendOtpAsync(email: string): Promise<Result<undefined, AppError>> {
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false')
+      return err(
+        new AppError(
+          ErrorCode.ServiceUnavailable,
+          'Email delivery is disabled on this demo deployment.',
+        ),
+      );
     const user = await this.userRepository.GetUserByEmail(email);
     if (user.isErr()) {
       return err(
@@ -218,6 +239,16 @@ export class AuthService implements IAuthService {
   async registerAsync(
     registerDto: RegisterDto,
   ): Promise<Result<undefined, AppError>> {
+    if (
+      this.configService.get<string>('AUTH_SELF_REGISTRATION_ENABLED') !==
+      'true'
+    )
+      return err(
+        new AppError(
+          ErrorCode.Forbidden,
+          'Accounts are provisioned by an administrator.',
+        ),
+      );
     const emailExists = await this.userRepository.CheckUserExistsByEmail(
       registerDto.email,
     );
@@ -496,6 +527,13 @@ export class AuthService implements IAuthService {
   async adminCreateUserAsync(
     createUserByAdminDto: CreateUserByAdminDto,
   ): Promise<Result<{ publicId: string }, AppError>> {
+    if (this.configService.get<string>('EMAIL_ENABLED') === 'false')
+      return err(
+        new AppError(
+          ErrorCode.ServiceUnavailable,
+          'Email delivery is disabled on this demo deployment.',
+        ),
+      );
     const emailExists = await this.userRepository.CheckUserExistsByEmail(
       createUserByAdminDto.email,
     );

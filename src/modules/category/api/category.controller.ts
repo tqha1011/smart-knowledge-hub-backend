@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   Body,
   Controller,
@@ -111,6 +112,7 @@ export class CategoryController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get()
   async getCategoryList(
     @User() user: JwtPayload,

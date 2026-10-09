@@ -18,15 +18,18 @@ import { DocumentStatusAudienceRepository } from './document-status-audience.rep
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        transport: {
-          host: config.getOrThrow<string>('SMTP_HOST'),
-          port: config.get<number>('SMTP_PORT', 587),
-          secure: false,
-          auth: {
-            user: config.getOrThrow<string>('SMTP_USER'),
-            pass: config.getOrThrow<string>('SMTP_PASSWORD'),
-          },
-        },
+        transport:
+          config.get<string>('EMAIL_ENABLED') === 'false'
+            ? { jsonTransport: true }
+            : {
+                host: config.getOrThrow<string>('SMTP_HOST'),
+                port: config.get<number>('SMTP_PORT', 587),
+                secure: false,
+                auth: {
+                  user: config.getOrThrow<string>('SMTP_USER'),
+                  pass: config.getOrThrow<string>('SMTP_PASSWORD'),
+                },
+              },
         defaults: {
           from: config.get<string>(
             'SMTP_FROM',

@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   Body,
   Controller,
@@ -69,6 +70,7 @@ export class KnowledgeSpaceController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('self')
   @Get()
   async getKnowledgeSpaceForUser(
     @User() user: JwtPayload,
@@ -149,6 +151,7 @@ export class KnowledgeSpaceController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get(':knowledgeSpacePublicId/role')
   async getUserKnowledgeSpaceRole(
     @User() user: JwtPayload,

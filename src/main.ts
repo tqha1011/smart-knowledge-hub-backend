@@ -5,6 +5,7 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './shared/common/exceptions.filter';
@@ -12,11 +13,15 @@ import { ALLOWED_ORIGINS } from './shared/common/cors';
 import { RedisIoAdapter } from './shared/infrastructure/notification/redis-io.adapter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const redisIoAdapter = new RedisIoAdapter(app);
   redisIoAdapter.connectToRedis(configService.getOrThrow<string>('REDIS_URL'));
   app.useWebSocketAdapter(redisIoAdapter);
+  const proxyHops = Number(configService.get<string>('TRUST_PROXY_HOPS') ?? 0);
+  if (!Number.isSafeInteger(proxyHops) || proxyHops < 0)
+    throw new Error('TRUST_PROXY_HOPS must be a nonnegative integer');
+  app.set('trust proxy', proxyHops);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

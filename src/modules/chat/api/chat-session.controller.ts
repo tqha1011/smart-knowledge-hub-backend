@@ -1,3 +1,4 @@
+import { AllowDemo } from 'src/modules/demo/api/demo-access.decorator';
 import {
   Controller,
   Delete,
@@ -59,6 +60,7 @@ export class ChatSessionController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Post()
   async createSession(
     @User() user: JwtPayload,
@@ -93,6 +95,7 @@ export class ChatSessionController {
     schema: { example: { success: true } },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Delete(':sessionPublicId')
   async deleteSession(
     @User() user: JwtPayload,
@@ -144,6 +147,7 @@ export class ChatSessionController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get()
   async getSessions(
     @User() user: JwtPayload,
@@ -202,6 +206,7 @@ export class ChatSessionController {
     },
   })
   @Roles([SystemRole.Admin, SystemRole.Employee])
+  @AllowDemo('space')
   @Get(':sessionPublicId')
   async getSessionDetail(
     @User() user: JwtPayload,

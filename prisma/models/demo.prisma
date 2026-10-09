@@ -1,0 +1,29 @@
+model DemoSession {
+  id               Int            @id @default(autoincrement())
+  publicId         String         @unique @default(uuid()) @map("public_id")
+  userId           Int            @unique @map("user_id")
+  user             User           @relation(fields: [userId], references: [id])
+  knowledgeSpaceId Int            @map("knowledge_space_id")
+  knowledgeSpace   KnowledgeSpace @relation(fields: [knowledgeSpaceId], references: [id])
+  expiresAt        DateTime       @map("expires_at")
+  revokedAt        DateTime?      @map("revoked_at")
+  questionCount    Int            @default(0) @map("question_count")
+  ipHash           String         @map("ip_hash")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@index([ipHash, createdAt])
+  @@index([expiresAt])
+  @@map("demo_sessions")
+}
+
+model DemoDailyUsage {
+  id            Int      @id @default(autoincrement())
+  publicId      String   @unique @default(uuid()) @map("public_id")
+  day           DateTime @unique @db.Date
+  questionCount Int      @default(0) @map("question_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("demo_daily_usage")
+}

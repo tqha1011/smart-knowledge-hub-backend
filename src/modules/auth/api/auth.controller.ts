@@ -1,3 +1,4 @@
+import { toHttpException } from 'src/shared/common/app-error.mapper';
 import {
   BadRequestException,
   Body,
@@ -71,6 +72,11 @@ export class AuthController {
         };
       },
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.BadRequest:
             throw new BadRequestException(error.message, {
@@ -113,6 +119,11 @@ export class AuthController {
     return result.match(
       (tokens) => tokens,
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.BadRequest:
           case ErrorCode.Unauthorized:
@@ -195,6 +206,11 @@ export class AuthController {
         return { message: 'Register successful' };
       },
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.Conflict:
             throw new ConflictException(error.message, {
@@ -243,6 +259,11 @@ export class AuthController {
     return result.match(
       (user) => user,
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.Conflict:
             throw new ConflictException(error.message, {
@@ -296,6 +317,11 @@ export class AuthController {
     return result.match(
       () => ({ message: 'Password updated successfully' }),
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.Unauthorized:
             throw new UnauthorizedException(error.message, { cause: error });
@@ -336,6 +362,11 @@ export class AuthController {
     return result.match(
       () => ({ message: 'OTP sent successfully' }),
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.BadRequest:
             throw new BadRequestException(error.message, { cause: error });
@@ -382,6 +413,11 @@ export class AuthController {
         resetToken,
       }),
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.BadRequest:
             throw new BadRequestException(error.message, { cause: error });
@@ -428,6 +464,11 @@ export class AuthController {
     return result.match(
       () => ({ message: 'Password reset successfully' }),
       (error: AppError) => {
+        if (
+          error.code === ErrorCode.ServiceUnavailable ||
+          error.code === ErrorCode.Forbidden
+        )
+          throw toHttpException(error);
         switch (error.code) {
           case ErrorCode.BadRequest:
             throw new BadRequestException(error.message, { cause: error });

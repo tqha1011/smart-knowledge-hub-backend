@@ -4,6 +4,7 @@ import { Server, Socket } from 'socket.io';
 import { DocumentStatusAudienceRepository } from './document-status-audience.repo';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { SocketNotificationGateway } from './socket-notification.gateway';
+import { GATEWAY_OPTIONS } from '@nestjs/websockets/constants';
 
 function createSocket(token?: string) {
   const join = jest.fn().mockResolvedValue(undefined);
@@ -37,6 +38,51 @@ describe('SocketNotificationGateway', () => {
   });
 
   describe('handleConnection', () => {
+    it('rejects unlisted origins during the transport handshake, including direct WebSockets', () => {
+      const previous = process.env.CORS_ALLOWED_ORIGINS;
+      const environment = process.env.NODE_ENV;
+      process.env.CORS_ALLOWED_ORIGINS = 'https://allowed.example';
+      process.env.NODE_ENV = 'production';
+      try {
+        const options = Reflect.getMetadata(
+          GATEWAY_OPTIONS,
+          SocketNotificationGateway,
+        ) as {
+          allowRequest: (
+            req: { headers: { origin: string } },
+            callback: (err: string | null, success: boolean) => void,
+          ) => void;
+        };
+        const callback = jest.fn();
+        options.allowRequest(
+          { headers: { origin: 'https://disallowed.example' } },
+          callback,
+        );
+        expect(callback).toHaveBeenCalledWith(null, false);
+        options.allowRequest(
+          { headers: { origin: 'https://allowed.example' } },
+          callback,
+        );
+        expect(callback).toHaveBeenLastCalledWith(null, true);
+      } finally {
+        if (previous === undefined) delete process.env.CORS_ALLOWED_ORIGINS;
+        else process.env.CORS_ALLOWED_ORIGINS = previous;
+        if (environment === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = environment;
+      }
+    });
+    it('disconnects demo tokens before joining a realtime room', async () => {
+      const { socket, join, disconnect } = createSocket('guest-token');
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'guest',
+        type: 'demo',
+        role: 'employee',
+      });
+      await gateway.handleConnection(socket);
+      expect(disconnect).toHaveBeenCalled();
+      expect(join).not.toHaveBeenCalled();
+      expect(userRepository.GetUserIdByPublicId).not.toHaveBeenCalled();
+    });
     it('joins only the authenticated internal user room', async () => {
       const { socket, join, disconnect } = createSocket('valid-token');
       jwtService.verifyAsync.mockResolvedValue({

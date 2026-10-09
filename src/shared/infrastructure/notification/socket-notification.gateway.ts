@@ -7,6 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import type { IncomingMessage } from 'node:http';
 import { DocumentStatusAudienceRepository } from './document-status-audience.repo';
 import { IUserRepository } from 'src/modules/user/domain/repositories/user.repo.interface';
 import { ALLOWED_ORIGINS } from 'src/shared/common/cors';
@@ -19,6 +20,14 @@ import {
 @WebSocketGateway({
   namespace: '/realtime',
   cors: { origin: ALLOWED_ORIGINS, credentials: true },
+  allowRequest: (
+    request: IncomingMessage,
+    callback: (error: string | null, success: boolean) => void,
+  ) => {
+    ALLOWED_ORIGINS(request.headers.origin, (error, allowed) =>
+      callback(error?.message ?? null, Boolean(allowed)),
+    );
+  },
 })
 export class SocketNotificationGateway
   implements IRealtimeNotifier, OnGatewayConnection
@@ -45,6 +54,11 @@ export class SocketNotificationGateway
     try {
       payload = await this.jwtService.verifyAsync<JwtPayload>(token);
     } catch {
+      client.disconnect();
+      return;
+    }
+
+    if (payload.type === 'demo') {
       client.disconnect();
       return;
     }
