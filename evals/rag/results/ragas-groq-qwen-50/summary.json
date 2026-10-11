@@ -1,0 +1,56 @@
+{
+  "total": 50,
+  "complete": 50,
+  "requests": 201,
+  "tokens_accounted": 844431,
+  "datasets": {
+    "ALL": {
+      "faithfulness": {
+        "mean": 0.9461911421911422,
+        "scored": 50,
+        "total": 50
+      },
+      "context_recall": {
+        "mean": 0.98,
+        "scored": 50,
+        "total": 50
+      }
+    },
+    "pilot-10": {
+      "faithfulness": {
+        "mean": 0.9666666666666666,
+        "scored": 10,
+        "total": 10
+      },
+      "context_recall": {
+        "mean": 1.0,
+        "scored": 10,
+        "total": 10
+      }
+    },
+    "project-management-20": {
+      "faithfulness": {
+        "mean": 0.9513636363636364,
+        "scored": 20,
+        "total": 20
+      },
+      "context_recall": {
+        "mean": 0.95,
+        "scored": 20,
+        "total": 20
+      }
+    },
+    "test-rag-20": {
+      "faithfulness": {
+        "mean": 0.9307808857808858,
+        "scored": 20,
+        "total": 20
+      },
+      "context_recall": {
+        "mean": 1.0,
+        "scored": 20,
+        "total": 20
+      }
+    }
+  }
+}
