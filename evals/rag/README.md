@@ -1,5 +1,7 @@
 # RAG correctness — chấm thủ công
 
+Chấm bổ sung Faithfulness và Context Recall bằng Ragas/Groq trên câu trả lời đã lưu: [RAGAS.md](RAGAS.md). Điểm tự động giữ riêng với correctness chấm tay; không chạy lại pipeline RAG.
+
 Bộ câu hỏi nháp dùng để thử quy trình chấm correctness thủ công, trước khi mở rộng lên 50 câu. Câu hỏi và đáp án được soạn từ nội dung đã index trong DB. Câu trả lời thực tế được lưu riêng trong `results/`; nhãn correctness do người chấm điền.
 
 ## Nguồn dữ liệu
