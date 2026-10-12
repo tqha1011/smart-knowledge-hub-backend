@@ -66,3 +66,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 docs/plans
 
 docs/operations
+
+__pycache__
