@@ -15,8 +15,15 @@ export function getAllowedOrigins(): string[] {
     if (url.origin !== value || !['http:', 'https:'].includes(url.protocol))
       throw new Error('CORS_ALLOWED_ORIGINS must contain exact HTTP origins');
   }
+  const frontendUrl = process.env.FRONTEND_URL?.trim();
+  if (frontendUrl) {
+    const url = new URL(frontendUrl);
+    if (!['http:', 'https:'].includes(url.protocol))
+      throw new Error('FRONTEND_URL must be an HTTP URL');
+    configured.push(url.origin);
+  }
   return process.env.NODE_ENV === 'production'
-    ? configured
+    ? [...new Set(configured)]
     : [...new Set([...LOCAL_ORIGINS, ...configured])];
 }
 export const ALLOWED_ORIGINS = (
