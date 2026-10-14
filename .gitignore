@@ -67,4 +67,10 @@ docs/plans
 
 docs/operations
 
-__pycache__
+# Python evaluation caches
+__pycache__/
+*.pyc
+
+# Ragas checkpoint coordination files
+/evals/rag/results/*/.lock
+/evals/rag/results/*/state.json.tmp
