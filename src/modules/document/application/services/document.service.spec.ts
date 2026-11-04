@@ -21,7 +21,7 @@ import { IDocumentRepository } from '../../domain/repositories/document.repo.int
 import { IDocumentPermissionRepository } from '../../domain/repositories/document-permission.repo.interface';
 import { IDocumentQueryRepository } from '../interfaces/document-query.repo.interface';
 import { DocumentListResponseDto } from '../dtos/document.response.dto';
-import { DocumentService } from './document.service';
+import { DocumentService, INGESTION_JOB_OPTIONS } from './document.service';
 import { Document } from '../../domain/entities/document.entity';
 import { IRealtimeNotifier } from 'src/shared/infrastructure/notification/realtime-notifier.interface';
 
@@ -340,7 +340,7 @@ describe('DocumentService list cache', () => {
       expect(queue.add).toHaveBeenCalledWith(
         EventName.IngestionDocument,
         { documentPublicId: 'doc', expectedUpdatedAt: retryTime.toISOString() },
-        { attempts: 3 },
+        INGESTION_JOB_OPTIONS,
       );
       expect(failedItem.status).toBe(CommonDocumentStatus.Failed);
     });
@@ -677,7 +677,7 @@ describe('DocumentService list cache', () => {
         documentPublicId: 'doc',
         expectedUpdatedAt: item.lastUpdated.toISOString(),
       },
-      { attempts: 3 },
+      INGESTION_JOB_OPTIONS,
     );
   });
 
@@ -711,7 +711,7 @@ describe('DocumentService list cache', () => {
           documentPublicId: 'doc',
           expectedUpdatedAt: item.lastUpdated.toISOString(),
         },
-        { attempts: 3 },
+        INGESTION_JOB_OPTIONS,
       );
     },
   );
