@@ -54,6 +54,12 @@ const EXTENSION_TO_FILE_TYPE: Record<string, CommonDocumentType> = {
   md: CommonDocumentType.MD,
 };
 
+// Exponential backoff (5s, 10s) so retries don't hammer a rate-limited embedding API.
+export const INGESTION_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 5000 },
+} as const;
+
 @Injectable()
 export class DocumentService implements IDocumentService {
   private readonly logger = new Logger(DocumentService.name);
@@ -259,7 +265,7 @@ export class DocumentService implements IDocumentService {
             documentPublicId,
             expectedUpdatedAt: transition.value.toISOString(),
           },
-          { attempts: 3 },
+          INGESTION_JOB_OPTIONS,
         );
       } catch (error) {
         this.logger.error(
@@ -627,9 +633,7 @@ export class DocumentService implements IDocumentService {
             documentPublicId: newDocument.value.publicId,
             expectedUpdatedAt: newDocument.value.updatedAt.toISOString(),
           },
-          {
-            attempts: 3, // retry up to 3 times in case of failure
-          },
+          INGESTION_JOB_OPTIONS,
         );
       } catch (error) {
         this.logger.error(
@@ -1078,9 +1082,7 @@ export class DocumentService implements IDocumentService {
               documentPublicId,
               expectedUpdatedAt: updateResult.value.updatedAt.toISOString(),
             },
-            {
-              attempts: 3, // retry up to 3 times in case of failure
-            },
+            INGESTION_JOB_OPTIONS,
           );
         } catch (error) {
           this.logger.error(
